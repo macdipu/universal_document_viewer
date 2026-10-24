@@ -235,6 +235,12 @@ It returns null rather than throwing for unsupported, damaged, encrypted or too-
 - `word.dart`: the Word engine (`DocxReader`, the `WordDocument` model).
 - `testing.dart`: `buildDocx`, `buildXlsx` and `buildPptx` build small documents in memory for tests.
 
+## Related packages
+
+universal_document_viewer is the first of a family of viewer packages. These are planned and not released yet:
+- **universal_image_viewer**: open and view images in Flutter.
+- **universal_viewer**: one viewer for documents and images, built on universal_document_viewer and universal_image_viewer.
+
 ## Showcase: OpenReader
 
 **OpenReader** is a document reader app built on universal_document_viewer and shows everything it does:
