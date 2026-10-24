@@ -1,0 +1,44 @@
+name: universal_document_viewer
+description: >-
+  Open and read PDF, Word (.docx), Excel (.xlsx), CSV, PowerPoint (.pptx)
+  and text documents in Flutter, with its own document engines.
+version: 0.1.0
+homepage: https://github.com/chowdhuryelab/universal_document_viewer
+repository: https://github.com/chowdhuryelab/universal_document_viewer
+issue_tracker: https://github.com/chowdhuryelab/universal_document_viewer/issues
+topics:
+  - pdf
+  - docx
+  - xlsx
+  - document-viewer
+  - reader
+
+environment:
+  # two_dimensional_scrollables 0.5.5 needs Dart ^3.11 and Flutter 3.41;
+  # hook/build.dart (native assets: hooks, code_assets) needs Dart 3.10+.
+  sdk: ^3.11.4
+  flutter: '>=3.41.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  archive: ^4.5.0
+  code_assets: ^2.1.0
+  crypto: ^3.0.7
+  ffi: ^2.2.0
+  hooks: ^2.2.0
+  path: ^1.9.1
+  # Flutter team's lazy 2D table (TableView) for SheetGrid: only on-screen
+  # cells are built; variable row/column sizes, pinned panes, merged cells.
+  two_dimensional_scrollables: ^0.5.5
+  url_launcher: ^6.3.2
+  vector_math: ^2.2.0
+  xml: ^7.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  # Generates lib/src/engines/pdfium/pdfium_bindings.g.dart from the
+  # headers in tool/pdfium (dart run ffigen --config tool/pdfium/ffigen.yaml).
+  ffigen: ^23.0.0
+

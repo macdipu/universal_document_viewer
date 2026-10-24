@@ -1,0 +1,29 @@
+name: universal_document_viewer_example
+description: A test app for universal_document_viewer - bundled sample documents in every format, opened with DocumentViewer and the per-format readers.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.11.4
+  flutter: '>=3.41.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  universal_document_viewer:
+    path: ../
+  # The example's own needs, not the kit's: a picker for your own files and
+  # app storage for the samples and saved positions.
+  file_selector: ^1.1.0
+  path_provider: ^2.1.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/samples/

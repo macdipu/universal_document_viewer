@@ -1,0 +1,7 @@
+# Libraries don't commit a lockfile; the app's pubspec.lock pins versions.
+pubspec.lock
+.dart_tool/
+build/
+# Downloaded by the podspec's prepare_command.
+darwin/PDFium.xcframework/
+darwin/.pdfium_hash
