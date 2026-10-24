@@ -44,6 +44,37 @@ Legacy binary `.doc`, `.xls` and `.ppt` files are not supported.
 
 Android, iOS, macOS, Windows and Linux. Web is not supported yet.
 
+## How it compares
+
+Most Flutter document packages read one format, show files through a web view or a vendor engine, or hand the file to another app. universal_document_viewer reads six formats inside your app with engines that ship in the package.
+
+| Package | Formats | How it shows files | Platforms | Licence |
+| --- | --- | --- | --- | --- |
+| **universal_document_viewer** | PDF, DOCX, XLSX, CSV, PPTX, text | Its own engines: PDFium for PDF, Dart readers for Office files and text | Android, iOS, macOS, Windows, Linux | MIT |
+| [pdfrx](https://pub.dev/packages/pdfrx) | PDF | PDFium; also edits and combines PDFs | Android, iOS, macOS, Windows, Linux, web | MIT |
+| [syncfusion_flutter_pdfviewer](https://pub.dev/packages/syncfusion_flutter_pdfviewer) | PDF | Syncfusion's PDF library | Android, iOS, macOS, Windows, Linux, web | Syncfusion licence (commercial, with a community licence) |
+| [pdfx](https://pub.dev/packages/pdfx) | PDF | Pages rendered as images | Android, iOS, macOS, Windows, web | MIT |
+| [flutter_pdfview](https://pub.dev/packages/flutter_pdfview) | PDF | The platform's native PDF view | Android, iOS | MIT |
+| [docx_viewer](https://pub.dev/packages/docx_viewer) | DOCX, DOC | Flutter widgets | Android, iOS, macOS, Windows, Linux, web | MIT |
+| [microsoft_viewer](https://pub.dev/packages/microsoft_viewer) | DOCX, PPTX, XLSX | Flutter widgets | Android, iOS, macOS, Windows, Linux, web | MIT |
+| [power_file_view](https://pub.dev/packages/power_file_view), [flutter_filereader](https://pub.dev/packages/flutter_filereader) | Office, PDF, text | Tencent X5 on Android, WKWebView on iOS | Android, iOS | MIT / not stated |
+| [open_filex](https://pub.dev/packages/open_filex) | Any | Opens the file in another app | Android, iOS | BSD-3-Clause |
+
+Formats, platforms and licences are as listed on pub.dev in October 2026.
+
+What sets it apart:
+- **One package for PDF and Office files.** `DocumentViewer.file(path)` opens any of the six formats; there is no PDF package plus a Word package plus a spreadsheet package to wire together.
+- **One contract across formats.** Every reader has a controller with search, a saved reading position as a JSON-safe map, and typed load errors, and `DocumentThumbnails` draws a first-page (or resumed-page) thumbnail for every format.
+- **Everything stays in your app.** No web view, no third-party browser engine and no other app. Files are read on the device; nothing is uploaded.
+- **Spreadsheets read like the original.** Column widths, frozen panes, merged cells, number formats, borders and conditional formatting, in a lazy grid that builds only the cells on screen.
+- **Safe with untrusted files.** Office files are checked before parsing: damaged ZIPs, path traversal and zip bombs are refused.
+- **MIT licensed**, with the third-party pieces (PDFium) listed in [`NOTICE.md`](NOTICE.md).
+
+When another package fits better:
+- You need **web**: pdfrx and syncfusion_flutter_pdfviewer support it; this package doesn't yet.
+- You need to **edit PDFs**, fill forms or annotate: pdfrx and Syncfusion do that; this package reads only.
+- You need legacy **.doc, .xls or .ppt** files: they aren't supported here.
+
 ## Installation
 
 ```sh
@@ -229,7 +260,7 @@ A position that doesn't fit the file, or one saved without these keys, gives the
 
 It returns null rather than throwing for unsupported, damaged, encrypted or too-large files. Caching is up to you; the OpenReader app keeps them on disk.
 
-## Other libraries
+## Other libraries in this package
 
 - `universal_document_viewer.dart`: `DocumentViewer`, `DocumentThumbnails`, `DocumentFormat`, `ReadingPosition`, `PositionKeys`, `DocumentLoadError`, `ZipSafetyGuard`, `decodeTextBytes`.
 - `word.dart`: the Word engine (`DocxReader`, the `WordDocument` model).
