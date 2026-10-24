@@ -87,7 +87,7 @@ To use the latest code from GitHub instead:
 dependencies:
   universal_document_viewer:
     git:
-      url: https://github.com/chowdhuryelab/universal_document_viewer.git
+      url: https://github.com/macdipu/universal_document_viewer.git
 ```
 
 It needs Dart 3.11.4 or later and Flutter 3.41 or later.

@@ -3,9 +3,9 @@ description: >-
   Open and read PDF, Word (.docx), Excel (.xlsx), CSV, PowerPoint (.pptx)
   and text documents in Flutter, with its own document engines.
 version: 0.1.0
-homepage: https://github.com/chowdhuryelab/universal_document_viewer
-repository: https://github.com/chowdhuryelab/universal_document_viewer
-issue_tracker: https://github.com/chowdhuryelab/universal_document_viewer/issues
+homepage: https://github.com/macdipu/universal_document_viewer
+repository: https://github.com/macdipu/universal_document_viewer
+issue_tracker: https://github.com/macdipu/universal_document_viewer/issues
 topics:
   - pdf
   - docx
