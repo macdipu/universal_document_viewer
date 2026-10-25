@@ -4,6 +4,7 @@
 
 - Screenshots on pub.dev and in the README.
 - The example app's home screen is a grid of document cards with large thumbnails and format badges, and its sample documents read like real ones (a guide PDF, a quarterly report, a sales workbook).
+- README: a "Coming soon" section for legacy `.xls`, `.doc` and `.ppt` files.
 - No changes to the package's code.
 
 ## 0.1.0

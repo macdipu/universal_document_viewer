@@ -45,7 +45,7 @@ Use one widget, `DocumentViewer.file(path)`, that picks the right reader for the
 - Office files are checked before parsing (`ZipSafetyGuard`): damaged ZIPs, path traversal and oversized ("zip bomb") contents are refused.
 - Reading positions as plain JSON-safe maps, and typed load errors.
 
-Legacy binary `.doc`, `.xls` and `.ppt` files are not supported.
+Legacy binary `.doc`, `.xls` and `.ppt` files are not supported yet; see [Coming soon](#coming-soon).
 
 ## Platforms
 
@@ -80,7 +80,7 @@ What sets it apart:
 When another package fits better:
 - You need **web**: pdfrx and syncfusion_flutter_pdfviewer support it; this package doesn't yet.
 - You need to **edit PDFs**, fill forms or annotate: pdfrx and Syncfusion do that; this package reads only.
-- You need legacy **.doc, .xls or .ppt** files: they aren't supported here.
+- You need legacy **.doc, .xls or .ppt** files today: they aren't supported yet (they're [coming](#coming-soon)).
 
 ## Installation
 
@@ -272,6 +272,15 @@ It returns null rather than throwing for unsupported, damaged, encrypted or too-
 - `universal_document_viewer.dart`: `DocumentViewer`, `DocumentThumbnails`, `DocumentFormat`, `ReadingPosition`, `PositionKeys`, `DocumentLoadError`, `ZipSafetyGuard`, `decodeTextBytes`.
 - `word.dart`: the Word engine (`DocxReader`, the `WordDocument` model).
 - `testing.dart`: `buildDocx`, `buildXlsx` and `buildPptx` build small documents in memory for tests.
+
+## Coming soon
+
+Legacy binary Office files (Office 97-2003), read by the package's own engines like the other formats, in this order:
+1. **Excel `.xls`**, in the same sheet reader as `.xlsx`: cells, formula results, fonts, number formats, merged cells and column widths.
+2. **Word `.doc`**: text and paragraphs first, then formatting, lists and tables.
+3. **PowerPoint `.ppt`**: slide text and pictures, as the `.pptx` reader shows them.
+
+Each one is announced in the changelog when it is released. Password-protected legacy files will report `passwordRequired`.
 
 ## Related packages
 
