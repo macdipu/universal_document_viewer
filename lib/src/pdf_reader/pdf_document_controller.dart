@@ -39,7 +39,7 @@ String pdfSearchStatusLabel({
   if (!hasPattern) return '';
   if (isSearching && matchCount == 0) return 'Searching…';
   if (matchCount == 0) return hasTextLayer == false ? 'No searchable text found.' : 'No matches';
-  return '${(currentIndex ?? 0) + 1} of $matchCount result(s)';
+  return '${(currentIndex ?? 0) + 1} of $matchCount';
 }
 
 /// Asked for a password when a PDF is encrypted; null gives up.

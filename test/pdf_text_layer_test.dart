@@ -52,6 +52,6 @@ void main() {
     test('zero matches before the probe has an answer', () => expect(label(), 'No matches'));
     test('zero matches in a scanned PDF (BRD line 1087)',
         () => expect(label(hasTextLayer: false), 'No searchable text found.'));
-    test('match position', () => expect(label(matchCount: 4, currentIndex: 1), '2 of 4 result(s)'));
+    test('match position', () => expect(label(matchCount: 4, currentIndex: 1), '2 of 4'));
   });
 }

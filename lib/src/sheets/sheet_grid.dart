@@ -24,7 +24,16 @@ class SheetGrid extends StatefulWidget {
   final SpreadsheetController controller;
   final String emptyMessage;
 
-  const SheetGrid({super.key, required this.controller, this.emptyMessage = 'No data to display'});
+  /// Show the grid's own zoom buttons in the corner; off for an app that
+  /// puts [SpreadsheetController.zoomIn]/`zoomOut` in its own toolbar.
+  final bool showZoomControls;
+
+  const SheetGrid({
+    super.key,
+    required this.controller,
+    this.emptyMessage = 'No data to display',
+    this.showZoomControls = true,
+  });
 
   @override
   State<SheetGrid> createState() => _SheetGridState();
@@ -138,7 +147,8 @@ class _SheetGridState extends State<SheetGrid> {
             ],
           ),
         ),
-        Positioned(right: 12, bottom: 12, child: _ZoomControls(controller: widget.controller)),
+        if (widget.showZoomControls)
+          Positioned(right: 12, bottom: 12, child: _ZoomControls(controller: widget.controller)),
       ],
     );
   }

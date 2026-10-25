@@ -45,7 +45,7 @@ class _TextDocumentViewState extends State<TextDocumentView> {
     super.dispose();
   }
 
-  static const _rowPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 2);
+  static const _rowPadding = EdgeInsets.symmetric(horizontal: 20, vertical: 2);
 
   TextLineMetrics? _metrics;
 
@@ -83,6 +83,9 @@ class _TextDocumentViewState extends State<TextDocumentView> {
       builder: (context, _) {
         final lines = widget.controller.lines;
         final query = widget.controller.searchQuery;
+        final matches = widget.controller.matches;
+        final current = widget.controller.currentMatch;
+        final currentLine = current >= 0 && current < matches.length ? matches[current] : null;
         final fontSize = widget.fontSize;
         final wrap = widget.wrap;
         return Container(
@@ -95,7 +98,13 @@ class _TextDocumentViewState extends State<TextDocumentView> {
                 itemCount: lines.length,
                 itemBuilder: (context, index) => Padding(
                   padding: _rowPadding,
-                  child: _TextLine(text: lines[index], fontSize: fontSize, wrap: wrap, highlightQuery: query),
+                  child: _TextLine(
+                    text: lines[index],
+                    fontSize: fontSize,
+                    wrap: wrap,
+                    highlightQuery: query,
+                    isCurrentMatch: index == currentLine,
+                  ),
                 ),
               );
             },
@@ -112,14 +121,28 @@ class _TextLine extends StatelessWidget {
   final bool wrap;
   final String highlightQuery;
 
-  const _TextLine({required this.text, required this.fontSize, required this.wrap, required this.highlightQuery});
+  /// The line the search is on: its matches stand out from the others'.
+  final bool isCurrentMatch;
+
+  const _TextLine({
+    required this.text,
+    required this.fontSize,
+    required this.wrap,
+    required this.highlightQuery,
+    this.isCurrentMatch = false,
+  });
+
+  /// Room between lines for comfortable reading.
+  static const lineHeight = 1.45;
 
   /// Shared with [TextLineMetrics] measurement, which must match it.
   static TextStyle styleFor(BuildContext context, double fontSize) =>
-      Theme.of(
-        context,
-      ).textTheme.bodyMedium?.copyWith(fontSize: fontSize, color: Theme.of(context).colorScheme.onSurface) ??
-      TextStyle(fontSize: fontSize, color: Theme.of(context).colorScheme.onSurface);
+      Theme.of(context).textTheme.bodyMedium?.copyWith(
+        fontSize: fontSize,
+        height: lineHeight,
+        color: Theme.of(context).colorScheme.onSurface,
+      ) ??
+      TextStyle(fontSize: fontSize, height: lineHeight, color: Theme.of(context).colorScheme.onSurface);
 
   @override
   Widget build(BuildContext context) {
@@ -135,6 +158,7 @@ class _TextLine extends StatelessWidget {
   }
 
   TextSpan _highlighted(String text, String query, TextStyle style, BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final lower = text.toLowerCase();
     final lowerQuery = query.toLowerCase();
     final spans = <TextSpan>[];
@@ -150,8 +174,8 @@ class _TextLine extends StatelessWidget {
         TextSpan(
           text: text.substring(index, index + query.length),
           style: TextStyle(
-            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-            color: Theme.of(context).colorScheme.onSecondaryContainer,
+            backgroundColor: isCurrentMatch ? scheme.tertiaryContainer : scheme.secondaryContainer,
+            color: isCurrentMatch ? scheme.onTertiaryContainer : scheme.onSecondaryContainer,
           ),
         ),
       );

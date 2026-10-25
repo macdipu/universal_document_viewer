@@ -62,4 +62,22 @@ void main() {
     expect(deck.matches, isEmpty);
     expect(deck.currentMatch, -1);
   });
+
+  test('zoom steps within its limits', () async {
+    final deck = deckWith();
+    await deck.load(threeSlides);
+    expect(deck.zoom, 1);
+    deck.zoomIn();
+    expect(deck.zoom, 1.25);
+    for (var i = 0; i < 20; i++) {
+      deck.zoomIn();
+    }
+    expect(deck.zoom, SlideDeckController.maxZoom);
+    expect(deck.canZoomIn, isFalse);
+    for (var i = 0; i < 20; i++) {
+      deck.zoomOut();
+    }
+    expect(deck.zoom, SlideDeckController.minZoom);
+    expect(deck.canZoomOut, isFalse);
+  });
 }

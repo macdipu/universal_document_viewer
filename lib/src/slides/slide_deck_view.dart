@@ -5,7 +5,9 @@ import 'slide_deck_controller.dart';
 
 /// One slide at a time, swiped or driven by [SlideDeckController]. Shows
 /// each slide's title, paragraphs (with bullet indent), tables and
-/// pictures; it's a reading view, not the original layout.
+/// pictures; it's a reading view, not the original layout. The text is
+/// drawn at [SlideDeckController.zoom] and reflows; text matching the
+/// search query is highlighted.
 class SlideDeckView extends StatelessWidget {
   const SlideDeckView({super.key, required this.controller});
 
@@ -15,24 +17,56 @@ class SlideDeckView extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: controller,
-      builder: (context, _) => PageView.builder(
-        controller: controller.pageController,
-        itemCount: controller.slides.length,
-        onPageChanged: controller.onSlideChanged,
-        itemBuilder: (context, index) => SlideCard(slide: controller.slides[index], number: index + 1),
-      ),
+      builder: (context, _) {
+        final media = MediaQuery.of(context);
+        final zoom = controller.zoom;
+        return MediaQuery(
+          data: zoom == 1 ? media : media.copyWith(textScaler: TextScaler.linear(media.textScaler.scale(zoom))),
+          child: PageView.builder(
+            controller: controller.pageController,
+            itemCount: controller.slides.length,
+            onPageChanged: controller.onSlideChanged,
+            itemBuilder: (context, index) => SlideCard(
+              slide: controller.slides[index],
+              number: index + 1,
+              highlight: controller.searchQuery.trim(),
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
 /// A single slide's content as a card.
 class SlideCard extends StatelessWidget {
-  const SlideCard({super.key, required this.slide, required this.number});
+  const SlideCard({super.key, required this.slide, required this.number, this.highlight = ''});
 
   final PptxSlide slide;
 
   /// 1-based, for the "no content" message.
   final int number;
+
+  /// Text to highlight (any case), from a search; none when empty.
+  final String highlight;
+
+  /// [text] with each occurrence of [highlight] marked.
+  Widget _text(BuildContext context, String text, TextStyle? style) {
+    if (highlight.isEmpty) return Text(text, style: style);
+    final colors = Theme.of(context).colorScheme;
+    final mark = TextStyle(backgroundColor: colors.secondaryContainer, color: colors.onSecondaryContainer);
+    final lower = text.toLowerCase();
+    final needle = highlight.toLowerCase();
+    final spans = <TextSpan>[];
+    var start = 0;
+    for (var i = lower.indexOf(needle); i != -1; i = lower.indexOf(needle, start)) {
+      if (i > start) spans.add(TextSpan(text: text.substring(start, i)));
+      spans.add(TextSpan(text: text.substring(i, i + needle.length), style: mark));
+      start = i + needle.length;
+    }
+    spans.add(TextSpan(text: text.substring(start)));
+    return Text.rich(TextSpan(style: style, children: spans));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +88,7 @@ class SlideCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (title != null) ...[
-                Text(title, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                _text(context, title, text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 16),
               ],
               for (final block in slide.blocks)
@@ -80,7 +114,7 @@ class SlideCard extends StatelessWidget {
     return switch (block) {
       PptxParagraph(:final text, :final level) => Padding(
         padding: EdgeInsets.only(left: 18.0 * level),
-        child: Text(text, style: Theme.of(context).textTheme.bodyLarge),
+        child: _text(context, text, Theme.of(context).textTheme.bodyLarge),
       ),
       PptxTable(:final rows) => SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -94,7 +128,7 @@ class SlideCard extends StatelessWidget {
                   for (final cell in row)
                     Padding(
                       padding: const EdgeInsets.all(8),
-                      child: Text(cell, style: text.bodyMedium),
+                      child: _text(context, cell, text.bodyMedium),
                     ),
                   // Merged cells leave rows short; Table needs them even.
                   for (var i = row.length; i < _columnCount(rows); i++) const SizedBox.shrink(),

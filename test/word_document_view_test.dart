@@ -149,4 +149,101 @@ void main() {
     expect(tops, isNotEmpty);
     expect(tops.every((n) => n > 0 && n < layout.paragraphs.length - 1), isTrue, reason: '$tops');
   });
+
+  Uint8List lines(int count) => buildDocx([for (var i = 0; i < count; i++) '<w:p><w:r><w:t>Line $i</w:t></w:r></w:p>'].join());
+
+  testWidgets('on pages, reports the page in view and jumps to a page', (tester) async {
+    final controller = await load(tester, lines(400));
+    controller.viewMode = WordViewMode.paged;
+    await pumpView(tester, controller);
+    await tester.pump();
+    final count = controller.pageCount.value!;
+    expect(count, greaterThan(3));
+    expect(controller.currentPage.value, 1);
+    controller.goToPage(3);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+    expect(controller.currentPage.value, 3);
+    controller.goToPage(99);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+    expect(controller.currentPage.value, count, reason: 'clamped to the last page');
+    expect(controller.progress.value, greaterThan(0.9));
+  });
+
+  testWidgets('continuous layout has no pages but reports progress', (tester) async {
+    final controller = await load(tester, lines(300));
+    await pumpView(tester, controller);
+    await tester.pump();
+    expect(controller.pageCount.value, isNull);
+    controller.goToPage(2);
+    await tester.pump();
+    expect(controller.progress.value, 0, reason: 'goToPage is ignored without pages');
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -1500));
+    await tester.pumpAndSettle();
+    expect(controller.progress.value, greaterThan(0));
+  });
+
+  testWidgets('zoom reflows the text larger, within limits, keeping the place', (tester) async {
+    final controller = await load(tester, lines(300));
+    await pumpView(tester, controller);
+    final before = tester.getSize(find.textContaining('Line 0', findRichText: true)).height;
+    controller.zoomIn();
+    await tester.pump();
+    expect(controller.zoom, 1.25);
+    expect(tester.getSize(find.textContaining('Line 0', findRichText: true)).height, greaterThan(before));
+    for (var i = 0; i < 20; i++) {
+      controller.zoomIn();
+    }
+    expect(controller.zoom, WordDocumentController.maxZoom);
+    expect(controller.canZoomIn, isFalse);
+    for (var i = 0; i < 20; i++) {
+      controller.zoomOut();
+    }
+    expect(controller.zoom, WordDocumentController.minZoom);
+    expect(controller.canZoomOut, isFalse);
+  });
+
+  testWidgets('zoomed pages are wider than the view and pan sideways', (tester) async {
+    final controller = await load(tester, lines(100));
+    controller.viewMode = WordViewMode.paged;
+    await pumpView(tester, controller);
+    final width = tester.getSize(find.ancestor(of: find.byType(WordPageView).first, matching: find.byType(FittedBox))).width;
+    controller.zoomIn();
+    controller.zoomIn();
+    await tester.pump();
+    expect(tester.getSize(find.ancestor(of: find.byType(WordPageView).first, matching: find.byType(FittedBox))).width, greaterThan(width));
+    expect(find.byWidgetPredicate((w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal),
+        findsOneWidget);
+  });
+
+  testWidgets('pages are exposed in print layout for thumbnails, and dropped in continuous', (tester) async {
+    final controller = await load(tester, lines(400));
+    controller.viewMode = WordViewMode.paged;
+    await pumpView(tester, controller);
+    await tester.pump();
+    final pages = controller.pages!;
+    expect(pages.length, controller.pageCount.value);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Column(
+          children: [
+            Expanded(child: WordDocumentView(controller: controller)),
+            SizedBox(width: 70, height: 96, child: WordPageThumbnail(controller: controller, page: 2)),
+          ],
+        ),
+      ),
+    ));
+    await tester.pump();
+    final thumbnail = find.byType(WordPageThumbnail);
+    expect(find.descendant(of: thumbnail, matching: find.byType(WordPageView)), findsOneWidget);
+    expect(tester.getSize(thumbnail).width, lessThanOrEqualTo(70));
+    controller.viewMode = WordViewMode.continuous;
+    await tester.pump();
+    await tester.pump();
+    expect(controller.pages, isNull);
+    expect(controller.pageCount.value, isNull);
+  });
 }

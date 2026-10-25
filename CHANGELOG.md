@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Word: `WordDocumentController.zoom` with `zoomIn`/`zoomOut` (text reflows in the continuous layout; pages scale and pan sideways in print layout), the page in view (`pageCount`, `currentPage`, `progress`), `goToPage`, and `pages` with a `WordPageThumbnail` widget for page previews.
+- PowerPoint: `SlideDeckController.zoom` with `zoomIn`/`zoomOut`; slides highlight text matching the search.
+- Text: more space between lines and wider margins; the current search match's line is highlighted apart from the other matches.
+- Sheets: `SheetGrid(showZoomControls: false)` hides the grid's own zoom buttons for apps with their own.
+- PDF: the search status reads "2 of 4" (was "2 of 4 result(s)").
+
 ## 0.1.1
 
 - Screenshots on pub.dev and in the README.

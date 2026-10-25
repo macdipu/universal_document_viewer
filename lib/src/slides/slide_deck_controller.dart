@@ -89,6 +89,27 @@ class SlideDeckController extends ChangeNotifier {
     onPositionChanged?.call(position);
   }
 
+  static const double minZoom = 0.75;
+  static const double maxZoom = 2.5;
+  static const double zoomStep = 0.25;
+
+  double _zoom = 1;
+
+  /// How large the slides' text is drawn; [SlideDeckView] reflows it.
+  double get zoom => _zoom;
+  bool get canZoomIn => _zoom < maxZoom;
+  bool get canZoomOut => _zoom > minZoom;
+
+  void zoomIn() => _setZoom(_zoom + zoomStep);
+  void zoomOut() => _setZoom(_zoom - zoomStep);
+
+  void _setZoom(double value) {
+    final zoom = value.clamp(minZoom, maxZoom);
+    if (zoom == _zoom) return;
+    _zoom = zoom;
+    notifyListeners();
+  }
+
   bool get canGoPrevious => _current > 0;
   bool get canGoNext => _current < _slides.length - 1;
 

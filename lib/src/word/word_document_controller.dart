@@ -1,6 +1,6 @@
 import 'dart:isolate';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../common/reader_contract.dart';
@@ -8,6 +8,7 @@ import '../common/zip_safety_guard.dart';
 import '../engines/word/docx_reader.dart';
 import '../engines/word/word_model.dart';
 import 'word_document_layout.dart';
+import 'word_pagination.dart';
 import 'word_search_controller.dart';
 
 /// How [WordDocumentView] lays the document out.
@@ -20,8 +21,8 @@ enum WordViewMode {
 }
 
 /// State for [WordDocumentView]: a `.docx` checked by [ZipSafetyGuard] and
-/// parsed off the UI isolate, search within it, the layout ([viewMode]) and
-/// the scroll position.
+/// parsed off the UI isolate, search within it, the layout ([viewMode]),
+/// [zoom], the page in view and the scroll position.
 ///
 /// The position is reported through [onPositionChanged] as
 /// `{scroll_offset, view_mode, paragraph}` (the offset belongs to that
@@ -59,6 +60,74 @@ class WordDocumentController extends ChangeNotifier {
 
   void toggleViewMode() =>
       viewMode = _viewMode == WordViewMode.continuous ? WordViewMode.paged : WordViewMode.continuous;
+
+  static const double minZoom = 0.5;
+  static const double maxZoom = 3.0;
+  static const double zoomStep = 0.25;
+
+  double _zoom = 1;
+
+  /// How large the document is drawn: the text reflows at this scale in
+  /// [WordViewMode.continuous]; the pages scale (panning sideways when
+  /// wider than the view) in [WordViewMode.paged].
+  double get zoom => _zoom;
+  bool get canZoomIn => _zoom < maxZoom;
+  bool get canZoomOut => _zoom > minZoom;
+
+  void zoomIn() => _setZoom(_zoom + zoomStep);
+  void zoomOut() => _setZoom(_zoom - zoomStep);
+
+  void _setZoom(double value) {
+    final zoom = value.clamp(minZoom, maxZoom);
+    if (zoom == _zoom) return;
+    _zoom = zoom;
+    notifyListeners();
+  }
+
+  final _pageCount = ValueNotifier<int?>(null);
+  final _currentPage = ValueNotifier<int>(1);
+  final _progress = ValueNotifier<double>(0);
+
+  /// The number of pages in [WordViewMode.paged]; null in
+  /// [WordViewMode.continuous], which has no pages.
+  ValueListenable<int?> get pageCount => _pageCount;
+
+  /// The (1-based) page in view, in [WordViewMode.paged].
+  ValueListenable<int> get currentPage => _currentPage;
+
+  /// How far through the document the view is scrolled, 0 to 1.
+  ValueListenable<double> get progress => _progress;
+
+  int? _pendingPage;
+
+  /// Scrolls to [page] (1-based) in [WordViewMode.paged]; ignored otherwise.
+  void goToPage(int page) {
+    final count = _pageCount.value;
+    if (count == null) return;
+    _pendingPage = page.clamp(1, count);
+    notifyListeners();
+  }
+
+  /// For [WordDocumentView]: the page asked for by [goToPage], once.
+  int? takePendingPage() {
+    final page = _pendingPage;
+    _pendingPage = null;
+    return page;
+  }
+
+  List<WordPage>? _pages;
+
+  /// The pages in [WordViewMode.paged], for [WordPageThumbnail]; null in
+  /// [WordViewMode.continuous]. [pageCount] changes when they do.
+  List<WordPage>? get pages => _pages;
+
+  /// For [WordDocumentView]: the pages, and where the reader is.
+  void reportLayout({List<WordPage>? pages, int? currentPage, double? progress}) {
+    _pages = pages;
+    _pageCount.value = pages?.length;
+    if (currentPage != null) _currentPage.value = currentPage;
+    if (progress != null) _progress.value = progress;
+  }
 
   final ValueChanged<ReadingPosition>? onPositionChanged;
 
@@ -132,6 +201,9 @@ class WordDocumentController extends ChangeNotifier {
     _disposed = true;
     searchController.dispose();
     scrollController.dispose();
+    _pageCount.dispose();
+    _currentPage.dispose();
+    _progress.dispose();
     super.dispose();
   }
 }
