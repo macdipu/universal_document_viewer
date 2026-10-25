@@ -83,7 +83,7 @@ class PlainTextController extends DocumentController {
     markLoading();
     if (bytes.length > maxBytes) {
       markFailed(DocumentLoadError.tooLarge);
-    } else if (looksBinary(bytes)) {
+    } else if (looksLikeBinary(bytes)) {
       markFailed(DocumentLoadError.corrupted);
     } else {
       _lines = decodeTextBytes(bytes).split('\n');
@@ -92,22 +92,9 @@ class PlainTextController extends DocumentController {
     }
   }
 
-  /// A cheap heuristic, not a real content-type sniffer: a NUL byte, or a
-  /// high proportion of non-whitespace control bytes in a leading sample,
-  /// is treated as "not text" (e.g. a binary file renamed `.txt`). UTF-16
-  /// text with a byte order mark is text, whatever its NUL bytes.
-  static bool looksBinary(Uint8List bytes) {
-    if (bytes.isEmpty || hasUtf16Bom(bytes)) return false;
-    final sampleSize = bytes.length < 8000 ? bytes.length : 8000;
-    var controlCount = 0;
-    for (var i = 0; i < sampleSize; i++) {
-      final b = bytes[i];
-      if (b == 0) return true;
-      final isCommonWhitespace = b == 0x09 || b == 0x0A || b == 0x0D;
-      if (!isCommonWhitespace && b < 0x20) controlCount++;
-    }
-    return controlCount / sampleSize > 0.05;
-  }
+  /// Whether [bytes] look like a binary file rather than text; see
+  /// [looksLikeBinary], which this forwards to.
+  static bool looksBinary(Uint8List bytes) => looksLikeBinary(bytes);
 
   // ---- Where the reader is
 

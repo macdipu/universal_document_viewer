@@ -1,4 +1,4 @@
-import '../engines/sheets/workbook.dart';
+import '../engines/spreadsheet/workbook.dart';
 
 /// Where a sheet's rows and columns sit on screen: sizes from the sheet's
 /// layout, hidden rows and columns left out, frozen panes split off.

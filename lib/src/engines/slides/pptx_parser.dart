@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart';
 
-import '../engines/ooxml/opc_package.dart';
+import '../ooxml/opc_package.dart';
 
 /// One piece of slide content, in reading order.
 sealed class PptxBlock {

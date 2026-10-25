@@ -7,7 +7,7 @@ import 'package:meta/meta.dart';
 import '../common/document_controller.dart';
 import '../common/reader_contract.dart';
 import '../common/zip_safety_guard.dart';
-import 'pptx_parser.dart';
+import '../engines/slides/pptx_parser.dart';
 
 /// One occurrence of a search in a presentation: the [occurrence]th match
 /// (from 0) on slide [slide] (from 0), counting in the order [SlidesView]

@@ -9,10 +9,9 @@ import '../common/document_format.dart';
 import '../common/reader_contract.dart';
 import '../common/text_decoding.dart';
 import '../common/zip_safety_guard.dart';
-import '../engines/sheets/csv_reader.dart';
-import '../engines/sheets/workbook.dart';
-import '../engines/sheets/xlsx_reader.dart';
-import '../plain_text/plain_text_controller.dart';
+import '../engines/spreadsheet/csv_reader.dart';
+import '../engines/spreadsheet/workbook.dart';
+import '../engines/spreadsheet/xlsx_reader.dart';
 import 'cell_match.dart';
 import 'sheet_geometry.dart';
 
@@ -231,7 +230,7 @@ class SpreadsheetController extends DocumentController {
       } else if (bytes.length > maxCsvBytes) {
         markFailed(DocumentLoadError.tooLarge);
         return;
-      } else if (PlainTextController.looksBinary(bytes)) {
+      } else if (looksLikeBinary(bytes)) {
         markFailed(DocumentLoadError.corrupted);
         return;
       } else {

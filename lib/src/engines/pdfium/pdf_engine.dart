@@ -3,7 +3,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:meta/meta.dart' show visibleForTesting;
 
 import 'pdf_types.dart';
 import 'pdfium_worker.dart';
@@ -202,8 +202,19 @@ class PdfRenderTask {
 
 /// An open PDF. All PDFium work happens in one shared background isolate;
 /// this object holds the document's id there and its page sizes.
+///
+/// Close a document with [close] when done with it. A document that is
+/// garbage-collected without being closed is closed then, as a safety net,
+/// but its native memory is held until the collector gets to it.
 class PdfiumDocument {
-  PdfiumDocument._(this._id, this.pageSizes);
+  PdfiumDocument._(this._id, this.pageSizes) {
+    _finalizer.attach(this, _id, detach: this);
+  }
+
+  /// Closes, in the worker, a document collected without [close].
+  static final _finalizer = Finalizer<int>((id) {
+    _Worker.instance.call(PdfiumOp.close, [id]).ignore();
+  });
 
   final int _id;
 
@@ -352,6 +363,7 @@ class PdfiumDocument {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    _finalizer.detach(this);
     await _Worker.instance.call(PdfiumOp.close, [_id]);
   }
 

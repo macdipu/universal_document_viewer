@@ -64,6 +64,13 @@ These are no longer exported (they were implementation details): `WordScope`, `W
 - PowerPoint: zoom.
 - For contributors: CONTRIBUTING, a code of conduct, a security policy, issue and pull-request templates, CI (format, analyze, test, pub.dev score), an architecture guide (`doc/architecture.md`), and contract tests that every format's controller passes. The code follows `flutter_lints` and one formatting width.
 
+### Architecture
+
+- Parsers and models all live under `src/engines/` (the PPTX parser moved there; `engines/sheets` is now `engines/spreadsheet`), and the test builders under `src/testing/`. The public libraries and their names are unchanged.
+- A `Finalizer` closes a `PdfiumDocument` that's garbage-collected without `close()`.
+- `looksLikeBinary` (in `universal_document_viewer.dart`) is the binary-file check the plain-text and CSV readers share; `PlainTextController.looksBinary` forwards to it.
+- Tests now check every entry point's exports, the import rules between modules (documented in `doc/architecture.md`), and that XML entities declared in a DTD aren't expanded.
+
 ### Fixed
 
 - A damaged `.xlsx` is reported as damaged instead of opening as a CSV of its bytes; binary content in a `.csv` is refused.

@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../common/document_viewer_strings.dart';
 import '../common/document_viewer_theme.dart';
-import '../engines/sheets/workbook.dart';
+import '../engines/spreadsheet/workbook.dart';
 import 'cell_border.dart';
 import 'sheet_geometry.dart';
 import 'spreadsheet_controller.dart';

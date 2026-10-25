@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 
 import '../common/reader_contract.dart';
 import '../common/text_decoding.dart';
-import '../engines/sheets/csv_reader.dart';
-import '../engines/sheets/workbook.dart';
-import '../engines/sheets/xlsx_reader.dart';
+import '../engines/spreadsheet/csv_reader.dart';
+import '../engines/spreadsheet/workbook.dart';
+import '../engines/spreadsheet/xlsx_reader.dart';
 import '../spreadsheet/cell_border.dart';
 import '../spreadsheet/spreadsheet_controller.dart';
 import 'offscreen_render.dart';

@@ -27,6 +27,25 @@ String decodeTextBytes(Uint8List bytes) {
 bool hasUtf16Bom(Uint8List bytes) =>
     bytes.length >= 2 && ((bytes[0] == 0xFF && bytes[1] == 0xFE) || (bytes[0] == 0xFE && bytes[1] == 0xFF));
 
+/// Whether [bytes] look like a binary file rather than text (for example a
+/// binary file renamed `.txt` or `.csv`).
+///
+/// A cheap heuristic, not a content-type sniffer: a NUL byte, or more than
+/// 5% non-whitespace control bytes in the first 8000 bytes, means binary.
+/// UTF-16 text with a byte order mark is text, whatever its NUL bytes.
+bool looksLikeBinary(Uint8List bytes) {
+  if (bytes.isEmpty || hasUtf16Bom(bytes)) return false;
+  final sampleSize = bytes.length < 8000 ? bytes.length : 8000;
+  var controlCount = 0;
+  for (var i = 0; i < sampleSize; i++) {
+    final b = bytes[i];
+    if (b == 0) return true;
+    final isCommonWhitespace = b == 0x09 || b == 0x0A || b == 0x0D;
+    if (!isCommonWhitespace && b < 0x20) controlCount++;
+  }
+  return controlCount / sampleSize > 0.05;
+}
+
 String _utf16(Uint8List bytes, {required bool littleEndian}) {
   final units = Uint16List((bytes.length - 2) ~/ 2);
   final data = ByteData.sublistView(bytes, 2);

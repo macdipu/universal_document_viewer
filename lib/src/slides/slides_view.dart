@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../common/document_viewer_strings.dart';
 import '../common/document_viewer_theme.dart';
-import 'pptx_parser.dart';
+import '../engines/slides/pptx_parser.dart';
 import 'slides_controller.dart';
 
 /// Shows a [SlidesController]'s presentation one slide at a time: swipe,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/universal_document_viewer.dart';
-import 'package:universal_document_viewer/src/engines/sheets/formula_references.dart';
+import 'package:universal_document_viewer/src/engines/spreadsheet/formula_references.dart';
 import 'package:universal_document_viewer/testing.dart';
 
 /// Regressions found in a review of the spreadsheet code before 0.1.

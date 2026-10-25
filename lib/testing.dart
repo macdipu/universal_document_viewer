@@ -2,6 +2,6 @@
 /// [buildXlsx] and [buildPptx].
 library;
 
-export 'src/engines/sheets/xlsx_test_builder.dart';
-export 'src/engines/word/docx_test_builder.dart';
-export 'src/slides/pptx_test_builder.dart';
+export 'src/testing/xlsx_test_builder.dart';
+export 'src/testing/docx_test_builder.dart';
+export 'src/testing/pptx_test_builder.dart';

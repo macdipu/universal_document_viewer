@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
 
 import '../common/reader_contract.dart';
-import '../slides/pptx_parser.dart';
+import '../engines/slides/pptx_parser.dart';
 import '../slides/slides_view.dart';
 import 'offscreen_render.dart';
 import 'thumbnail_renderer.dart';
