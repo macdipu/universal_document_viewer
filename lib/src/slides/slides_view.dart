@@ -24,6 +24,8 @@ class SlidesView extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
+        // A go-to asked for before the slides were shown.
+        WidgetsBinding.instance.addPostFrameCallback((_) => controller.applyPending());
         final media = MediaQuery.of(context);
         final zoom = controller.zoom;
         final current = controller.currentSlideMatch;

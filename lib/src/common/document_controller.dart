@@ -241,7 +241,29 @@ abstract class DocumentController extends ChangeNotifier {
   /// Moves to page, slide, row or line [number] (from 1) of
   /// [location]'s unit, or to [number] percent through for
   /// [DocumentUnit.percent]. Out-of-range numbers are clamped.
+  ///
+  /// Called before the document is loaded or shown, it takes effect once
+  /// the view has laid the document out.
   void goTo(int number);
+
+  int? _pendingGoTo;
+
+  /// For a format's controller: [goTo] can't move yet (the document isn't
+  /// loaded, or no view has laid it out), so [number] is kept until
+  /// [applyPending].
+  @protected
+  void deferGoTo(int number) => _pendingGoTo = number;
+
+  /// For a format's view, once it has laid the document out: carries out
+  /// what was asked for before (a [goTo], and a format's own requests).
+  @internal
+  @mustCallSuper
+  void applyPending() {
+    final number = _pendingGoTo;
+    if (number == null || isDisposed) return;
+    _pendingGoTo = null;
+    goTo(number);
+  }
 
   /// The place to save, as JSON-safe values: pass it back as
   /// `initialPosition` to reopen there.

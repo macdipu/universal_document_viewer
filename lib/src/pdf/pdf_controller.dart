@@ -304,7 +304,7 @@ class PdfController extends DocumentController {
 
   /// Shows [page] (from 1), clamped to the document.
   Future<void> jumpToPage(int page) async {
-    if (_pageCount < 1) return;
+    if (_pageCount < 1) return deferGoTo(page);
     final target = page.clamp(1, _pageCount);
     if (_view case final view?) {
       view.jumpToPage(target - 1);
@@ -331,7 +331,10 @@ class PdfController extends DocumentController {
   /// The zoom on screen: 1 is page width. Pinching and double-tapping
   /// change it too.
   @override
-  double get zoom => _view?.zoom ?? 1;
+  double get zoom => _view?.zoom ?? _pendingZoom ?? 1;
+
+  /// A zoom set before the view existed, applied by [applyPending].
+  double? _pendingZoom;
 
   @override
   double get minZoom => zoomSteps.first;
@@ -340,7 +343,24 @@ class PdfController extends DocumentController {
   double get maxZoom => zoomSteps.last;
 
   @override
-  void setZoom(double zoom) => _view?.setZoom(zoom.clamp(minZoom, maxZoom));
+  void setZoom(double zoom) {
+    zoom = zoom.clamp(minZoom, maxZoom);
+    if (_view case final view?) {
+      view.setZoom(zoom);
+    } else {
+      _pendingZoom = zoom;
+      notifyListeners();
+    }
+  }
+
+  @override
+  void applyPending() {
+    super.applyPending();
+    if ((_view, _pendingZoom) case (final view?, final zoom?)) {
+      _pendingZoom = null;
+      view.setZoom(zoom);
+    }
+  }
 
   /// Zooms in to the next of [zoomSteps].
   @override

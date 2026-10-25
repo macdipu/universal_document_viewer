@@ -113,6 +113,17 @@ void main() {
     });
   });
 
+  testWidgets('a view built after the document opened shows it', (tester) async {
+    final controller = PdfController();
+    await tester.runAsync(() => controller.loadFile(_features));
+    expect(controller.status, DocumentStatus.ready);
+    await tester.pumpWidget(MaterialApp(home: PdfView(controller: controller)));
+    await _until(tester, () => find.byType(CircularProgressIndicator).evaluate().isEmpty);
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(() async => controller.dispose());
+  });
+
   testWidgets('a thumbnail built before the document opens renders once it does', (tester) async {
     final controller = PdfController();
     await tester.pumpWidget(

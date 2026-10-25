@@ -73,6 +73,9 @@ These are no longer exported (they were implementation details): `WordScope`, `W
 
 ### Fixed
 
+- `goTo` before the document is loaded or its view has laid it out is no longer lost: it takes effect once the view is ready, for every format (it was dropped for plain text, spreadsheets and Word's continuous layout). A PDF zoom set before its view exists is applied the same way, and `zoom` reports it meanwhile.
+- A `PdfView` built after its controller had opened the document (as `DocumentViewer` does) showed a spinner forever.
+- Giving a `WordView` or `PlainTextView` another controller kept the old document's layout state (Word's mode, zoom and pages; plain text's scroll listener); a `SpreadsheetView` didn't restore the new controller's scroll position.
 - A damaged `.xlsx` is reported as damaged instead of opening as a CSV of its bytes; binary content in a `.csv` is refused.
 
 ### Changed

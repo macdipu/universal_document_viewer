@@ -266,7 +266,7 @@ class SpreadsheetController extends DocumentController {
   @override
   void goTo(int number) {
     final grid = geometry;
-    if (currentRows.isEmpty || !verticalController.hasClients) return;
+    if (currentRows.isEmpty || !verticalController.hasClients) return deferGoTo(number);
     final row = grid.visibleIndexOfRow(number.clamp(1, currentRows.length) - 1);
     if (row == null) return;
     final target = (grid.scrollOffsetOfRow(row) * _zoom).clamp(0.0, verticalController.position.maxScrollExtent);

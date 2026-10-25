@@ -83,6 +83,17 @@ class _WordViewState extends State<WordView> {
       oldWidget.controller.searchController.removeListener(_onSearchChanged);
       controller.addListener(_onControllerChanged);
       controller.searchController.addListener(_onSearchChanged);
+      // Another document: nothing laid out for the old one applies.
+      _mode = controller.viewMode;
+      _zoom = controller.zoom;
+      _itemHeights.clear();
+      _anchors.clear();
+      _pagination = null;
+      _paginationKey = null;
+      _readingParagraph = null;
+      _lastMatchKey = null;
+      _restored = false;
+      _scheduleRestore();
     }
   }
 
@@ -357,7 +368,10 @@ class _WordViewState extends State<WordView> {
   /// [list] with its scrolling reported to the controller.
   Widget _tracked(Widget list) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && controller.scrollController.hasClients) _reportLayout(controller.scrollController.position);
+      if (!mounted || !controller.scrollController.hasClients) return;
+      _reportLayout(controller.scrollController.position);
+      // A go-to asked for before the document was laid out (or paginated).
+      controller.applyPending();
     });
     return NotificationListener<ScrollNotification>(
       // Only the document's own vertical scroll: wide tables scroll

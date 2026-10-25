@@ -82,6 +82,9 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
       jumpToPage: _jumpToPage,
       showMatch: _showMatch,
     );
+    // The controller may have opened the document before this view was
+    // built: set up for it now, as a change notice would.
+    _onControllerChanged();
   }
 
   @override
@@ -420,6 +423,8 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
                 _jumpToPage(reading);
               }
               _scheduleUpdate();
+              // A go-to or zoom asked for before the pages were placed.
+              controller.applyPending();
             });
           }
           final layout = _layout!;

@@ -44,6 +44,20 @@ class _PlainTextViewState extends State<PlainTextView> {
   }
 
   @override
+  void didUpdateWidget(PlainTextView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+    oldWidget.controller.scrollController.removeListener(_onScroll);
+    oldWidget.controller.lineOffsetResolver = null;
+    oldWidget.controller.lineAtOffsetResolver = null;
+    widget.controller.scrollController.addListener(_onScroll);
+    _metrics = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _restoreInitialOffset();
+    });
+  }
+
+  @override
   void dispose() {
     widget.controller.scrollController.removeListener(_onScroll);
     widget.controller.lineOffsetResolver = null;
@@ -87,6 +101,10 @@ class _PlainTextViewState extends State<PlainTextView> {
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
+        // A go-to asked for before the lines were laid out.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.controller.applyPending();
+        });
         final lines = widget.controller.lines;
         final query = widget.controller.searchQuery;
         final current = widget.controller.currentTextMatch;

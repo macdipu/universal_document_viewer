@@ -170,7 +170,10 @@ class WordController extends DocumentController {
     if (_pages case final pages?) {
       _pendingPage = number.clamp(1, pages.length);
       notifyListeners();
-    } else if (scrollController.hasClients) {
+    } else if (_viewMode == WordViewMode.paged || !scrollController.hasClients) {
+      // Not paginated, or not laid out, yet.
+      deferGoTo(number);
+    } else {
       final position = scrollController.position;
       position.jumpTo(position.maxScrollExtent * number.clamp(0, 100) / 100);
     }

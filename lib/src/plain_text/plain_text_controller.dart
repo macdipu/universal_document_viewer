@@ -128,7 +128,7 @@ class PlainTextController extends DocumentController {
   /// Scrolls line [number] (from 1) to the top.
   @override
   void goTo(int number) {
-    if (_lines.isEmpty) return;
+    if (_lines.isEmpty || !scrollController.hasClients) return deferGoTo(number);
     _jumpToLine(number.clamp(1, _lines.length) - 1, animate: false);
   }
 

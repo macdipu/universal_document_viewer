@@ -138,7 +138,7 @@ class SlidesController extends DocumentController {
 
   /// Shows slide [index] (from 0).
   void goToSlide(int index) {
-    if (_slides.isEmpty) return;
+    if (_slides.isEmpty) return deferGoTo(index + 1);
     index = index.clamp(0, _slides.length - 1);
     final controller = _pageController;
     if (controller == null || !controller.hasClients) {

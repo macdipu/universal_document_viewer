@@ -110,6 +110,9 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     _zoom = widget.controller.zoom;
     _mergesFor = null;
     _selection.value = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _restoreInitialOffsets();
+    });
   }
 
   @override
@@ -123,6 +126,10 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
 
   @override
   Widget build(BuildContext context) {
+    // A go-to asked for before the grid was laid out.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.controller.applyPending();
+    });
     final rows = widget.controller.currentRows;
     final columnCount = widget.controller.columnCount;
     if (rows.isEmpty || columnCount == 0) {
