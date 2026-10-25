@@ -30,39 +30,39 @@ class _Worker {
   PdfEngineException? _stopped;
 
   Future<SendPort> _start() => _port ??= () async {
-        _replies.listen((message) {
-          if (message is SendPort) {
-            if (!_ready.isCompleted) _ready.complete(message);
-            return;
-          }
-          final reply = message as List<Object?>;
-          final completer = _pending.remove(reply[0]! as int);
-          if (completer == null) return;
-          if (reply.length > 2) {
-            completer.completeError(_error(reply[2]! as String, reply[3]! as String));
-          } else {
-            completer.complete(reply[1]);
-          }
-        });
-        // Error and exit ports are given to spawn itself, so a death even
-        // before the isolate sends its port (or before a listener could be
-        // attached) is still seen. An error message is `[error, stack]`;
-        // the exit message is null.
-        _exits.handler = (Object? message) =>
-            _stop(message is List ? 'PDF engine stopped: ${message.first}' : 'PDF engine stopped');
-        try {
-          await Isolate.spawn(
-            _entryPoint,
-            _replies.sendPort,
-            debugName: 'pdfium',
-            onError: _exits.sendPort,
-            onExit: _exits.sendPort,
-          );
-        } catch (e) {
-          _stop('PDF engine could not start: $e');
-        }
-        return _ready.future;
-      }();
+    _replies.listen((message) {
+      if (message is SendPort) {
+        if (!_ready.isCompleted) _ready.complete(message);
+        return;
+      }
+      final reply = message as List<Object?>;
+      final completer = _pending.remove(reply[0]! as int);
+      if (completer == null) return;
+      if (reply.length > 2) {
+        completer.completeError(_error(reply[2]! as String, reply[3]! as String));
+      } else {
+        completer.complete(reply[1]);
+      }
+    });
+    // Error and exit ports are given to spawn itself, so a death even
+    // before the isolate sends its port (or before a listener could be
+    // attached) is still seen. An error message is `[error, stack]`;
+    // the exit message is null.
+    _exits.handler = (Object? message) =>
+        _stop(message is List ? 'PDF engine stopped: ${message.first}' : 'PDF engine stopped');
+    try {
+      await Isolate.spawn(
+        _entryPoint,
+        _replies.sendPort,
+        debugName: 'pdfium',
+        onError: _exits.sendPort,
+        onExit: _exits.sendPort,
+      );
+    } catch (e) {
+      _stop('PDF engine could not start: $e');
+    }
+    return _ready.future;
+  }();
 
   void _stop(String reason) {
     if (_stopped != null) return;
@@ -78,19 +78,24 @@ class _Worker {
   }
 
   static Exception _error(String code, String message) => switch (code) {
-        'open' => PdfOpenException(switch (int.tryParse(message)) {
-            2 => PdfOpenError.file,
-            3 => PdfOpenError.format,
-            4 => PdfOpenError.password,
-            5 => PdfOpenError.security,
-            _ => PdfOpenError.unknown,
-          }),
-        'engine' => PdfEngineException(message),
-        _ => PdfEngineException('$code: $message'),
-      };
+    'open' => PdfOpenException(switch (int.tryParse(message)) {
+      2 => PdfOpenError.file,
+      3 => PdfOpenError.format,
+      4 => PdfOpenError.password,
+      5 => PdfOpenError.security,
+      _ => PdfOpenError.unknown,
+    }),
+    'engine' => PdfEngineException(message),
+    _ => PdfEngineException('$code: $message'),
+  };
 
   /// Sends a request; [onId] receives its id (for [cancel]).
-  Future<Object?> call(String op, List<Object?> args, {PdfPriority priority = PdfPriority.visible, void Function(int)? onId}) async {
+  Future<Object?> call(
+    String op,
+    List<Object?> args, {
+    PdfPriority priority = PdfPriority.visible,
+    void Function(int)? onId,
+  }) async {
     if (_stopped case final stopped?) throw stopped;
     final port = await _start();
     // It may have died while starting, after this request was made.
@@ -139,7 +144,12 @@ class PdfRenderedImage {
   /// Decodes into a [ui.Image] for painting.
   Future<ui.Image> toImage() async {
     final buffer = await ui.ImmutableBuffer.fromUint8List(pixels);
-    final descriptor = ui.ImageDescriptor.raw(buffer, width: width, height: height, pixelFormat: ui.PixelFormat.rgba8888);
+    final descriptor = ui.ImageDescriptor.raw(
+      buffer,
+      width: width,
+      height: height,
+      pixelFormat: ui.PixelFormat.rgba8888,
+    );
     try {
       final codec = await descriptor.instantiateCodec();
       final frame = await codec.getNextFrame();
@@ -197,8 +207,7 @@ class PdfiumDocument {
 
   /// Opens a PDF file. Throws [PdfOpenException] with
   /// [PdfOpenError.password] when it needs a (different) [password].
-  static Future<PdfiumDocument> openFile(String path, {String? password}) =>
-      _open(path, password);
+  static Future<PdfiumDocument> openFile(String path, {String? password}) => _open(path, password);
 
   /// Opens a PDF held in memory.
   static Future<PdfiumDocument> openBytes(Uint8List bytes, {String? password}) =>
@@ -229,12 +238,14 @@ class PdfiumDocument {
     late final PdfRenderTask task;
     task = PdfRenderTask._(() async {
       _checkOpen();
-      final bytes = await _Worker.instance.call(
-        PdfiumOp.render,
-        [_id, page, fullWidth, fullHeight, x, y, width, height],
-        priority: priority,
-        onId: (id) => task._assign(id),
-      ) as TransferableTypedData;
+      final bytes =
+          await _Worker.instance.call(
+                PdfiumOp.render,
+                [_id, page, fullWidth, fullHeight, x, y, width, height],
+                priority: priority,
+                onId: (id) => task._assign(id),
+              )
+              as TransferableTypedData;
       return PdfRenderedImage(bytes.materialize().asUint8List(), width, height);
     }());
     return task;
@@ -245,8 +256,7 @@ class PdfiumDocument {
     int page, {
     required int width,
     PdfPriority priority = PdfPriority.background,
-  }) =>
-      renderThumbnailTask(page, width: width, priority: priority).result;
+  }) => renderThumbnailTask(page, width: width, priority: priority).result;
 
   /// [renderThumbnail] as a cancellable task, for a thumbnail that may
   /// scroll away (or whose document may close) before it's drawn. A page
@@ -268,27 +278,35 @@ class PdfiumDocument {
     final text = reply[0]! as String;
     final boxes = reply[1]! as Float32List;
     return PdfPageText(text, [
-      for (var i = 0; i + 3 < boxes.length; i += 4) ui.Rect.fromLTRB(boxes[i], boxes[i + 1], boxes[i + 2], boxes[i + 3]),
+      for (var i = 0; i + 3 < boxes.length; i += 4)
+        ui.Rect.fromLTRB(boxes[i], boxes[i + 1], boxes[i + 2], boxes[i + 3]),
     ]);
   }
 
   /// Matches of [query] on one page (case-insensitive; a phrase may wrap
   /// lines), and whether the page has any text at all.
-  Future<(bool hasText, List<PdfTextMatch>)> search(int page, String query, {PdfPriority priority = PdfPriority.prefetch}) async {
+  Future<(bool hasText, List<PdfTextMatch>)> search(
+    int page,
+    String query, {
+    PdfPriority priority = PdfPriority.prefetch,
+  }) async {
     _checkOpen();
     final reply = await _Worker.instance.call(PdfiumOp.search, [_id, page, query], priority: priority) as List<Object?>;
     final matches = <PdfTextMatch>[];
     for (final entry in reply[1]! as List<Object?>) {
       final match = entry! as List<Object?>;
       final rects = match[2]! as Float32List;
-      matches.add(PdfTextMatch(
-        page: page,
-        start: match[0]! as int,
-        end: match[1]! as int,
-        rects: [
-          for (var i = 0; i + 3 < rects.length; i += 4) ui.Rect.fromLTRB(rects[i], rects[i + 1], rects[i + 2], rects[i + 3]),
-        ],
-      ));
+      matches.add(
+        PdfTextMatch(
+          page: page,
+          start: match[0]! as int,
+          end: match[1]! as int,
+          rects: [
+            for (var i = 0; i + 3 < rects.length; i += 4)
+              ui.Rect.fromLTRB(rects[i], rects[i + 1], rects[i + 2], rects[i + 3]),
+          ],
+        ),
+      );
     }
     return (reply[0]! as bool, matches);
   }

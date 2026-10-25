@@ -57,14 +57,14 @@ void main() {
   group('a part inflating past its declared size', () {
     const image = 'ppt/media/big.png';
     Uint8List forgedDeck() => forgeDeclaredSize(
-          buildPptx(
-            [titleShape('Bomb') + picture('rIdImg')],
-            media: {'big.png': Uint8List(4 * 1024 * 1024)},
-            slideRels: {0: '<Relationship Id="rIdImg" Type="image" Target="../media/big.png"/>'},
-          ),
-          image,
-          10,
-        );
+      buildPptx(
+        [titleShape('Bomb') + picture('rIdImg')],
+        media: {'big.png': Uint8List(4 * 1024 * 1024)},
+        slideRels: {0: '<Relationship Id="rIdImg" Type="image" Target="../media/big.png"/>'},
+      ),
+      image,
+      10,
+    );
 
     test('passes the guard, which only sees declared sizes', () {
       expect(ZipSafetyGuard.check(forgedDeck()), ZipSafetyResult.safe);
@@ -87,16 +87,24 @@ void main() {
     const rel = {0: '<Relationship Id="rIdImg" Type="image" Target="../media/big.png"/>'};
 
     test('a picture placed many times shares one buffer', () {
-      final bytes = buildPptx([List.filled(400, picture('rIdImg')).join()],
-          media: {'big.png': Uint8List(1024 * 1024)}, slideRels: rel);
+      final bytes = buildPptx(
+        [List.filled(400, picture('rIdImg')).join()],
+        media: {'big.png': Uint8List(1024 * 1024)},
+        slideRels: rel,
+      );
       final images = PptxParser.parse(bytes).slides.single.blocks.whereType<PptxImage>().toList();
       expect(images, hasLength(400));
       expect(images.map((image) => identityHashCode(image.bytes)).toSet(), hasLength(1));
     });
 
     test('placements past maxPictures are left out', () {
-      final bytes = buildPptx([List.filled(PptxParser.maxPictures + 5, picture('rIdImg')).join()],
-          media: {'big.png': [1, 2, 3]}, slideRels: rel);
+      final bytes = buildPptx(
+        [List.filled(PptxParser.maxPictures + 5, picture('rIdImg')).join()],
+        media: {
+          'big.png': [1, 2, 3],
+        },
+        slideRels: rel,
+      );
       expect(PptxParser.parse(bytes).slides.single.blocks, hasLength(PptxParser.maxPictures));
     });
 
@@ -109,7 +117,9 @@ void main() {
     });
 
     test('bullet levels are clamped to DrawingML 0-8', () {
-      final bytes = buildPptx([bodyShape([('deep', 40), ('negative', -3), ('fine', 2)])]);
+      final bytes = buildPptx([
+        bodyShape([('deep', 40), ('negative', -3), ('fine', 2)]),
+      ]);
       final levels = PptxParser.parse(bytes).slides.single.blocks.cast<PptxParagraph>().map((p) => p.level);
       expect(levels, [8, 0, 2]);
     });

@@ -25,9 +25,11 @@ Uint8List buildDocx(
   String part(String root, String inner) =>
       '<?xml version="1.0" encoding="UTF-8"?><w:$root xmlns:w="$_w" xmlns:r="$_r">$inner</w:$root>';
 
-  add('_rels/.rels',
-      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-      '<Relationship Id="rId1" Type="$_r/officeDocument" Target="word/document.xml"/></Relationships>');
+  add(
+    '_rels/.rels',
+    '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="$_r/officeDocument" Target="word/document.xml"/></Relationships>',
+  );
   add('word/document.xml', part('document', '<w:body>$body</w:body>'));
   final rels = StringBuffer(relationships);
   void link(String id, String type, String target, String? inner, String root) {
@@ -40,8 +42,10 @@ Uint8List buildDocx(
   link('rIdNumbering', 'numbering', 'numbering.xml', numbering, 'numbering');
   link('rIdFootnotes', 'footnotes', 'footnotes.xml', footnotes, 'footnotes');
   link('rIdEndnotes', 'endnotes', 'endnotes.xml', endnotes, 'endnotes');
-  add('word/_rels/document.xml.rels',
-      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">$rels</Relationships>');
+  add(
+    'word/_rels/document.xml.rels',
+    '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">$rels</Relationships>',
+  );
   media.forEach((name, bytes) => archive.addFile(ArchiveFile.bytes('word/$name', bytes)));
   return Uint8List.fromList(ZipEncoder().encodeBytes(archive));
 }

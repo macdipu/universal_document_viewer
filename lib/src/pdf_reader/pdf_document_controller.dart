@@ -69,8 +69,9 @@ class PdfSearchController extends ChangeNotifier {
   final _byPage = <int, List<int>>{};
 
   /// [page]'s matches (0-based page) and which of them is current.
-  List<(PdfTextMatch, bool)> matchesOn(int page) =>
-      [for (final i in _byPage[page] ?? const <int>[]) (_matches[i], i == _current)];
+  List<(PdfTextMatch, bool)> matchesOn(int page) => [
+    for (final i in _byPage[page] ?? const <int>[]) (_matches[i], i == _current),
+  ];
 
   var _generation = 0;
 
@@ -239,10 +240,10 @@ class PdfDocumentController extends ChangeNotifier {
   }
 
   ReadingPosition get position => {
-        PositionKeys.pageNumber: _currentPage,
-        if (_pageCount > 0) PositionKeys.pageCount: _pageCount,
-        PositionKeys.viewMode: _viewMode.name,
-      };
+    PositionKeys.pageNumber: _currentPage,
+    if (_pageCount > 0) PositionKeys.pageCount: _pageCount,
+    PositionKeys.viewMode: _viewMode.name,
+  };
 
   /// The view reports the page being read.
   void onPageChanged(int page) {

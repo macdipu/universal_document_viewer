@@ -74,10 +74,10 @@ class WordBlockView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => switch (block) {
-        final WordParagraph paragraph => WordParagraphView(paragraph),
-        final WordTable table => WordTableView(table),
-        WordSectionBreak() => WordPageInfo.maybeOf(context) == null ? const Divider(height: 24) : const SizedBox.shrink(),
-      };
+    final WordParagraph paragraph => WordParagraphView(paragraph),
+    final WordTable table => WordTableView(table),
+    WordSectionBreak() => WordPageInfo.maybeOf(context) == null ? const Divider(height: 24) : const SizedBox.shrink(),
+  };
 }
 
 // --- Paragraphs ----------------------------------------------------------------
@@ -158,10 +158,12 @@ class _WordParagraphViewState extends State<WordParagraphView> {
       listenable: scope.search,
       builder: (context, _) {
         _disposeRecognizers();
-        return LayoutBuilder(builder: (context, constraints) {
-          final width = constraints.maxWidth.isFinite ? constraints.maxWidth : 600.0;
-          return _buildParagraph(context, scope, styler, ParagraphGeometry(widget.paragraph, width), paged);
-        });
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth.isFinite ? constraints.maxWidth : 600.0;
+            return _buildParagraph(context, scope, styler, ParagraphGeometry(widget.paragraph, width), paged);
+          },
+        );
       },
     );
   }
@@ -333,55 +335,62 @@ class WordTableView extends StatelessWidget {
   Widget build(BuildContext context) {
     final columnCount = columnCountOf(table);
     if (columnCount == 0) return const SizedBox.shrink();
-    return LayoutBuilder(builder: (context, constraints) {
-      final available = constraints.maxWidth.isFinite ? constraints.maxWidth : 600.0;
-      final widths = columnWidthsFor(table, available);
-      final total = widths.fold<double>(0, (a, b) => a + b);
-      final cells = <Widget>[];
-      for (var r = 0; r < table.rows.length; r++) {
-        var column = 0;
-        for (final cell in table.rows[r].cells) {
-          if (!cell.covered && column < columnCount) {
-            final span = math.min(cell.columnSpan, columnCount - column);
-            cells.add(_TableCellSlot(
-              row: r,
-              column: column,
-              rowSpan: math.min(cell.rowSpan, table.rows.length - r),
-              columnSpan: span,
-              child: _WordTableCellView(
-                cell,
-                top: r == 0,
-                left: column == 0,
-                bottom: r + cell.rowSpan >= table.rows.length,
-                right: column + span >= columnCount,
-              ),
-            ));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxWidth.isFinite ? constraints.maxWidth : 600.0;
+        final widths = columnWidthsFor(table, available);
+        final total = widths.fold<double>(0, (a, b) => a + b);
+        final cells = <Widget>[];
+        for (var r = 0; r < table.rows.length; r++) {
+          var column = 0;
+          for (final cell in table.rows[r].cells) {
+            if (!cell.covered && column < columnCount) {
+              final span = math.min(cell.columnSpan, columnCount - column);
+              cells.add(
+                _TableCellSlot(
+                  row: r,
+                  column: column,
+                  rowSpan: math.min(cell.rowSpan, table.rows.length - r),
+                  columnSpan: span,
+                  child: _WordTableCellView(
+                    cell,
+                    top: r == 0,
+                    left: column == 0,
+                    bottom: r + cell.rowSpan >= table.rows.length,
+                    right: column + span >= columnCount,
+                  ),
+                ),
+              );
+            }
+            column += cell.columnSpan;
           }
-          column += cell.columnSpan;
         }
-      }
-      Widget grid = _TableGrid(
-        columnWidths: widths,
-        rowCount: table.rows.length,
-        minRowHeights: [for (final row in table.rows) (row.height ?? 0) * wordScale],
-        children: cells,
-      );
-      if (total > available) {
+        Widget grid = _TableGrid(
+          columnWidths: widths,
+          rowCount: table.rows.length,
+          minRowHeights: [for (final row in table.rows) (row.height ?? 0) * wordScale],
+          children: cells,
+        );
+        if (total > available) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: WordTableView.tableMarginY),
+            child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: grid),
+          );
+        }
+        grid = Align(
+          alignment: switch (table.alignment) {
+            ParagraphAlignment.center => Alignment.center,
+            ParagraphAlignment.right => AlignmentDirectional.centerEnd,
+            _ => AlignmentDirectional.centerStart,
+          },
+          child: grid,
+        );
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: WordTableView.tableMarginY),
-          child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: grid),
+          child: grid,
         );
-      }
-      grid = Align(
-        alignment: switch (table.alignment) {
-          ParagraphAlignment.center => Alignment.center,
-          ParagraphAlignment.right => AlignmentDirectional.centerEnd,
-          _ => AlignmentDirectional.centerStart,
-        },
-        child: grid,
-      );
-      return Padding(padding: const EdgeInsets.symmetric(vertical: WordTableView.tableMarginY), child: grid);
-    });
+      },
+    );
   }
 
   static int columnCountOf(WordTable table) {
@@ -395,7 +404,13 @@ class WordTableView extends StatelessWidget {
 }
 
 class _WordTableCellView extends StatelessWidget {
-  const _WordTableCellView(this.cell, {required this.top, required this.left, required this.bottom, required this.right});
+  const _WordTableCellView(
+    this.cell, {
+    required this.top,
+    required this.left,
+    required this.bottom,
+    required this.right,
+  });
 
   final WordTableCell cell;
 
@@ -509,7 +524,9 @@ class _TableGrid extends MultiChildRenderObjectWidget {
 /// height it still needs to the last row it covers. Then every cell is
 /// stretched to its full area, so fills and borders line up.
 class _RenderTableGrid extends RenderBox
-    with ContainerRenderObjectMixin<RenderBox, _TableCellData>, RenderBoxContainerDefaultsMixin<RenderBox, _TableCellData> {
+    with
+        ContainerRenderObjectMixin<RenderBox, _TableCellData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _TableCellData> {
   _RenderTableGrid(this._columnWidths, this._rowCount, this._minRowHeights);
 
   List<double> _columnWidths;

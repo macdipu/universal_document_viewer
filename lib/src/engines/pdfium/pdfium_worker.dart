@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:ffi';
 import 'dart:isolate';
 import 'dart:math' as math;
@@ -112,8 +111,8 @@ class _Document {
 
   /// Recently used page and text-page handles (most recent last), so
   /// rendering a page's tiles or searching it doesn't reload it each time.
-  final _pageCache = LinkedHashMap<int, Pointer<fpdf_page_t__>>();
-  final _textCache = LinkedHashMap<int, Pointer<fpdf_textpage_t__>>();
+  final _pageCache = <int, Pointer<fpdf_page_t__>>{};
+  final _textCache = <int, Pointer<fpdf_textpage_t__>>{};
   static const _cacheSize = 6;
 
   Pointer<fpdf_page_t__> page(int index) {
@@ -133,17 +132,17 @@ class _Document {
   /// The page's rotation and crop box, for mapping text and link boxes to
   /// the displayed page.
   _PageGeometry geometry(int index) => _geometry[index] ??= using((arena) {
-        final page = this.page(index);
-        final rotation = FPDFPage_GetRotation(page) & 3;
-        final box = arena<FS_RECTF>();
-        final double left, top, right, bottom;
-        if (FPDF_GetPageBoundingBox(page, box) != 0) {
-          (left, top, right, bottom) = (box.ref.left, box.ref.top, box.ref.right, box.ref.bottom);
-        } else {
-          (left, top, right, bottom) = (0, FPDF_GetPageHeightF(page), FPDF_GetPageWidthF(page), 0);
-        }
-        return _PageGeometry(rotation, left, top, right, bottom);
-      });
+    final page = this.page(index);
+    final rotation = FPDFPage_GetRotation(page) & 3;
+    final box = arena<FS_RECTF>();
+    final double left, top, right, bottom;
+    if (FPDF_GetPageBoundingBox(page, box) != 0) {
+      (left, top, right, bottom) = (box.ref.left, box.ref.top, box.ref.right, box.ref.bottom);
+    } else {
+      (left, top, right, bottom) = (0, FPDF_GetPageHeightF(page), FPDF_GetPageWidthF(page), 0);
+    }
+    return _PageGeometry(rotation, left, top, right, bottom);
+  });
 
   Pointer<fpdf_textpage_t__> textPage(int index) {
     final cached = _textCache.remove(index);
@@ -249,8 +248,7 @@ class _Worker {
     _schedule();
   }
 
-  _Document _document(Object? id) =>
-      _documents[id] ?? (throw const _WorkerError('closed', 'Document is closed'));
+  _Document _document(Object? id) => _documents[id] ?? (throw const _WorkerError('closed', 'Document is closed'));
 
   Object? _run(_Task task) {
     final args = task.args;
@@ -258,15 +256,15 @@ class _Worker {
       PdfiumOp.open => _open(args[0], args[1] as String?),
       PdfiumOp.close => _close(args[0]! as int),
       PdfiumOp.render => _render(
-          _document(args[0]),
-          args[1]! as int,
-          fullWidth: args[2]! as int,
-          fullHeight: args[3]! as int,
-          x: args[4]! as int,
-          y: args[5]! as int,
-          width: args[6]! as int,
-          height: args[7]! as int,
-        ),
+        _document(args[0]),
+        args[1]! as int,
+        fullWidth: args[2]! as int,
+        fullHeight: args[3]! as int,
+        x: args[4]! as int,
+        y: args[5]! as int,
+        width: args[6]! as int,
+        height: args[7]! as int,
+      ),
       PdfiumOp.text => _text(_document(args[0]), args[1]! as int),
       PdfiumOp.search => _search(_document(args[0]), args[1]! as int, args[2]! as String),
       PdfiumOp.links => _links(_document(args[0]), args[1]! as int),
@@ -421,8 +419,8 @@ class _Worker {
       final l = boxes[i * 4], t = boxes[i * 4 + 1], r = boxes[i * 4 + 2], b = boxes[i * 4 + 3];
       if (r <= l && b <= t) continue;
       final last = rects.length - 4;
-      final sameLine = last >= 0 &&
-          (sideways ? l < rects[last + 2] && r > rects[last] : t < rects[last + 3] && b > rects[last + 1]);
+      final sameLine =
+          last >= 0 && (sideways ? l < rects[last + 2] && r > rects[last] : t < rects[last + 3] && b > rects[last + 1]);
       if (sameLine) {
         rects[last] = math.min(rects[last], l);
         rects[last + 1] = math.min(rects[last + 1], t);

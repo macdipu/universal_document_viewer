@@ -26,11 +26,8 @@ class SlideDeckView extends StatelessWidget {
             controller: controller.pageController,
             itemCount: controller.slides.length,
             onPageChanged: controller.onSlideChanged,
-            itemBuilder: (context, index) => SlideCard(
-              slide: controller.slides[index],
-              number: index + 1,
-              highlight: controller.searchQuery.trim(),
-            ),
+            itemBuilder: (context, index) =>
+                SlideCard(slide: controller.slides[index], number: index + 1, highlight: controller.searchQuery.trim()),
           ),
         );
       },
@@ -126,10 +123,7 @@ class SlideCard extends StatelessWidget {
               TableRow(
                 children: [
                   for (final cell in row)
-                    Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: _text(context, cell, text.bodyMedium),
-                    ),
+                    Padding(padding: const EdgeInsets.all(8), child: _text(context, cell, text.bodyMedium)),
                   // Merged cells leave rows short; Table needs them even.
                   for (var i = row.length; i < _columnCount(rows); i++) const SizedBox.shrink(),
                 ],
@@ -138,7 +132,7 @@ class SlideCard extends StatelessWidget {
         ),
       ),
       PptxImage(:final bytes) => Center(
-        child: Image.memory(bytes, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+        child: Image.memory(bytes, fit: BoxFit.contain, errorBuilder: (_, _, _) => const SizedBox.shrink()),
       ),
     };
   }

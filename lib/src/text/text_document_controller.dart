@@ -89,7 +89,7 @@ class TextDocumentController extends ChangeNotifier {
   /// The view reports every scroll here.
   void onScrolled(double offset) => onPositionChanged?.call({
     PositionKeys.scrollOffset: offset,
-    if (lineAtOffsetResolver?.call(offset) case final line?) PositionKeys.line: line,
+    PositionKeys.line: ?lineAtOffsetResolver?.call(offset),
   });
 
   String _query = '';

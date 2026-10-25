@@ -216,7 +216,13 @@ class WordBreak extends WordInline {
 }
 
 class WordImage extends WordInline {
-  const WordImage({required this.part, required this.width, required this.height, this.description, this.floating = false});
+  const WordImage({
+    required this.part,
+    required this.width,
+    required this.height,
+    this.description,
+    this.floating = false,
+  });
 
   /// Key into [WordDocument.images].
   final String part;
@@ -353,23 +359,23 @@ class ParagraphFormat {
   /// The same formatting with different spacing (for the two pieces of a
   /// paragraph split across pages).
   ParagraphFormat withSpacing({double? before, double? after}) => ParagraphFormat(
-        alignment: alignment,
-        indentLeft: indentLeft,
-        indentRight: indentRight,
-        firstLineIndent: firstLineIndent,
-        spaceBefore: before ?? spaceBefore,
-        spaceAfter: after ?? spaceAfter,
-        lineSpacing: lineSpacing,
-        lineSpacingRule: lineSpacingRule,
-        fill: fill,
-        borderTop: borderTop,
-        borderBottom: borderBottom,
-        borderLeft: borderLeft,
-        borderRight: borderRight,
-        pageBreakBefore: pageBreakBefore,
-        keepWithNext: keepWithNext,
-        rightToLeft: rightToLeft,
-      );
+    alignment: alignment,
+    indentLeft: indentLeft,
+    indentRight: indentRight,
+    firstLineIndent: firstLineIndent,
+    spaceBefore: before ?? spaceBefore,
+    spaceAfter: after ?? spaceAfter,
+    lineSpacing: lineSpacing,
+    lineSpacingRule: lineSpacingRule,
+    fill: fill,
+    borderTop: borderTop,
+    borderBottom: borderBottom,
+    borderLeft: borderLeft,
+    borderRight: borderRight,
+    pageBreakBefore: pageBreakBefore,
+    keepWithNext: keepWithNext,
+    rightToLeft: rightToLeft,
+  );
 }
 
 enum UnderlineStyle { none, single, double, dotted, dashed, wavy }
@@ -441,8 +447,22 @@ class RunFormat {
       other.letterSpacing == letterSpacing;
 
   @override
-  int get hashCode => Object.hash(bold, italic, underline, strike, doubleStrike, color, highlight, fill, size, font,
-      verticalPosition, allCaps, smallCaps, letterSpacing);
+  int get hashCode => Object.hash(
+    bold,
+    italic,
+    underline,
+    strike,
+    doubleStrike,
+    color,
+    highlight,
+    fill,
+    size,
+    font,
+    verticalPosition,
+    allCaps,
+    smallCaps,
+    letterSpacing,
+  );
 }
 
 /// A list item's number or bullet, already worked out (`1.`, `2.3`, `iv)`,

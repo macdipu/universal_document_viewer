@@ -101,7 +101,7 @@ Uint8List buildXlsx(List<XlsxTestSheet> sheets, {List<String> dxfs = const []}) 
 
   int styleFor(XlsxTestCell cell) {
     final border = cell.border == null ? null : borderXml(cell);
-    final key = '${cell.bold}|${cell.fill}|${cell.numberFormat}|${border == null ? 'null' : '$border'}';
+    final key = '${cell.bold}|${cell.fill}|${cell.numberFormat}|${border ?? 'null'}';
     final i = styleKeys.indexOf(key);
     if (i != -1) return i;
     styleKeys.add(key);
@@ -126,10 +126,10 @@ Uint8List buildXlsx(List<XlsxTestSheet> sheets, {List<String> dxfs = const []}) 
       final bool flag => '<c r="$ref" t="b"$s><v>${flag ? 1 : 0}</v></c>',
       final num number => '<c r="$ref"$s><v>$number</v></c>',
       XlsxTestFormula(:final formula, :final cached) => switch (cached) {
-          null => '<c r="$ref"$s><f>${esc(formula)}</f></c>',
-          final String text => '<c r="$ref" t="str"$s><f>${esc(formula)}</f><v>${esc(text)}</v></c>',
-          final Object other => '<c r="$ref"$s><f>${esc(formula)}</f><v>$other</v></c>',
-        },
+        null => '<c r="$ref"$s><f>${esc(formula)}</f></c>',
+        final String text => '<c r="$ref" t="str"$s><f>${esc(formula)}</f><v>${esc(text)}</v></c>',
+        final Object other => '<c r="$ref"$s><f>${esc(formula)}</f><v>$other</v></c>',
+      },
       _ => throw ArgumentError('Unsupported cell value: $value'),
     };
   }
@@ -139,12 +139,16 @@ Uint8List buildXlsx(List<XlsxTestSheet> sheets, {List<String> dxfs = const []}) 
   final archive = Archive();
   void add(String name, String text) => archive.addFile(ArchiveFile.bytes(name, utf8.encode(text)));
 
-  add('_rels/.rels',
-      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="$pkg"><Relationship Id="rId1" Type="$rel/officeDocument" Target="xl/workbook.xml"/></Relationships>');
-  add('xl/workbook.xml',
-      '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="$main" xmlns:r="$rel"><sheets>'
-      '${[for (var i = 0; i < sheets.length; i++) '<sheet name="${esc(sheets[i].name)}" sheetId="${i + 1}"${sheets[i].state == null ? '' : ' state="${sheets[i].state}"'} r:id="rId${i + 1}"/>'].join()}'
-      '</sheets></workbook>');
+  add(
+    '_rels/.rels',
+    '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="$pkg"><Relationship Id="rId1" Type="$rel/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+  );
+  add(
+    'xl/workbook.xml',
+    '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="$main" xmlns:r="$rel"><sheets>'
+        '${[for (var i = 0; i < sheets.length; i++) '<sheet name="${esc(sheets[i].name)}" sheetId="${i + 1}"${sheets[i].state == null ? '' : ' state="${sheets[i].state}"'} r:id="rId${i + 1}"/>'].join()}'
+        '</sheets></workbook>',
+  );
 
   for (var i = 0; i < sheets.length; i++) {
     final sheet = sheets[i];
@@ -156,23 +160,33 @@ Uint8List buildXlsx(List<XlsxTestSheet> sheets, {List<String> dxfs = const []}) 
     final pane = sheet.frozenRows == 0 && sheet.frozenColumns == 0
         ? ''
         : '<sheetViews><sheetView workbookViewId="0"><pane xSplit="${sheet.frozenColumns}" ySplit="${sheet.frozenRows}" state="frozen"/></sheetView></sheetViews>';
-    add('xl/worksheets/sheet${i + 1}.xml',
-        '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="$main">$pane<sheetData>'
-        '${[for (final r in rowNumbers) '<row r="$r">${[for (final e in byRow[r]!) cellXml(e.key, e.value)].join()}</row>'].join()}'
-        '</sheetData>${sheet.afterSheetData}</worksheet>');
+    add(
+      'xl/worksheets/sheet${i + 1}.xml',
+      '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="$main">$pane<sheetData>'
+          '${[
+            for (final r in rowNumbers) '<row r="$r">${[for (final e in byRow[r]!) cellXml(e.key, e.value)].join()}</row>',
+          ].join()}'
+          '</sheetData>${sheet.afterSheetData}</worksheet>',
+    );
     if (sheet.comments.isNotEmpty) {
       final authors = {for (final c in sheet.comments.values) c.author}.toList();
-      add('xl/comments${i + 1}.xml',
-          '<?xml version="1.0" encoding="UTF-8"?><comments xmlns="$main"><authors>${[for (final a in authors) '<author>${esc(a)}</author>'].join()}</authors><commentList>'
-          '${[for (final MapEntry(:key, :value) in sheet.comments.entries) '<comment ref="$key" authorId="${authors.indexOf(value.author)}"><text><r><t xml:space="preserve">${esc(value.text)}</t></r></text></comment>'].join()}'
-          '</commentList></comments>');
-      add('xl/worksheets/_rels/sheet${i + 1}.xml.rels',
-          '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="$pkg"><Relationship Id="rId1" Type="$rel/comments" Target="../comments${i + 1}.xml"/></Relationships>');
+      add(
+        'xl/comments${i + 1}.xml',
+        '<?xml version="1.0" encoding="UTF-8"?><comments xmlns="$main"><authors>${[for (final a in authors) '<author>${esc(a)}</author>'].join()}</authors><commentList>'
+            '${[for (final MapEntry(:key, :value) in sheet.comments.entries) '<comment ref="$key" authorId="${authors.indexOf(value.author)}"><text><r><t xml:space="preserve">${esc(value.text)}</t></r></text></comment>'].join()}'
+            '</commentList></comments>',
+      );
+      add(
+        'xl/worksheets/_rels/sheet${i + 1}.xml.rels',
+        '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="$pkg"><Relationship Id="rId1" Type="$rel/comments" Target="../comments${i + 1}.xml"/></Relationships>',
+      );
     }
   }
 
-  add('xl/sharedStrings.xml',
-      '<?xml version="1.0" encoding="UTF-8"?><sst xmlns="$main">${[for (final s in strings) '<si><t xml:space="preserve">${esc(s)}</t></si>'].join()}</sst>');
+  add(
+    'xl/sharedStrings.xml',
+    '<?xml version="1.0" encoding="UTF-8"?><sst xmlns="$main">${[for (final s in strings) '<si><t xml:space="preserve">${esc(s)}</t></si>'].join()}</sst>',
+  );
 
   final xfs = [
     for (final key in styleKeys)
@@ -188,15 +202,17 @@ Uint8List buildXlsx(List<XlsxTestSheet> sheets, {List<String> dxfs = const []}) 
           return '<xf numFmtId="$numFmtId" fontId="$fontId" fillId="$fillId" borderId="$borderId"/>';
         }(),
   ];
-  add('xl/styles.xml',
-      '<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="$main">'
-      '<numFmts>${[for (var i = 0; i < customFormats.length; i++) '<numFmt numFmtId="${164 + i}" formatCode="${esc(customFormats[i]).replaceAll('"', '&quot;')}"/>'].join()}</numFmts>'
-      '<fonts><font/><font><b/></font></fonts>'
-      '<fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
-      '${[for (final f in fills) '<fill><patternFill patternType="solid"><fgColor rgb="FF$f"/></patternFill></fill>'].join()}</fills>'
-      '<borders><border/>${borders.join()}</borders>'
-      '<cellXfs>${xfs.join()}</cellXfs>'
-      '<dxfs>${dxfs.join()}</dxfs></styleSheet>');
+  add(
+    'xl/styles.xml',
+    '<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="$main">'
+        '<numFmts>${[for (var i = 0; i < customFormats.length; i++) '<numFmt numFmtId="${164 + i}" formatCode="${esc(customFormats[i]).replaceAll('"', '&quot;')}"/>'].join()}</numFmts>'
+        '<fonts><font/><font><b/></font></fonts>'
+        '<fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+        '${[for (final f in fills) '<fill><patternFill patternType="solid"><fgColor rgb="FF$f"/></patternFill></fill>'].join()}</fills>'
+        '<borders><border/>${borders.join()}</borders>'
+        '<cellXfs>${xfs.join()}</cellXfs>'
+        '<dxfs>${dxfs.join()}</dxfs></styleSheet>',
+  );
 
   final workbookRels = [
     for (var i = 0; i < sheets.length; i++)
@@ -204,7 +220,9 @@ Uint8List buildXlsx(List<XlsxTestSheet> sheets, {List<String> dxfs = const []}) 
     '<Relationship Id="rId${sheets.length + 1}" Type="$rel/sharedStrings" Target="sharedStrings.xml"/>',
     '<Relationship Id="rId${sheets.length + 2}" Type="$rel/styles" Target="styles.xml"/>',
   ];
-  add('xl/_rels/workbook.xml.rels',
-      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="$pkg">${workbookRels.join()}</Relationships>');
+  add(
+    'xl/_rels/workbook.xml.rels',
+    '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="$pkg">${workbookRels.join()}</Relationships>',
+  );
   return Uint8List.fromList(ZipEncoder().encodeBytes(archive));
 }

@@ -57,13 +57,13 @@ void main() {
 
   group('TextLineMetrics.lineAt', () {
     TextLineMetrics metrics({required bool wrap}) => TextLineMetrics(
-          lines: [for (var i = 0; i < 50; i++) i.isEven ? 'short' : 'a longer line ' * 8],
-          style: const TextStyle(fontSize: 10),
-          textScaler: TextScaler.noScaling,
-          contentWidth: 200,
-          wrap: wrap,
-          verticalPadding: 4,
-        );
+      lines: [for (var i = 0; i < 50; i++) i.isEven ? 'short' : 'a longer line ' * 8],
+      style: const TextStyle(fontSize: 10),
+      textScaler: TextScaler.noScaling,
+      contentWidth: 200,
+      wrap: wrap,
+      verticalPadding: 4,
+    );
 
     test('is the inverse of offsetOf, wrapped or not', () {
       for (final wrap in [true, false]) {

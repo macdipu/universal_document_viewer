@@ -47,9 +47,9 @@ abstract final class XlsxReader {
     final rels = package.relationshipsOf(workbookPath);
     String? partOfType(String kind) => rels.where((r) => !r.external && r.isOfType(kind)).firstOrNull?.target;
     String? textOfType(String kind) => switch (partOfType(kind)) {
-          final path? => package.readText(path),
-          null => null,
-        };
+      final path? => package.readText(path),
+      null => null,
+    };
 
     final date1904 = switch (_child(workbook.rootElement, 'workbookPr')?.getAttribute('date1904')) {
       '1' || 'true' => true,
@@ -73,23 +73,28 @@ abstract final class XlsxReader {
       final xml = target == null ? null : package.readText(target);
       final sheetRels = target == null ? const <OpcRelationship>[] : package.relationshipsOf(target);
       // A chart sheet or a missing part: an empty sheet keeps tabs in step.
-      sheets.add(xml == null
-          ? Worksheet(name: name, rows: const [], visibility: visibility)
-          : _worksheet(
-              xml,
-              name: name,
-              visibility: visibility,
-              sharedStrings: sharedStrings,
-              styles: styles,
-              differential: differential,
-              theme: theme,
-              date1904: date1904,
-              links: {
-                for (final rel in sheetRels)
-                  if (rel.isOfType('hyperlink')) rel.id: rel.target,
-              },
-              comments: _comments(package, sheetRels.where((r) => !r.external && r.isOfType('comments')).firstOrNull?.target),
-            ));
+      sheets.add(
+        xml == null
+            ? Worksheet(name: name, rows: const [], visibility: visibility)
+            : _worksheet(
+                xml,
+                name: name,
+                visibility: visibility,
+                sharedStrings: sharedStrings,
+                styles: styles,
+                differential: differential,
+                theme: theme,
+                date1904: date1904,
+                links: {
+                  for (final rel in sheetRels)
+                    if (rel.isOfType('hyperlink')) rel.id: rel.target,
+                },
+                comments: _comments(
+                  package,
+                  sheetRels.where((r) => !r.external && r.isOfType('comments')).firstOrNull?.target,
+                ),
+              ),
+      );
     }
     return Workbook(sheets, date1904: date1904);
   }
@@ -177,7 +182,20 @@ abstract final class XlsxReader {
       return hex == null ? null : int.tryParse('FF$hex', radix: 16);
     }
 
-    const order = ['lt1', 'dk1', 'lt2', 'dk2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6', 'hlink', 'folHlink'];
+    const order = [
+      'lt1',
+      'dk1',
+      'lt2',
+      'dk2',
+      'accent1',
+      'accent2',
+      'accent3',
+      'accent4',
+      'accent5',
+      'accent6',
+      'hlink',
+      'folHlink',
+    ];
     return [for (var i = 0; i < order.length; i++) colorOf(order[i]) ?? _defaultTheme[i]];
   }
 
@@ -199,7 +217,7 @@ abstract final class XlsxReader {
 
     final customFormats = <int, String>{
       for (final f in _child(root, 'numFmts')?.childElements ?? const <XmlElement>[])
-        if (int.tryParse(f.getAttribute('numFmtId') ?? '') case final id?) id: f.getAttribute('formatCode') ?? 'General',
+        ?int.tryParse(f.getAttribute('numFmtId') ?? ''): f.getAttribute('formatCode') ?? 'General',
     };
 
     final fonts = [
@@ -249,7 +267,8 @@ abstract final class XlsxReader {
             // Black is the automatic colour; leave it to the theme.
             textColor: font?.color == 0xFF000000 ? null : font?.color,
             fillColor: fillId < fills.length ? fills[fillId] : null,
-            horizontalAlignment: HorizontalAlignment.values.asNameMap()[alignment?.getAttribute('horizontal')] ??
+            horizontalAlignment:
+                HorizontalAlignment.values.asNameMap()[alignment?.getAttribute('horizontal')] ??
                 HorizontalAlignment.general,
             verticalAlignment:
                 VerticalAlignment.values.asNameMap()[alignment?.getAttribute('vertical')] ?? VerticalAlignment.bottom,
@@ -269,12 +288,15 @@ abstract final class XlsxReader {
   /// A `<border>`'s four sides (§18.8.4); diagonals aren't drawn.
   static CellBorders _borders(XmlElement border, List<int> theme) {
     BorderLine? side(String name) {
-      final element = _child(border, name) ?? (name == 'left' ? _child(border, 'start') : null) ??
+      final element =
+          _child(border, name) ??
+          (name == 'left' ? _child(border, 'start') : null) ??
           (name == 'right' ? _child(border, 'end') : null);
-      final style = BorderLineStyle.values.asNameMap()[switch (element?.getAttribute('style')) {
-        'double' => 'doubleLine',
-        final other => other,
-      }];
+      final style =
+          BorderLineStyle.values.asNameMap()[switch (element?.getAttribute('style')) {
+            'double' => 'doubleLine',
+            final other => other,
+          }];
       if (style == null) return null;
       final color = switch (_child(element!, 'color')) {
         final c? when c.getAttribute('auto') != '1' && c.getAttribute('auto') != 'true' => _color(c, theme),
@@ -293,9 +315,9 @@ abstract final class XlsxReader {
   static DifferentialStyle _differentialStyle(XmlElement dxf, List<int> theme) {
     final font = _child(dxf, 'font');
     bool? flag(String name) => switch (font == null ? null : _child(font, name)) {
-          null => null,
-          final element => _flag(element),
-        };
+      null => null,
+      final element => _flag(element),
+    };
     final pattern = switch (_child(dxf, 'fill')) {
       final fill? => _child(fill, 'patternFill'),
       null => null,
@@ -722,7 +744,8 @@ abstract final class XlsxReader {
     final parts = ref.split(':');
     final first = parts.first;
     final last = parts.length > 1 ? parts[1] : first;
-    if (!RegExp(r'^\$?[A-Za-z]{1,3}\$?\d{1,7}$').hasMatch(first) || !RegExp(r'^\$?[A-Za-z]{1,3}\$?\d{1,7}$').hasMatch(last)) {
+    if (!RegExp(r'^\$?[A-Za-z]{1,3}\$?\d{1,7}$').hasMatch(first) ||
+        !RegExp(r'^\$?[A-Za-z]{1,3}\$?\d{1,7}$').hasMatch(last)) {
       return null;
     }
     final (firstRow, firstColumn) = (_rowOf(first), _columnOf(first.replaceAll(r'$', '')));
@@ -748,9 +771,9 @@ abstract final class XlsxReader {
     List<DifferentialStyle> differential,
   ) {
     bool flag(String name, bool absent) => switch (attributes[name]) {
-          null => absent,
-          final v => v == '1' || v == 'true',
-        };
+      null => absent,
+      final v => v == '1' || v == 'true',
+    };
     int number(String name, int absent) => int.tryParse(attributes[name] ?? '') ?? absent;
     final dxfId = int.tryParse(attributes['dxfId'] ?? '');
     return ConditionalRule(
@@ -805,7 +828,13 @@ abstract final class XlsxReader {
         // and hex, which no spreadsheet writes as a number.
         final text = raw?.trim() ?? '';
         final number = _decimal.hasMatch(text) ? num.tryParse(text) : null;
-        result = number == null || !number.isFinite ? null : NumberValue(number is double && number == number.truncateToDouble() && number.abs() < 1e15 ? number.toInt() : number);
+        result = number == null || !number.isFinite
+            ? null
+            : NumberValue(
+                number is double && number == number.truncateToDouble() && number.abs() < 1e15
+                    ? number.toInt()
+                    : number,
+              );
     }
     if (formula == null) return result;
     return FormulaValue(_unescapeOoxml(formula), cached: result, array: array);

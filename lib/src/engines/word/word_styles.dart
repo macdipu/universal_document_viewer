@@ -33,9 +33,9 @@ bool? wOnOff(XmlElement? element) {
 /// Twentieths of a point -> points. `double.tryParse` also accepts
 /// `Infinity` and `NaN`, which no measurement can be: those read as unset.
 double? twips(String? value) => switch (double.tryParse(value ?? '')) {
-      final v? when v.isFinite => v / 20,
-      _ => null,
-    };
+  final v? when v.isFinite => v / 20,
+  _ => null,
+};
 
 // --- Theme -----------------------------------------------------------------
 
@@ -43,11 +43,15 @@ double? twips(String? value) => switch (double.tryParse(value ?? '')) {
 class WordTheme {
   const WordTheme({this.majorFont, this.minorFont, this.colors = const {}});
 
-  static const standard = WordTheme(majorFont: 'Calibri Light', minorFont: 'Calibri', colors: {
-    'dk1': 0xFF000000, 'lt1': 0xFFFFFFFF, 'dk2': 0xFF44546A, 'lt2': 0xFFE7E6E6, //
-    'accent1': 0xFF4472C4, 'accent2': 0xFFED7D31, 'accent3': 0xFFA5A5A5, 'accent4': 0xFFFFC000,
-    'accent5': 0xFF5B9BD5, 'accent6': 0xFF70AD47, 'hlink': 0xFF0563C1, 'folHlink': 0xFF954F72,
-  });
+  static const standard = WordTheme(
+    majorFont: 'Calibri Light',
+    minorFont: 'Calibri',
+    colors: {
+      'dk1': 0xFF000000, 'lt1': 0xFFFFFFFF, 'dk2': 0xFF44546A, 'lt2': 0xFFE7E6E6, //
+      'accent1': 0xFF4472C4, 'accent2': 0xFFED7D31, 'accent3': 0xFFA5A5A5, 'accent4': 0xFFFFC000,
+      'accent5': 0xFF5B9BD5, 'accent6': 0xFF70AD47, 'hlink': 0xFF0563C1, 'folHlink': 0xFF954F72,
+    },
+  );
 
   final String? majorFont;
   final String? minorFont;
@@ -210,21 +214,21 @@ class RunProps {
   }
 
   RunFormat build() => RunFormat(
-        bold: bold ?? false,
-        italic: italic ?? false,
-        underline: underline ?? UnderlineStyle.none,
-        strike: strike ?? false,
-        doubleStrike: doubleStrike ?? false,
-        color: color,
-        highlight: highlight,
-        fill: fill,
-        size: size ?? 11,
-        font: font,
-        verticalPosition: verticalPosition ?? VerticalTextPosition.baseline,
-        allCaps: allCaps ?? false,
-        smallCaps: smallCaps ?? false,
-        letterSpacing: letterSpacing ?? 0,
-      );
+    bold: bold ?? false,
+    italic: italic ?? false,
+    underline: underline ?? UnderlineStyle.none,
+    strike: strike ?? false,
+    doubleStrike: doubleStrike ?? false,
+    color: color,
+    highlight: highlight,
+    fill: fill,
+    size: size ?? 11,
+    font: font,
+    verticalPosition: verticalPosition ?? VerticalTextPosition.baseline,
+    allCaps: allCaps ?? false,
+    smallCaps: smallCaps ?? false,
+    letterSpacing: letterSpacing ?? 0,
+  );
 }
 
 /// Paragraph properties as they accumulate; null means "not set here".
@@ -338,23 +342,23 @@ class ParaProps {
   }
 
   ParagraphFormat build() => ParagraphFormat(
-        alignment: alignment ?? ParagraphAlignment.left,
-        indentLeft: indentLeft ?? 0,
-        indentRight: indentRight ?? 0,
-        firstLineIndent: firstLineIndent ?? 0,
-        spaceBefore: spaceBefore ?? 0,
-        spaceAfter: spaceAfter ?? 0,
-        lineSpacing: lineSpacing ?? 1,
-        lineSpacingRule: lineSpacingRule ?? LineSpacingRule.auto,
-        fill: fill,
-        borderTop: borderTop,
-        borderBottom: borderBottom,
-        borderLeft: borderLeft,
-        borderRight: borderRight,
-        pageBreakBefore: pageBreakBefore ?? false,
-        keepWithNext: keepWithNext ?? false,
-        rightToLeft: rightToLeft ?? false,
-      );
+    alignment: alignment ?? ParagraphAlignment.left,
+    indentLeft: indentLeft ?? 0,
+    indentRight: indentRight ?? 0,
+    firstLineIndent: firstLineIndent ?? 0,
+    spaceBefore: spaceBefore ?? 0,
+    spaceAfter: spaceAfter ?? 0,
+    lineSpacing: lineSpacing ?? 1,
+    lineSpacingRule: lineSpacingRule ?? LineSpacingRule.auto,
+    fill: fill,
+    borderTop: borderTop,
+    borderBottom: borderBottom,
+    borderLeft: borderLeft,
+    borderRight: borderRight,
+    pageBreakBefore: pageBreakBefore ?? false,
+    keepWithNext: keepWithNext ?? false,
+    rightToLeft: rightToLeft ?? false,
+  );
 }
 
 // --- Colours ---------------------------------------------------------------
@@ -480,14 +484,22 @@ class WordStyles {
       final id = wAttr(style, 'styleId');
       if (id == null) continue;
       styles[id] = style;
-      final isDefault = switch (wAttr(style, 'default')) { '1' || 'true' || 'on' => true, _ => false };
+      final isDefault = switch (wAttr(style, 'default')) {
+        '1' || 'true' || 'on' => true,
+        _ => false,
+      };
       if (isDefault && wAttr(style, 'type') == 'paragraph') defaultParagraph ??= id;
     }
     final defaults = wChild(root, 'docDefaults');
     final run = RunProps()..read(wChild(wChild(defaults, 'rPrDefault'), 'rPr'), theme);
     final paragraph = ParaProps()..read(wChild(wChild(defaults, 'pPrDefault'), 'pPr'), theme);
-    return WordStyles._(theme, styles, defaultParagraph ?? (styles.containsKey('Normal') ? 'Normal' : null), run,
-        paragraph);
+    return WordStyles._(
+      theme,
+      styles,
+      defaultParagraph ?? (styles.containsKey('Normal') ? 'Normal' : null),
+      run,
+      paragraph,
+    );
   }
 
   /// The chain from [id] up through `basedOn`, root first.
@@ -654,22 +666,22 @@ class WordNumbering {
   static int _clampNumber(int value) => value.clamp(0, _maxNumber);
 
   static _Level _readLevel(XmlElement level, int ilvl, WordTheme theme) => _Level(
-        start: _clampNumber(int.tryParse(wAttr(wChild(level, 'start'), 'val') ?? '') ?? 1),
-        format: wAttr(wChild(level, 'numFmt'), 'val') ?? 'decimal',
-        text: wAttr(wChild(level, 'lvlText'), 'val') ?? '',
-        paragraph: ParaProps()..read(wChild(level, 'pPr'), theme),
-        run: RunProps()..read(wChild(level, 'rPr'), theme),
-        suffix: switch (wAttr(wChild(level, 'suff'), 'val')) {
-          'space' => ListMarkerSuffix.space,
-          'nothing' => ListMarkerSuffix.nothing,
-          _ => ListMarkerSuffix.tab,
-        },
-        restartAfter: switch (int.tryParse(wAttr(wChild(level, 'lvlRestart'), 'val') ?? '')) {
-          0 => -1,
-          final v? => v - 1,
-          null => ilvl - 1,
-        },
-      );
+    start: _clampNumber(int.tryParse(wAttr(wChild(level, 'start'), 'val') ?? '') ?? 1),
+    format: wAttr(wChild(level, 'numFmt'), 'val') ?? 'decimal',
+    text: wAttr(wChild(level, 'lvlText'), 'val') ?? '',
+    paragraph: ParaProps()..read(wChild(level, 'pPr'), theme),
+    run: RunProps()..read(wChild(level, 'rPr'), theme),
+    suffix: switch (wAttr(wChild(level, 'suff'), 'val')) {
+      'space' => ListMarkerSuffix.space,
+      'nothing' => ListMarkerSuffix.nothing,
+      _ => ListMarkerSuffix.tab,
+    },
+    restartAfter: switch (int.tryParse(wAttr(wChild(level, 'lvlRestart'), 'val') ?? '')) {
+      0 => -1,
+      final v? => v - 1,
+      null => ilvl - 1,
+    },
+  );
 
   _Level? _level(int numId, int level) => _abstract[_nums[numId]]?[level];
 
@@ -715,16 +727,16 @@ class WordNumbering {
 
   /// A number in a list format (§17.18.59).
   static String formatNumber(int value, String format) => switch (format) {
-        'lowerLetter' => _letters(value).toLowerCase(),
-        'upperLetter' => _letters(value),
-        'lowerRoman' => _roman(value).toLowerCase(),
-        'upperRoman' => _roman(value),
-        'decimalZero' => value.toString().padLeft(2, '0'),
-        'ordinal' => '$value${_ordinalSuffix(value)}',
-        'none' => '',
-        'bullet' => '',
-        _ => '$value',
-      };
+    'lowerLetter' => _letters(value).toLowerCase(),
+    'upperLetter' => _letters(value),
+    'lowerRoman' => _roman(value).toLowerCase(),
+    'upperRoman' => _roman(value),
+    'decimalZero' => value.toString().padLeft(2, '0'),
+    'ordinal' => '$value${_ordinalSuffix(value)}',
+    'none' => '',
+    'bullet' => '',
+    _ => '$value',
+  };
 
   static String _letters(int value) {
     if (value <= 0) return '';
@@ -752,7 +764,12 @@ class WordNumbering {
 
   static String _ordinalSuffix(int value) {
     if (value % 100 >= 11 && value % 100 <= 13) return 'th';
-    return switch (value % 10) { 1 => 'st', 2 => 'nd', 3 => 'rd', _ => 'th' };
+    return switch (value % 10) {
+      1 => 'st',
+      2 => 'nd',
+      3 => 'rd',
+      _ => 'th',
+    };
   }
 
   /// Symbol-font bullets are Private Use Area characters that mean nothing

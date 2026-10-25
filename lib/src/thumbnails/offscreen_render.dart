@@ -21,13 +21,16 @@ Future<ui.Image> renderOffscreen(
   ThemeData? theme,
   Duration imageTimeout = const Duration(seconds: 3),
 }) async {
-  final view = WidgetsBinding.instance.platformDispatcher.implicitView ??
-      WidgetsBinding.instance.platformDispatcher.views.first;
+  final view =
+      WidgetsBinding.instance.platformDispatcher.implicitView ?? WidgetsBinding.instance.platformDispatcher.views.first;
   final boundary = RenderRepaintBoundary();
   final positioned = RenderPositionedBox(alignment: Alignment.topLeft, child: boundary);
   final renderView = RenderView(
     view: view,
-    configuration: ViewConfiguration(logicalConstraints: BoxConstraints.tight(size), physicalConstraints: BoxConstraints.tight(size)),
+    configuration: ViewConfiguration(
+      logicalConstraints: BoxConstraints.tight(size),
+      physicalConstraints: BoxConstraints.tight(size),
+    ),
     child: positioned,
   );
   final pipelineOwner = PipelineOwner()..rootNode = renderView;
@@ -52,7 +55,10 @@ Future<ui.Image> renderOffscreen(
             child: Overlay.wrap(
               child: Material(
                 color: Colors.white,
-                child: SizedBox.fromSize(size: size, child: ClipRect(child: page)),
+                child: SizedBox.fromSize(
+                  size: size,
+                  child: ClipRect(child: page),
+                ),
               ),
             ),
           ),
@@ -158,7 +164,8 @@ class _NoDeferredLoadingPhysics extends ClampingScrollPhysics {
   const _NoDeferredLoadingPhysics({super.parent});
 
   @override
-  _NoDeferredLoadingPhysics applyTo(ScrollPhysics? ancestor) => _NoDeferredLoadingPhysics(parent: buildParent(ancestor));
+  _NoDeferredLoadingPhysics applyTo(ScrollPhysics? ancestor) =>
+      _NoDeferredLoadingPhysics(parent: buildParent(ancestor));
 
   @override
   bool recommendDeferredLoading(double velocity, ScrollMetrics metrics, BuildContext context) => false;

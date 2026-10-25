@@ -24,15 +24,12 @@ class ReaderPage extends StatelessWidget {
         errorBuilder: (context, error) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(
-              switch (error) {
-                DocumentLoadError.tooLarge => 'This file is too large to open.',
-                DocumentLoadError.corrupted => 'This file is damaged or not what its name says.',
-                DocumentLoadError.passwordRequired => 'This PDF needs a password.',
-                DocumentLoadError.unsupported => 'universal_document_viewer doesn\'t read this kind of file.',
-              },
-              textAlign: TextAlign.center,
-            ),
+            child: Text(switch (error) {
+              DocumentLoadError.tooLarge => 'This file is too large to open.',
+              DocumentLoadError.corrupted => 'This file is damaged or not what its name says.',
+              DocumentLoadError.passwordRequired => 'This PDF needs a password.',
+              DocumentLoadError.unsupported => 'universal_document_viewer doesn\'t read this kind of file.',
+            }, textAlign: TextAlign.center),
           ),
         ),
       ),

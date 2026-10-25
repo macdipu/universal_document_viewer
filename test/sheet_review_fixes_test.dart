@@ -36,11 +36,16 @@ void main() {
 
   group('hostile cell references', () {
     test('cells outside the grid, row 0 and column-less refs are ignored', () {
-      final sheet = sheetOf(const XlsxTestSheet('S', {
-        'A1': 1,
-        'ZZZZZZZ1': XlsxTestXml('<v>2</v>'),
-      }, afterSheetData: '<conditionalFormatting sqref="A0:A2"><cfRule type="containsBlanks" dxfId="0" priority="1"/>'
-          '</conditionalFormatting>'), dxfs: ['<dxf><fill><patternFill><bgColor rgb="FFFF0000"/></patternFill></fill></dxf>']);
+      final sheet = sheetOf(
+        const XlsxTestSheet(
+          'S',
+          {'A1': 1, 'ZZZZZZZ1': XlsxTestXml('<v>2</v>')},
+          afterSheetData:
+              '<conditionalFormatting sqref="A0:A2"><cfRule type="containsBlanks" dxfId="0" priority="1"/>'
+              '</conditionalFormatting>',
+        ),
+        dxfs: ['<dxf><fill><patternFill><bgColor rgb="FFFF0000"/></patternFill></fill></dxf>'],
+      );
       expect(sheet.rows.single.length, 1);
     });
 
@@ -62,21 +67,28 @@ void main() {
     });
 
     test('NaN, Infinity and hex are not numbers', () {
-      final sheet = sheetOf(const XlsxTestSheet('S', {
-        'A1': XlsxTestXml('<v>NaN</v>'),
-        'B1': XlsxTestXml('<v>Infinity</v>'),
-        'C1': XlsxTestXml('<v>0x1F</v>'),
-        'D1': XlsxTestXml('<v>-1.5e3</v>'),
-      }));
+      final sheet = sheetOf(
+        const XlsxTestSheet('S', {
+          'A1': XlsxTestXml('<v>NaN</v>'),
+          'B1': XlsxTestXml('<v>Infinity</v>'),
+          'C1': XlsxTestXml('<v>0x1F</v>'),
+          'D1': XlsxTestXml('<v>-1.5e3</v>'),
+        }),
+      );
       expect([for (final cell in sheet.rows.single) cell?.value], [null, null, null, isA<NumberValue>()]);
     });
   });
 
   test('cellIs notEqual with an operand it can\'t work out matches nothing', () {
     final sheet = sheetOf(
-      const XlsxTestSheet('S', {'A1': 1, 'A2': 2}, afterSheetData: r'<conditionalFormatting sqref="A1:A2">'
-          r'<cfRule type="cellIs" dxfId="0" priority="1" operator="notEqual"><formula>SUM($B$1:$B$3)</formula></cfRule>'
-          '</conditionalFormatting>'),
+      const XlsxTestSheet(
+        'S',
+        {'A1': 1, 'A2': 2},
+        afterSheetData:
+            r'<conditionalFormatting sqref="A1:A2">'
+            r'<cfRule type="cellIs" dxfId="0" priority="1" operator="notEqual"><formula>SUM($B$1:$B$3)</formula></cfRule>'
+            '</conditionalFormatting>',
+      ),
       dxfs: ['<dxf><font><b/></font></dxf>'],
     );
     expect(sheet.rows.map((row) => row.single!.style.bold), [false, false]);
@@ -89,13 +101,21 @@ void main() {
   });
 
   group('go to and sheet switches', () {
-    Future<SpreadsheetController> load(WidgetTester tester, {ReadingPosition? position, ValueChanged<ReadingPosition>? onPosition}) async {
+    Future<SpreadsheetController> load(
+      WidgetTester tester, {
+      ReadingPosition? position,
+      ValueChanged<ReadingPosition>? onPosition,
+    }) async {
       final controller = SpreadsheetController(initialPosition: position, onPositionChanged: onPosition);
       addTearDown(controller.dispose);
-      await tester.runAsync(() => controller.loadXlsx(buildXlsx([
+      await tester.runAsync(
+        () => controller.loadXlsx(
+          buildXlsx([
             XlsxTestSheet('One', {for (var r = 1; r <= 300; r++) 'A$r': r, 'AB12': 'far'}),
             XlsxTestSheet('Two', {for (var r = 1; r <= 300; r++) 'A$r': r}),
-          ])));
+          ]),
+        ),
+      );
       return controller;
     }
 
@@ -120,23 +140,28 @@ void main() {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ListenableBuilder(
-            listenable: controller,
-            // As the app does: each sheet gets its own grid.
-            builder: (context, _) => SheetGrid(key: ValueKey(controller.activeSheetIndex), controller: controller),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListenableBuilder(
+              listenable: controller,
+              // As the app does: each sheet gets its own grid.
+              builder: (context, _) => SheetGrid(key: ValueKey(controller.activeSheetIndex), controller: controller),
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
       expect(controller.verticalController.offset, closeTo(1000, 1));
 
       controller.switchSheet(1);
-      expect(reported.last[PositionKeys.verticalOffset], 0.0, reason: "the old sheet's offset isn't reported for the new");
+      expect(
+        reported.last[PositionKeys.verticalOffset],
+        0.0,
+        reason: "the old sheet's offset isn't reported for the new",
+      );
       await tester.pumpAndSettle();
       expect(controller.verticalController.offset, 0);
     });
   });
 }
-

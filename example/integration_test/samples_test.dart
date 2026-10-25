@@ -72,7 +72,11 @@ void main() {
   }
 
   testWidgets('locked.pdf opens with its password', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: ReaderPage(library: library, path: sample('locked.pdf'))));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderPage(library: library, path: sample('locked.pdf')),
+      ),
+    );
     await settle(tester, limit: const Duration(seconds: 5));
     expect(find.text('Password'), findsOneWidget);
     await tester.enterText(find.byType(TextField), DocumentLibrary.lockedPdfPassword);

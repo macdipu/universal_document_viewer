@@ -54,9 +54,13 @@ void main() {
     final png = [0x89, 0x50, 0x4E, 0x47, 1, 2, 3];
     final bytes = buildPptx(
       [picture('rIdImg') + picture('rIdVector')],
-      media: {'image1.png': png, 'image2.emf': [1, 2]},
+      media: {
+        'image1.png': png,
+        'image2.emf': [1, 2],
+      },
       slideRels: {
-        0: '<Relationship Id="rIdImg" Type="image" Target="../media/image1.png"/>'
+        0:
+            '<Relationship Id="rIdImg" Type="image" Target="../media/image1.png"/>'
             '<Relationship Id="rIdVector" Type="image" Target="../media/image2.emf"/>',
       },
     );
@@ -69,7 +73,9 @@ void main() {
 
   test('slide text covers title, paragraphs and table cells for search', () {
     final bytes = buildPptx([
-      titleShape('Quarterly') + bodyShape([('Revenue grew', 0)]) + tableFrame([
+      titleShape('Quarterly') +
+          bodyShape([('Revenue grew', 0)]) +
+          tableFrame([
             ['Region', 'North'],
           ]),
     ]);

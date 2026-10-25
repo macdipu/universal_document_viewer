@@ -52,9 +52,7 @@ class WordSearchController extends ChangeNotifier {
   List<WordHighlight> highlightsOf(int paragraph) {
     final indices = _byParagraph[paragraph];
     if (indices == null) return const [];
-    return [
-      for (final i in indices) (start: _matches[i].start, end: _matches[i].end, current: i == _current),
-    ];
+    return [for (final i in indices) (start: _matches[i].start, end: _matches[i].end, current: i == _current)];
   }
 
   void _apply(String query) {

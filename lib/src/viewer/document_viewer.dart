@@ -173,26 +173,27 @@ class _DocumentViewerState extends State<DocumentViewer> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     final error = _error;
     if (error != null) {
-      return widget.errorBuilder?.call(context, error) ?? Center(child: Text(_errorText(error), textAlign: TextAlign.center));
+      return widget.errorBuilder?.call(context, error) ??
+          Center(child: Text(_errorText(error), textAlign: TextAlign.center));
     }
     return switch (_controller) {
       final PdfDocumentController pdf => PdfDocumentView(
-          path: widget.path,
-          controller: pdf,
-          passwordProvider: widget.passwordProvider,
-          errorBuilder: (context, error) {
-            final loadError = _pdfError(error);
-            return widget.errorBuilder?.call(context, loadError) ?? Center(child: Text(_errorText(loadError)));
-          },
-        ),
+        path: widget.path,
+        controller: pdf,
+        passwordProvider: widget.passwordProvider,
+        errorBuilder: (context, error) {
+          final loadError = _pdfError(error);
+          return widget.errorBuilder?.call(context, loadError) ?? Center(child: Text(_errorText(loadError)));
+        },
+      ),
       final WordDocumentController word => WordDocumentView(controller: word),
       final SpreadsheetController sheet => _SheetWithTabs(controller: sheet),
       final SlideDeckController deck => Column(
-          children: [
-            Expanded(child: SlideDeckView(controller: deck)),
-            if (deck.slides.isNotEmpty) SlideNavigationBar(controller: deck),
-          ],
-        ),
+        children: [
+          Expanded(child: SlideDeckView(controller: deck)),
+          if (deck.slides.isNotEmpty) SlideNavigationBar(controller: deck),
+        ],
+      ),
       final TextDocumentController text => TextDocumentView(controller: text),
       _ => Center(child: Text(_errorText(DocumentLoadError.unsupported))),
     };
@@ -202,16 +203,16 @@ class _DocumentViewerState extends State<DocumentViewer> {
   /// one, or an encryption PDFium doesn't support - is password protected,
   /// not damaged.
   static DocumentLoadError _pdfError(Object error) => switch (error) {
-        PdfOpenException(error: PdfOpenError.password || PdfOpenError.security) => DocumentLoadError.passwordRequired,
-        _ => DocumentLoadError.corrupted,
-      };
+    PdfOpenException(error: PdfOpenError.password || PdfOpenError.security) => DocumentLoadError.passwordRequired,
+    _ => DocumentLoadError.corrupted,
+  };
 
   static String _errorText(DocumentLoadError error) => switch (error) {
-        DocumentLoadError.tooLarge => 'This document is too large to open.',
-        DocumentLoadError.corrupted => 'This document may be damaged or incomplete.',
-        DocumentLoadError.passwordRequired => 'This document is password protected.',
-        DocumentLoadError.unsupported => 'This file type is not supported.',
-      };
+    DocumentLoadError.tooLarge => 'This document is too large to open.',
+    DocumentLoadError.corrupted => 'This document may be damaged or incomplete.',
+    DocumentLoadError.passwordRequired => 'This document is password protected.',
+    DocumentLoadError.unsupported => 'This file type is not supported.',
+  };
 }
 
 /// [SheetGrid] with a tab per sheet when there's more than one.
@@ -226,7 +227,9 @@ class _SheetWithTabs extends StatelessWidget {
       listenable: controller,
       builder: (context, _) => Column(
         children: [
-          Expanded(child: SheetGrid(key: ValueKey(controller.activeSheetIndex), controller: controller)),
+          Expanded(
+            child: SheetGrid(key: ValueKey(controller.activeSheetIndex), controller: controller),
+          ),
           if (controller.sheetNames.length > 1)
             SafeArea(
               top: false,

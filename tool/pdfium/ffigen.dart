@@ -52,7 +52,9 @@ const _functions = {
 /// Structs the engine reads; other handle types stay opaque.
 const _structs = {'_FS_RECTF_': 'FS_RECTF', 'FS_SIZEF_': 'FS_SIZEF'};
 
-final _macros = RegExp(r'^(FPDF_ANNOT|FPDF_LCD_TEXT|FPDF_REVERSE_BYTE_ORDER|FPDFBitmap_BGRA|FPDF_ERR_\w+|PDFACTION_\w+)$');
+final _macros = RegExp(
+  r'^(FPDF_ANNOT|FPDF_LCD_TEXT|FPDF_REVERSE_BYTE_ORDER|FPDFBitmap_BGRA|FPDF_ERR_\w+|PDFACTION_\w+)$',
+);
 
 Future<void> main() async {
   final root = Platform.script.resolve('../../');
@@ -67,7 +69,8 @@ Future<void> main() async {
     output: Output(
       dart: DartOutput(path: root.resolve('lib/src/engines/pdfium/pdfium_bindings.g.dart')),
       style: const NativeExternalBindings(assetId: 'package:universal_document_viewer/libpdfium'),
-      preamble: '// Generated from PDFium\'s public headers (BSD-3-Clause, see tool/pdfium/LICENSE)\n'
+      preamble:
+          '// Generated from PDFium\'s public headers (BSD-3-Clause, see tool/pdfium/LICENSE)\n'
           '// by tool/pdfium/ffigen.dart. Do not edit; regenerate instead.\n'
           '// ignore_for_file: type=lint, unused_field, unused_element\n',
     ),

@@ -26,7 +26,9 @@ void main() {
     expect(thumb.height, 155);
     expect(thumb.pixels.length, 120 * 155 * 4);
     expect(thumb.pixels.any((b) => b < 200), isTrue, reason: 'some dark text pixels');
-    final region = await doc.render(0, fullWidth: 1224, fullHeight: 1584, region: const Rect.fromLTWH(100, 150, 300, 100)).result;
+    final region = await doc
+        .render(0, fullWidth: 1224, fullHeight: 1584, region: const Rect.fromLTWH(100, 150, 300, 100))
+        .result;
     expect((region.width, region.height), (300, 100));
   });
 
@@ -110,7 +112,8 @@ void main() {
 
   test('queued renders can be cancelled', () async {
     final tasks = [
-      for (var i = 0; i < 6; i++) doc.render(i % 4, fullWidth: 1200, fullHeight: 1550, priority: PdfPriority.background),
+      for (var i = 0; i < 6; i++)
+        doc.render(i % 4, fullWidth: 1200, fullHeight: 1550, priority: PdfPriority.background),
     ];
     tasks.last.cancel();
     await expectLater(tasks.last.result, throwsA(isA<PdfCancelledException>()));
@@ -136,9 +139,7 @@ void main() {
       for (var i = 0; i < 8; i++)
         other.render(i % 4, fullWidth: 1600, fullHeight: 2070, priority: PdfPriority.background).result,
     ];
-    final outcomes = [
-      for (final render in queued) render.then<Object>((image) => image, onError: (Object e) => e),
-    ];
+    final outcomes = [for (final render in queued) render.then<Object>((image) => image, onError: (Object e) => e)];
     await other.close();
     final dropped = (await Future.wait(outcomes)).whereType<PdfEngineException>();
     expect(dropped, isNotEmpty, reason: 'renders queued behind the close are answered as closed');

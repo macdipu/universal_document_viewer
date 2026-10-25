@@ -16,7 +16,11 @@ void main() {
   }
 
   Future<void> pumpView(WidgetTester tester, WordDocumentController controller) async {
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: WordDocumentView(controller: controller))));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: WordDocumentView(controller: controller)),
+      ),
+    );
     await tester.pump();
   }
 
@@ -39,7 +43,9 @@ void main() {
   testWidgets('search highlights matches and jumps to them', (tester) async {
     final controller = await load(
       tester,
-      buildDocx([for (var i = 0; i < 300; i++) '<w:p><w:r><w:t>Line $i${i == 250 ? ' needle' : ''}</w:t></w:r></w:p>'].join()),
+      buildDocx(
+        [for (var i = 0; i < 300; i++) '<w:p><w:r><w:t>Line $i${i == 250 ? ' needle' : ''}</w:t></w:r></w:p>'].join(),
+      ),
     );
     await pumpView(tester, controller);
     expect(shows('Line 250'), isFalse, reason: 'not built yet: the list is lazy');
@@ -57,7 +63,8 @@ void main() {
     final controller = WordDocumentController(onPositionChanged: reported.add);
     addTearDown(controller.dispose);
     await tester.runAsync(
-      () => controller.load(buildDocx([for (var i = 0; i < 300; i++) '<w:p><w:r><w:t>Line $i</w:t></w:r></w:p>'].join())),
+      () =>
+          controller.load(buildDocx([for (var i = 0; i < 300; i++) '<w:p><w:r><w:t>Line $i</w:t></w:r></w:p>'].join())),
     );
     await pumpView(tester, controller);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -1500));
@@ -79,7 +86,8 @@ void main() {
       tester,
       buildDocx(
         '<w:p><w:r><w:t>Claim</w:t></w:r><w:r><w:footnoteReference w:id="1"/></w:r></w:p>',
-        footnotes: '<w:footnote w:id="1"><w:p><w:r><w:footnoteRef/></w:r>'
+        footnotes:
+            '<w:footnote w:id="1"><w:p><w:r><w:footnoteRef/></w:r>'
             '<w:r><w:t xml:space="preserve"> The source.</w:t></w:r></w:p></w:footnote>',
       ),
     );
@@ -87,8 +95,10 @@ void main() {
     expect(find.text('Notes'), findsOneWidget);
     await tester.tap(find.text('1').first);
     await tester.pumpAndSettle();
-    expect(find.descendant(of: find.byType(BottomSheet), matching: find.textContaining('The source.', findRichText: true)),
-        findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(BottomSheet), matching: find.textContaining('The source.', findRichText: true)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a damaged file is a typed error', (tester) async {
@@ -106,9 +116,11 @@ void main() {
     for (final span in ['-1', '0', '3000000']) {
       final controller = await load(
         tester,
-        buildDocx('<w:tbl><w:tblGrid><w:gridCol w:w="2000"/><w:gridCol w:w="2000"/></w:tblGrid><w:tr>'
-            '<w:tc><w:tcPr><w:gridSpan w:val="$span"/></w:tcPr><w:p/></w:tc>'
-            '<w:tc><w:p><w:r><w:t>cell $span</w:t></w:r></w:p></w:tc></w:tr></w:tbl>'),
+        buildDocx(
+          '<w:tbl><w:tblGrid><w:gridCol w:w="2000"/><w:gridCol w:w="2000"/></w:tblGrid><w:tr>'
+          '<w:tc><w:tcPr><w:gridSpan w:val="$span"/></w:tcPr><w:p/></w:tc>'
+          '<w:tc><w:p><w:r><w:t>cell $span</w:t></w:r></w:p></w:tc></w:tr></w:tbl>',
+        ),
       );
       expect(controller.error, isNull);
       await pumpView(tester, controller);
@@ -123,17 +135,22 @@ void main() {
     final reported = <ReadingPosition>[];
     final controller = WordDocumentController(onPositionChanged: reported.add);
     addTearDown(controller.dispose);
-    await tester.runAsync(() => controller.load(buildDocx(
+    await tester.runAsync(
+      () => controller.load(
+        buildDocx(
           '${[for (var i = 0; i < 300; i++) '<w:p><w:r><w:t>Line $i</w:t></w:r></w:p>'].join()}'
           '<w:sectPr><w:headerReference w:type="default" r:id="rH"/>'
           '<w:footerReference w:type="default" r:id="rF"/></w:sectPr>',
-          relationships: '<Relationship Id="rH" Type="$r/header" Target="header1.xml"/>'
+          relationships:
+              '<Relationship Id="rH" Type="$r/header" Target="header1.xml"/>'
               '<Relationship Id="rF" Type="$r/footer" Target="footer1.xml"/>',
           media: {
             'header1.xml': '<w:hdr xmlns:w="$w"><w:p><w:r><w:t>HEADER</w:t></w:r></w:p></w:hdr>'.codeUnits,
             'footer1.xml': '<w:ftr xmlns:w="$w"><w:p><w:r><w:t>FOOTER</w:t></w:r></w:p></w:ftr>'.codeUnits,
           },
-        )));
+        ),
+      ),
+    );
     controller.viewMode = WordViewMode.paged;
     await pumpView(tester, controller);
     final layout = controller.layout!;
@@ -150,7 +167,8 @@ void main() {
     expect(tops.every((n) => n > 0 && n < layout.paragraphs.length - 1), isTrue, reason: '$tops');
   });
 
-  Uint8List lines(int count) => buildDocx([for (var i = 0; i < count; i++) '<w:p><w:r><w:t>Line $i</w:t></w:r></w:p>'].join());
+  Uint8List lines(int count) =>
+      buildDocx([for (var i = 0; i < count; i++) '<w:p><w:r><w:t>Line $i</w:t></w:r></w:p>'].join());
 
   testWidgets('on pages, reports the page in view and jumps to a page', (tester) async {
     final controller = await load(tester, lines(400));
@@ -210,13 +228,20 @@ void main() {
     final controller = await load(tester, lines(100));
     controller.viewMode = WordViewMode.paged;
     await pumpView(tester, controller);
-    final width = tester.getSize(find.ancestor(of: find.byType(WordPageView).first, matching: find.byType(FittedBox))).width;
+    final width = tester
+        .getSize(find.ancestor(of: find.byType(WordPageView).first, matching: find.byType(FittedBox)))
+        .width;
     controller.zoomIn();
     controller.zoomIn();
     await tester.pump();
-    expect(tester.getSize(find.ancestor(of: find.byType(WordPageView).first, matching: find.byType(FittedBox))).width, greaterThan(width));
-    expect(find.byWidgetPredicate((w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal),
-        findsOneWidget);
+    expect(
+      tester.getSize(find.ancestor(of: find.byType(WordPageView).first, matching: find.byType(FittedBox))).width,
+      greaterThan(width),
+    );
+    expect(
+      find.byWidgetPredicate((w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal),
+      findsOneWidget,
+    );
   });
 
   testWidgets('pages are exposed in print layout for thumbnails, and dropped in continuous', (tester) async {
@@ -226,16 +251,18 @@ void main() {
     await tester.pump();
     final pages = controller.pages!;
     expect(pages.length, controller.pageCount.value);
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: Column(
-          children: [
-            Expanded(child: WordDocumentView(controller: controller)),
-            SizedBox(width: 70, height: 96, child: WordPageThumbnail(controller: controller, page: 2)),
-          ],
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              Expanded(child: WordDocumentView(controller: controller)),
+              SizedBox(width: 70, height: 96, child: WordPageThumbnail(controller: controller, page: 2)),
+            ],
+          ),
         ),
       ),
-    ));
+    );
     await tester.pump();
     final thumbnail = find.byType(WordPageThumbnail);
     expect(find.descendant(of: thumbnail, matching: find.byType(WordPageView)), findsOneWidget);

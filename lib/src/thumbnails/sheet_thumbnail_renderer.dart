@@ -161,12 +161,12 @@ class _SheetCornerView extends StatelessWidget {
     );
     final headerStyle = TextStyle(fontSize: 10, color: scheme.onSurfaceVariant);
     Widget header(String label, double width, double height) => Container(
-          width: width,
-          height: height,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(color: scheme.surfaceContainer, border: border),
-          child: Text(label, maxLines: 1, overflow: TextOverflow.clip, style: headerStyle),
-        );
+      width: width,
+      height: height,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: scheme.surfaceContainer, border: border),
+      child: Text(label, maxLines: 1, overflow: TextOverflow.clip, style: headerStyle),
+    );
 
     return OverflowBox(
       alignment: Alignment.topLeft,
@@ -259,13 +259,13 @@ class _CellView extends StatelessWidget {
   /// Excel's "general" alignment: numbers right, booleans and errors
   /// centred, text left.
   static Alignment _alignment(CellStyle style, CellValue? value) => switch (style.horizontalAlignment) {
-        HorizontalAlignment.right => Alignment.centerRight,
-        HorizontalAlignment.center || HorizontalAlignment.centerContinuous => Alignment.center,
-        HorizontalAlignment.general => switch (value) {
-            NumberValue() || FormulaValue(cached: NumberValue()) => Alignment.centerRight,
-            BoolValue() || ErrorValue() => Alignment.center,
-            _ => Alignment.centerLeft,
-          },
-        _ => Alignment.centerLeft,
-      };
+    HorizontalAlignment.right => Alignment.centerRight,
+    HorizontalAlignment.center || HorizontalAlignment.centerContinuous => Alignment.center,
+    HorizontalAlignment.general => switch (value) {
+      NumberValue() || FormulaValue(cached: NumberValue()) => Alignment.centerRight,
+      BoolValue() || ErrorValue() => Alignment.center,
+      _ => Alignment.centerLeft,
+    },
+    _ => Alignment.centerLeft,
+  };
 }

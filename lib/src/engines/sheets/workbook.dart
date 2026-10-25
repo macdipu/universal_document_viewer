@@ -169,32 +169,32 @@ class SheetCell {
   /// without a result (some generators skip it) shows the formula, marked
   /// with `=`.
   String get text => switch (value) {
-        null => '',
-        TextValue(:final text) => text,
-        final NumberValue number => _formatNumber(number),
-        BoolValue(:final value) => value ? 'TRUE' : 'FALSE',
-        ErrorValue(:final code) => code,
-        FormulaValue(:final formula, :final cached) => switch (cached) {
-            null || TextValue(text: '') => formula.isEmpty ? '' : '=$formula',
-            final cached => SheetCell(cached, style: style, date1904: date1904).text,
-          },
-      };
+    null => '',
+    TextValue(:final text) => text,
+    final NumberValue number => _formatNumber(number),
+    BoolValue(:final value) => value ? 'TRUE' : 'FALSE',
+    ErrorValue(:final code) => code,
+    FormulaValue(:final formula, :final cached) => switch (cached) {
+      null || TextValue(text: '') => formula.isEmpty ? '' : '=$formula',
+      final cached => SheetCell(cached, style: style, date1904: date1904).text,
+    },
+  };
 
   /// The formula as Excel's formula bar shows it (`=SUM(A1:A3)`, an array
   /// formula in braces); null when the cell has none.
   String? get formulaText => switch (value) {
-        FormulaValue(:final formula, :final array) when formula.isNotEmpty => array ? '{=$formula}' : '=$formula',
-        _ => null,
-      };
+    FormulaValue(:final formula, :final array) when formula.isNotEmpty => array ? '{=$formula}' : '=$formula',
+    _ => null,
+  };
 
   /// The cell's number, for a selection's Sum/Average: a number cell, or a
   /// formula whose saved result is one. Text that looks numeric isn't
   /// counted, as in Excel's status bar.
   num? get number => switch (value) {
-        NumberValue(:final value) => value,
-        FormulaValue(cached: NumberValue(:final value)) => value,
-        _ => null,
-      };
+    NumberValue(:final value) => value,
+    FormulaValue(cached: NumberValue(:final value)) => value,
+    _ => null,
+  };
 
   String _formatNumber(NumberValue number) {
     if (number.text case final text? when style.numberFormat.isGeneral) return text;
@@ -317,21 +317,27 @@ class CellStyle {
   final CellBorders borders;
 
   /// This style with conditional formatting's overrides on top.
-  CellStyle overriddenBy({bool? bold, bool? italic, bool? underline, bool? strikethrough, int? textColor, int? fillColor}) =>
-      CellStyle(
-        bold: bold ?? this.bold,
-        italic: italic ?? this.italic,
-        underline: underline ?? this.underline,
-        strikethrough: strikethrough ?? this.strikethrough,
-        fontSize: fontSize,
-        textColor: textColor ?? this.textColor,
-        fillColor: fillColor ?? this.fillColor,
-        horizontalAlignment: horizontalAlignment,
-        verticalAlignment: verticalAlignment,
-        wrapText: wrapText,
-        numberFormat: numberFormat,
-        borders: borders,
-      );
+  CellStyle overriddenBy({
+    bool? bold,
+    bool? italic,
+    bool? underline,
+    bool? strikethrough,
+    int? textColor,
+    int? fillColor,
+  }) => CellStyle(
+    bold: bold ?? this.bold,
+    italic: italic ?? this.italic,
+    underline: underline ?? this.underline,
+    strikethrough: strikethrough ?? this.strikethrough,
+    fontSize: fontSize,
+    textColor: textColor ?? this.textColor,
+    fillColor: fillColor ?? this.fillColor,
+    horizontalAlignment: horizontalAlignment,
+    verticalAlignment: verticalAlignment,
+    wrapText: wrapText,
+    numberFormat: numberFormat,
+    borders: borders,
+  );
 }
 
 /// Excel's line styles. A reader draws the dashed and dotted ones solid;

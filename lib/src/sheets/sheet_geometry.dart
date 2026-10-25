@@ -12,14 +12,14 @@ class SheetGeometry {
   /// [minFrozenRows] freezes at least that many top rows, on top of what
   /// the file froze (a reader's "freeze header row").
   SheetGeometry(Worksheet sheet, {required int rowCount, required int columnCount, int minFrozenRows = 0})
-      : visibleRows = [
-          for (var r = 0; r < rowCount; r++)
-            if (!sheet.layout.hiddenRows.contains(r)) r,
-        ],
-        visibleColumns = [
-          for (var c = 0; c < columnCount; c++)
-            if (!sheet.layout.hiddenColumns.contains(c)) c,
-        ] {
+    : visibleRows = [
+        for (var r = 0; r < rowCount; r++)
+          if (!sheet.layout.hiddenRows.contains(r)) r,
+      ],
+      visibleColumns = [
+        for (var c = 0; c < columnCount; c++)
+          if (!sheet.layout.hiddenColumns.contains(c)) c,
+      ] {
     _rowStarts = _prefixSums([for (final r in visibleRows) rowHeightOf(sheet.layout.rowHeight(r))]);
     _columnStarts = _prefixSums([for (final c in visibleColumns) columnWidthOf(sheet.layout.columnWidth(c))]);
     final frozenRows = sheet.frozenRows > minFrozenRows ? sheet.frozenRows : minFrozenRows;
@@ -78,8 +78,7 @@ class SheetGeometry {
   // the first unfrozen row/column.
 
   /// Scroll offset that brings [visibleRow] to the top (0 for frozen rows).
-  double scrollOffsetOfRow(int visibleRow) =>
-      visibleRow < frozenRowCount ? 0 : _rowStarts[visibleRow] - frozenHeight;
+  double scrollOffsetOfRow(int visibleRow) => visibleRow < frozenRowCount ? 0 : _rowStarts[visibleRow] - frozenHeight;
 
   double scrollOffsetOfColumn(int visibleColumn) =>
       visibleColumn < frozenColumnCount ? 0 : _columnStarts[visibleColumn] - frozenWidth;
@@ -87,8 +86,7 @@ class SheetGeometry {
   /// The visible row at the top when scrolled to [offset].
   int visibleRowAtScrollOffset(double offset) => _indexAt(_rowStarts, offset + frozenHeight, frozenRowCount);
 
-  int visibleColumnAtScrollOffset(double offset) =>
-      _indexAt(_columnStarts, offset + frozenWidth, frozenColumnCount);
+  int visibleColumnAtScrollOffset(double offset) => _indexAt(_columnStarts, offset + frozenWidth, frozenColumnCount);
 
   /// The visible index of sheet row [row], or null when it's hidden or past
   /// the end.

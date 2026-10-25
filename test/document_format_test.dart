@@ -22,7 +22,10 @@ void main() {
   });
 
   test('maps a shared file\'s MIME type to an extension', () {
-    expect(DocumentFormat.extensionForMimeType('application/vnd.openxmlformats-officedocument.presentationml.presentation'), 'pptx');
+    expect(
+      DocumentFormat.extensionForMimeType('application/vnd.openxmlformats-officedocument.presentationml.presentation'),
+      'pptx',
+    );
     expect(DocumentFormat.extensionForMimeType('TEXT/CSV'), 'csv');
     expect(DocumentFormat.extensionForMimeType('application/msword'), isNull);
   });

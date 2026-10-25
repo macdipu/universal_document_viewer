@@ -28,8 +28,10 @@ void main() {
 
     test('sheets in order, with visibility', () {
       expect(book.sheetNames, ['Summary', 'Secret', 'VeryHidden', 'Later']);
-      expect([for (final s in book.sheets) s.visibility],
-          [SheetVisibility.visible, SheetVisibility.hidden, SheetVisibility.veryHidden, SheetVisibility.visible]);
+      expect(
+        [for (final s in book.sheets) s.visibility],
+        [SheetVisibility.visible, SheetVisibility.hidden, SheetVisibility.veryHidden, SheetVisibility.visible],
+      );
       expect(text('B3', 'Later'), 'alice again');
     });
 
@@ -121,15 +123,17 @@ void main() {
 
   group('built in memory', () {
     test('formula results, inline formatting, sparse rows', () {
-      final book = XlsxReader.read(buildXlsx([
-        const XlsxTestSheet('S', {
-          'A1': XlsxTestFormula('SUM(B1:B2)', cached: 2200),
-          'A2': XlsxTestFormula('B3&"!"', cached: 'Done!'),
-          'A3': XlsxTestFormula('B9'),
-          'B5': XlsxTestCell(1234.5, numberFormat: '#,##0.0', bold: true, fill: '00B0F0'),
-          'A9': 'a & b < c',
-        }, frozenRows: 2),
-      ]));
+      final book = XlsxReader.read(
+        buildXlsx([
+          const XlsxTestSheet('S', {
+            'A1': XlsxTestFormula('SUM(B1:B2)', cached: 2200),
+            'A2': XlsxTestFormula('B3&"!"', cached: 'Done!'),
+            'A3': XlsxTestFormula('B9'),
+            'B5': XlsxTestCell(1234.5, numberFormat: '#,##0.0', bold: true, fill: '00B0F0'),
+            'A9': 'a & b < c',
+          }, frozenRows: 2),
+        ]),
+      );
       final rows = book.sheets.single.rows;
       expect(rows[0][0]!.text, '2200');
       expect(rows[0][0]!.number, 2200);

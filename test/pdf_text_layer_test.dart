@@ -32,26 +32,28 @@ void main() {
   });
 
   group('pdfSearchStatusLabel', () {
-    String label(
-            {bool hasPattern = true,
-            bool isSearching = false,
-            int matchCount = 0,
-            int? currentIndex,
-            bool? hasTextLayer}) =>
-        pdfSearchStatusLabel(
-          hasPattern: hasPattern,
-          isSearching: isSearching,
-          matchCount: matchCount,
-          currentIndex: currentIndex,
-          hasTextLayer: hasTextLayer,
-        );
+    String label({
+      bool hasPattern = true,
+      bool isSearching = false,
+      int matchCount = 0,
+      int? currentIndex,
+      bool? hasTextLayer,
+    }) => pdfSearchStatusLabel(
+      hasPattern: hasPattern,
+      isSearching: isSearching,
+      matchCount: matchCount,
+      currentIndex: currentIndex,
+      hasTextLayer: hasTextLayer,
+    );
 
     test('empty without a query', () => expect(label(hasPattern: false), ''));
     test('searching', () => expect(label(isSearching: true), 'Searching…'));
     test('zero matches in a PDF with text', () => expect(label(hasTextLayer: true), 'No matches'));
     test('zero matches before the probe has an answer', () => expect(label(), 'No matches'));
-    test('zero matches in a scanned PDF (BRD line 1087)',
-        () => expect(label(hasTextLayer: false), 'No searchable text found.'));
+    test(
+      'zero matches in a scanned PDF (BRD line 1087)',
+      () => expect(label(hasTextLayer: false), 'No searchable text found.'),
+    );
     test('match position', () => expect(label(matchCount: 4, currentIndex: 1), '2 of 4'));
   });
 }

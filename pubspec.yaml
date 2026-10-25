@@ -47,6 +47,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^6.0.0
   # Generates lib/src/engines/pdfium/pdfium_bindings.g.dart from the
   # headers in tool/pdfium (dart run ffigen --config tool/pdfium/ffigen.yaml).
   ffigen: ^23.0.0

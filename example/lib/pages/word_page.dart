@@ -65,7 +65,9 @@ class _WordPageState extends State<WordPage> {
           ListenableBuilder(
             listenable: _controller,
             builder: (context, _) => IconButton(
-              icon: Icon(_controller.viewMode == WordViewMode.paged ? Icons.view_agenda_outlined : Icons.article_outlined),
+              icon: Icon(
+                _controller.viewMode == WordViewMode.paged ? Icons.view_agenda_outlined : Icons.article_outlined,
+              ),
               tooltip: _controller.viewMode == WordViewMode.paged ? 'Continuous layout' : 'Print layout',
               onPressed: _controller.toggleViewMode,
             ),

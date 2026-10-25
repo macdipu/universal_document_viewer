@@ -7,12 +7,7 @@ void main() {
     rows: [],
     frozenRows: 1,
     frozenColumns: 1,
-    layout: SheetLayout(
-      columnWidths: {1: 20},
-      rowHeights: {2: 30},
-      hiddenColumns: {2},
-      hiddenRows: {3},
-    ),
+    layout: SheetLayout(columnWidths: {1: 20}, rowHeights: {2: 30}, hiddenColumns: {2}, hiddenRows: {3}),
   );
   final geometry = SheetGeometry(sheet, rowCount: 6, columnCount: 4);
 

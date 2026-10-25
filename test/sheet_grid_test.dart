@@ -16,7 +16,11 @@ void main() {
     tester.view.physicalSize = const Size(1600, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SheetGrid(controller: controller))));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: SheetGrid(controller: controller)),
+      ),
+    );
     await tester.pump();
   }
 
@@ -58,20 +62,21 @@ void main() {
 
   testWidgets('tapping a cell shows its formula and note; data bars and borders draw', (tester) async {
     final controller = SpreadsheetController();
-    await tester.runAsync(() => controller.loadXlsx(buildXlsx([
+    await tester.runAsync(
+      () => controller.loadXlsx(
+        buildXlsx([
           const XlsxTestSheet(
             'S',
-            {
-              'A1': 2,
-              'B1': XlsxTestXml('<f>A1*21</f><v>42</v>'),
-              'C1': XlsxTestCell('Boxed', border: 'thick'),
-            },
+            {'A1': 2, 'B1': XlsxTestXml('<f>A1*21</f><v>42</v>'), 'C1': XlsxTestCell('Boxed', border: 'thick')},
             comments: {'B1': (author: 'Rina', text: 'Answer, roughly')},
-            afterSheetData: '<conditionalFormatting sqref="A1"><cfRule type="dataBar" priority="1"><dataBar>'
+            afterSheetData:
+                '<conditionalFormatting sqref="A1"><cfRule type="dataBar" priority="1"><dataBar>'
                 '<cfvo type="num" val="0"/><cfvo type="num" val="4"/><color rgb="FF638EC6"/></dataBar></cfRule>'
                 '</conditionalFormatting>',
           ),
-        ])));
+        ]),
+      ),
+    );
     await pumpGrid(tester, controller);
 
     expect(find.byType(FractionallySizedBox), findsOneWidget, reason: "A1's data bar");

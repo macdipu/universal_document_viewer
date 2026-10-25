@@ -292,7 +292,8 @@ class _Section {
 
   /// A section with only `@` and literals formats text, not numbers.
   bool get isTextOnly =>
-      tokens.any((t) => t is _TextPlaceholder) && !tokens.any((t) => t is _Digit || t is _GeneralToken || t is _DatePart);
+      tokens.any((t) => t is _TextPlaceholder) &&
+      !tokens.any((t) => t is _Digit || t is _GeneralToken || t is _DatePart);
 
   bool get hasAmPm => tokens.any((t) => t is _AmPm);
 
@@ -386,13 +387,13 @@ class _Section {
 final _conditionPattern = RegExp(r'^(<=|>=|<>|<|>|=)\s*(-?\d+(?:\.\d+)?)$');
 
 bool Function(num) _condition(String op, num limit) => switch (op) {
-      '<' => (v) => v < limit,
-      '<=' => (v) => v <= limit,
-      '>' => (v) => v > limit,
-      '>=' => (v) => v >= limit,
-      '<>' => (v) => v != limit,
-      _ => (v) => v == limit,
-    };
+  '<' => (v) => v < limit,
+  '<=' => (v) => v <= limit,
+  '>' => (v) => v > limit,
+  '>=' => (v) => v >= limit,
+  '<>' => (v) => v != limit,
+  _ => (v) => v == limit,
+};
 
 // --- Numbers ---------------------------------------------------------------
 
@@ -501,11 +502,11 @@ String _formatNumber(_Section section, num value) {
 }
 
 String _literalText(_Token token) => switch (token) {
-      _Literal(:final text) => text,
-      _Percent() => '%',
-      _TextPlaceholder() => '',
-      _ => '',
-    };
+  _Literal(:final text) => text,
+  _Percent() => '%',
+  _TextPlaceholder() => '',
+  _ => '',
+};
 
 /// Places [digits] into the integer placeholders right to left; extra
 /// digits go before the leftmost one.
@@ -720,7 +721,16 @@ _DateParts _serialToDate(num serial, bool date1904, {required int fractionDigits
   final millisecond = time.inMilliseconds % 1000;
   if (!date1904 && days == 60) {
     // The day that never was (a Wednesday), shown as Excel does.
-    return (year: 1900, month: 2, day: 29, weekday: 3, hour: hour, minute: minute, second: second, millisecond: millisecond);
+    return (
+      year: 1900,
+      month: 2,
+      day: 29,
+      weekday: 3,
+      hour: hour,
+      minute: minute,
+      second: second,
+      millisecond: millisecond,
+    );
   }
   final base = date1904 ? DateTime.utc(1904) : (days < 60 ? DateTime.utc(1899, 12, 31) : DateTime.utc(1899, 12, 30));
   final date = base.add(Duration(days: days));
@@ -755,7 +765,10 @@ String _formatDate(_Section section, num value, bool date1904) {
 
   // Which `m` tokens mean minutes: right after an hour, or right before a
   // second (literals between don't count).
-  final dateParts = [for (var i = 0; i < tokens.length; i++) if (tokens[i] is _DatePart || tokens[i] is _Elapsed) i];
+  final dateParts = [
+    for (var i = 0; i < tokens.length; i++)
+      if (tokens[i] is _DatePart || tokens[i] is _Elapsed) i,
+  ];
   bool isMinute(int index) {
     final at = dateParts.indexOf(index);
     final before = at > 0 ? tokens[dateParts[at - 1]] : null;

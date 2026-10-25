@@ -43,8 +43,7 @@ class _SheetGridState extends State<SheetGrid> {
   /// The row or column picked by tapping its header; null when none.
   final _selection = ValueNotifier<GridSelection?>(null);
 
-  void _toggleSelection(GridSelection selection) =>
-      _selection.value = _selection.value == selection ? null : selection;
+  void _toggleSelection(GridSelection selection) => _selection.value = _selection.value == selection ? null : selection;
   late double _zoom;
 
   /// Merged areas in table coordinates, for the geometry they were built
@@ -216,10 +215,10 @@ class _SheetGridState extends State<SheetGrid> {
         final highlight = controller.isCurrentMatch(row, column) || controller.isGoToTarget(row, column)
             ? _CellHighlight.current
             : controller.isMatch(row, column)
-                ? _CellHighlight.match
-                : selection?.contains(row, column) ?? false
-                    ? _CellHighlight.selected
-                    : _CellHighlight.none;
+            ? _CellHighlight.match
+            : selection?.contains(row, column) ?? false
+            ? _CellHighlight.selected
+            : _CellHighlight.none;
         return TableViewCell(
           rowMergeStart: merge?.rowStart,
           rowMergeSpan: merge?.rowSpan,
@@ -264,12 +263,11 @@ class _SheetGridState extends State<SheetGrid> {
     for (final range in widget.controller.currentSheet?.merges ?? const <CellRange>[]) {
       // Only the sheet's own cells (a merge may run far past its data).
       final rows = [
-        for (var r = range.firstRow; r <= math.min(range.lastRow, lastRow); r++)
-          if (geometry.visibleIndexOfRow(r) case final v?) v,
+        for (var r = range.firstRow; r <= math.min(range.lastRow, lastRow); r++) ?geometry.visibleIndexOfRow(r),
       ];
       final columns = [
         for (var c = range.firstColumn; c <= math.min(range.lastColumn, lastColumn); c++)
-          if (geometry.visibleIndexOfColumn(c) case final v?) v,
+          ?geometry.visibleIndexOfColumn(c),
       ];
       if (rows.isEmpty || columns.isEmpty || (rows.length == 1 && columns.length == 1)) continue;
       // Merges can't overlap in Excel; a damaged file's that do are left
@@ -337,24 +335,27 @@ class _ZoomControls extends StatelessWidget {
       color: Theme.of(context).colorScheme.surfaceContainerHigh,
       elevation: 2,
       borderRadius: BorderRadius.circular(999),
-      child: ListenableBuilder(listenable: controller, builder: (context, _) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: 'Zoom out',
-              icon: const Icon(Icons.zoom_out_rounded),
-              onPressed: controller.canZoomOut ? controller.zoomOut : null,
-            ),
-            Text('${(controller.zoom * 100).round()}%', style: Theme.of(context).textTheme.labelMedium),
-            IconButton(
-              tooltip: 'Zoom in',
-              icon: const Icon(Icons.zoom_in_rounded),
-              onPressed: controller.canZoomIn ? controller.zoomIn : null,
-            ),
-          ],
-        );
-      }),
+      child: ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'Zoom out',
+                icon: const Icon(Icons.zoom_out_rounded),
+                onPressed: controller.canZoomOut ? controller.zoomOut : null,
+              ),
+              Text('${(controller.zoom * 100).round()}%', style: Theme.of(context).textTheme.labelMedium),
+              IconButton(
+                tooltip: 'Zoom in',
+                icon: const Icon(Icons.zoom_in_rounded),
+                onPressed: controller.canZoomIn ? controller.zoomIn : null,
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -397,12 +398,12 @@ Future<void> showCellDetail(
                   value.isNotEmpty
                       ? value
                       : formula != null
-                          ? 'No saved result: the file was saved without calculating this formula.'
-                          : '(empty)',
+                      ? 'No saved result: the file was saved without calculating this formula.'
+                      : '(empty)',
                   style: value.isEmpty
-                      ? Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
-                          )
+                      ? Theme.of(
+                          sheetContext,
+                        ).textTheme.bodyMedium?.copyWith(color: Theme.of(sheetContext).colorScheme.onSurfaceVariant)
                       : Theme.of(sheetContext).textTheme.bodyLarge,
                 ),
               ),
@@ -441,7 +442,12 @@ Future<void> showCellDetail(
             ],
             if (link != null) ...[
               const SizedBox(height: 8),
-              Text(link, style: Theme.of(sheetContext).textTheme.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(
+                link,
+                style: Theme.of(sheetContext).textTheme.bodySmall,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
             const SizedBox(height: 16),
             Wrap(
@@ -532,10 +538,10 @@ class _HeaderCell extends StatelessWidget {
             label,
             maxLines: 1,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12 * zoom,
-                  color: selected ? scheme.onPrimary : null,
-                ),
+              fontWeight: FontWeight.bold,
+              fontSize: 12 * zoom,
+              color: selected ? scheme.onPrimary : null,
+            ),
           ),
         ),
       ),
@@ -567,12 +573,15 @@ class SelectionSummary {
 
   factory SelectionSummary.of(List<List<SheetCell?>> rows, int columnCount, GridSelection selection) {
     final cells = selection.isRow
-        ? [for (var c = 0; c < columnCount; c++) selection.index < rows.length && c < rows[selection.index].length ? rows[selection.index][c] : null]
+        ? [
+            for (var c = 0; c < columnCount; c++)
+              selection.index < rows.length && c < rows[selection.index].length ? rows[selection.index][c] : null,
+          ]
         : [for (final row in rows) selection.index < row.length ? row[selection.index] : null];
     return SelectionSummary(
       label: selection.isRow ? 'Row ${selection.index + 1}' : 'Column ${_columnLabel(selection.index)}',
       values: [for (final cell in cells) cell?.text ?? ''],
-      numbers: [for (final cell in cells) if (cell?.number case final n?) n],
+      numbers: [for (final cell in cells) ?cell?.number],
     );
   }
 
@@ -623,13 +632,20 @@ class _SelectionBar extends StatelessWidget {
         children: [
           Expanded(
             child: Text.rich(
-              TextSpan(children: [
-                TextSpan(text: summary.label, style: const TextStyle(fontWeight: FontWeight.bold)),
-                TextSpan(text: '  $details'),
-              ]),
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: summary.label,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  TextSpan(text: '  $details'),
+                ],
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onPrimaryContainer),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onPrimaryContainer),
             ),
           ),
           IconButton(
@@ -715,20 +731,24 @@ class _DataCell extends StatelessWidget {
           border: cellBorder(style.borders, gridline: scheme.outlineVariant, automatic: scheme.onSurface, zoom: zoom),
         ),
         foregroundDecoration: hasComment ? _CommentMarker(color: scheme.error, size: 7 * zoom) : null,
-        child: _withBar(bar, _alignment(style, data?.value), Text(
-          data?.text ?? '',
-          maxLines: style.wrapText ? null : 1,
-          softWrap: style.wrapText,
-          overflow: style.wrapText ? TextOverflow.clip : TextOverflow.ellipsis,
-          textAlign: _textAlign(style, data?.value),
-          style: TextStyle(
-            color: textColor,
-            fontSize: (style.fontSize ?? _defaultPoints) * _defaultFontSize / _defaultPoints * zoom,
-            fontWeight: style.bold ? FontWeight.bold : FontWeight.normal,
-            fontStyle: style.italic ? FontStyle.italic : FontStyle.normal,
-            decoration: decorations.isEmpty ? null : TextDecoration.combine(decorations),
+        child: _withBar(
+          bar,
+          _alignment(style, data?.value),
+          Text(
+            data?.text ?? '',
+            maxLines: style.wrapText ? null : 1,
+            softWrap: style.wrapText,
+            overflow: style.wrapText ? TextOverflow.clip : TextOverflow.ellipsis,
+            textAlign: _textAlign(style, data?.value),
+            style: TextStyle(
+              color: textColor,
+              fontSize: (style.fontSize ?? _defaultPoints) * _defaultFontSize / _defaultPoints * zoom,
+              fontWeight: style.bold ? FontWeight.bold : FontWeight.normal,
+              fontStyle: style.italic ? FontStyle.italic : FontStyle.normal,
+              decoration: decorations.isEmpty ? null : TextDecoration.combine(decorations),
+            ),
           ),
-        )),
+        ),
       ),
     );
   }
@@ -801,11 +821,11 @@ class _DataCell extends StatelessWidget {
   }
 
   static TextAlign _textAlign(CellStyle style, CellValue? value) => switch (_horizontal(style, value)) {
-        HorizontalAlignment.right => TextAlign.right,
-        HorizontalAlignment.center || HorizontalAlignment.centerContinuous => TextAlign.center,
-        HorizontalAlignment.justify || HorizontalAlignment.distributed => TextAlign.justify,
-        _ => TextAlign.left,
-      };
+    HorizontalAlignment.right => TextAlign.right,
+    HorizontalAlignment.center || HorizontalAlignment.centerContinuous => TextAlign.center,
+    HorizontalAlignment.justify || HorizontalAlignment.distributed => TextAlign.justify,
+    _ => TextAlign.left,
+  };
 }
 
 class _EmptySheet extends StatelessWidget {
@@ -868,7 +888,10 @@ class _CommentMarkerPainter extends BoxPainter {
 /// (the sheets are offered as chips). Stays open with a message when
 /// there's no such place.
 Future<void> showGoToDialog(BuildContext context, SpreadsheetController controller) {
-  return showDialog<void>(context: context, builder: (_) => _GoToDialog(controller: controller));
+  return showDialog<void>(
+    context: context,
+    builder: (_) => _GoToDialog(controller: controller),
+  );
 }
 
 class _GoToDialog extends StatefulWidget {

@@ -92,7 +92,9 @@ void main() {
       'deck.pptx',
       buildPptx(
         [
-          titleShape('Quarterly review') + bodyShape([('Revenue up 12%', 0), ('Two new markets', 1)]) + picture('rIdImg'),
+          titleShape('Quarterly review') +
+              bodyShape([('Revenue up 12%', 0), ('Two new markets', 1)]) +
+              picture('rIdImg'),
           titleShape('Second slide'),
         ],
         media: {'image1.png': png},
@@ -120,7 +122,11 @@ void main() {
       expect(first, isNotNull, reason: path);
       expect(resumed, isNotNull, reason: path);
       expect(resumed, isNot(first), reason: '$path at $position');
-      expect(await DocumentThumbnails.render(path, width: 160, position: pastTheEnd), first, reason: '$path at $pastTheEnd');
+      expect(
+        await DocumentThumbnails.render(path, width: 160, position: pastTheEnd),
+        first,
+        reason: '$path at $pastTheEnd',
+      );
     }
 
     test('PDF: the saved page', () async {
@@ -190,7 +196,9 @@ void main() {
     test('Word: past how far it paginates, the page starting at the paragraph', () async {
       final body = StringBuffer();
       for (var i = 0; i < 1300; i++) {
-        body.write('<w:p><w:r><w:t>${i < 1200 ? 'Short $i' : 'A much longer paragraph that wraps over several lines. ' * 4}</w:t></w:r></w:p>');
+        body.write(
+          '<w:p><w:r><w:t>${i < 1200 ? 'Short $i' : 'A much longer paragraph that wraps over several lines. ' * 4}</w:t></w:r></w:p>',
+        );
       }
       final document = file('long.docx', buildDocx(body.toString()));
       final first = await DocumentThumbnails.render(document, width: 160);
@@ -201,9 +209,14 @@ void main() {
 
     test('Text: the lines from the saved one on', () async {
       final text = file('resume.txt', [
-        for (var i = 1; i <= 2000; i++) ...(i < 1500 ? 'Short $i\n' : 'A much longer line that wraps on the page, line $i.\n').codeUnits,
+        for (var i = 1; i <= 2000; i++)
+          ...(i < 1500 ? 'Short $i\n' : 'A much longer line that wraps on the page, line $i.\n').codeUnits,
       ]);
-      await expectResumed(text, {PositionKeys.line: 1600, PositionKeys.scrollOffset: 32000.0}, {PositionKeys.line: 99999});
+      await expectResumed(
+        text,
+        {PositionKeys.line: 1600, PositionKeys.scrollOffset: 32000.0},
+        {PositionKeys.line: 99999},
+      );
     });
   });
 
@@ -237,11 +250,13 @@ void main() {
 /// Roboto from the Flutter SDK, under the families the samples ask for, so
 /// saved samples show letters rather than the test font's boxes.
 Future<void> _loadRoboto() async {
-  final root = Platform.environment['FLUTTER_ROOT'] ??
+  final root =
+      Platform.environment['FLUTTER_ROOT'] ??
       File(Platform.resolvedExecutable).parent.parent.parent.parent.parent.parent.path;
   final fonts = '$root/bin/cache/artifacts/material_fonts';
   if (!File('$fonts/Roboto-Regular.ttf').existsSync()) return;
-  Future<ByteData> load(String name) async => ByteData.sublistView(Uint8List.fromList(File('$fonts/$name').readAsBytesSync()));
+  Future<ByteData> load(String name) async =>
+      ByteData.sublistView(Uint8List.fromList(File('$fonts/$name').readAsBytesSync()));
   for (final family in ['Roboto', 'Calibri', 'Calibri Light', 'Cambria', 'Arial', 'Times New Roman', 'Aptos']) {
     final loader = FontLoader(family)
       ..addFont(load('Roboto-Regular.ttf'))
@@ -261,7 +276,10 @@ List<int> _solidPng(int width, int height, int r, int g, int b) {
   }
 
   final rows = [
-    for (var y = 0; y < height; y++) ...[0, for (var x = 0; x < width; x++) ...[r, g, b]],
+    for (var y = 0; y < height; y++) ...[
+      0,
+      for (var x = 0; x < width; x++) ...[r, g, b],
+    ],
   ];
   return [
     0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //

@@ -95,7 +95,11 @@ abstract final class ConditionalFormatting {
   /// rule's look on top (the earliest-priority rule wins a property, and a
   /// `stopIfTrue` match stops later rules), colour scales fill cells and
   /// data bars are attached. Blank cells a rule colours are added.
-  static List<List<SheetCell?>> apply(List<List<SheetCell?>> rows, List<ConditionalRule> rules, {bool date1904 = false}) {
+  static List<List<SheetCell?>> apply(
+    List<List<SheetCell?>> rows,
+    List<ConditionalRule> rules, {
+    bool date1904 = false,
+  }) {
     if (rules.isEmpty || rows.isEmpty) return rows;
     final columnCount = rows.fold(0, (widest, row) => math.max(widest, row.length));
     // By priority, then file order (List.sort isn't stable).
@@ -131,7 +135,9 @@ abstract final class ConditionalFormatting {
     }
     if (overrides.isEmpty) return rows;
 
-    final result = [for (final row in rows) [...row]];
+    final result = [
+      for (final row in rows) [...row],
+    ];
     overrides.forEach((key, override) {
       if (override.isEmpty) return;
       final (r, c) = key;
@@ -346,9 +352,9 @@ abstract final class ConditionalFormatting {
   static double? _number(SheetCell? cell) => cell?.number?.toDouble();
 
   static bool _isError(SheetCell? cell) => switch (cell?.value) {
-        ErrorValue() || FormulaValue(cached: ErrorValue()) => true,
-        _ => false,
-      };
+    ErrorValue() || FormulaValue(cached: ErrorValue()) => true,
+    _ => false,
+  };
 
   /// A threshold's value among the range's sorted [values].
   static double? _threshold(ConditionalValuePoint point, List<double> values) {

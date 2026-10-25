@@ -15,10 +15,12 @@ void main() {
   }
 
   test('cell borders: style, colour and sides, on blank cells too', () {
-    final sheet = sheetOf(const XlsxTestSheet('S', {
-      'A1': XlsxTestCell('Total', border: 'medium', borderSides: ['top', 'bottom'], borderColor: 'FF0000'),
-      'B2': XlsxTestCell(null, border: 'double', borderSides: ['bottom']),
-    }));
+    final sheet = sheetOf(
+      const XlsxTestSheet('S', {
+        'A1': XlsxTestCell('Total', border: 'medium', borderSides: ['top', 'bottom'], borderColor: 'FF0000'),
+        'B2': XlsxTestCell(null, border: 'double', borderSides: ['bottom']),
+      }),
+    );
     final total = at(sheet, 'A1')!.style.borders;
     expect(total.top?.style, BorderLineStyle.medium);
     expect(total.top?.color, 0xFFFF0000);
@@ -31,19 +33,22 @@ void main() {
   });
 
   test('notes, with their author, also on cells without a value', () {
-    final sheet = sheetOf(const XlsxTestSheet(
-      'S',
-      {'A1': 5},
-      comments: {
-        'A1': (author: 'Rina', text: 'Estimate - confirm with finance'),
-        'C4': (
-          author: 'tc={1D2E}',
-          text: '[Threaded comment]\n\nYour version of Excel allows you to read this threaded comment; however, '
-              'any edits to it will get removed if the file is opened in a newer version of Excel.\n\n'
-              'Comment:\n    Is this final?\nReply:\n    Yes',
-        ),
-      },
-    ));
+    final sheet = sheetOf(
+      const XlsxTestSheet(
+        'S',
+        {'A1': 5},
+        comments: {
+          'A1': (author: 'Rina', text: 'Estimate - confirm with finance'),
+          'C4': (
+            author: 'tc={1D2E}',
+            text:
+                '[Threaded comment]\n\nYour version of Excel allows you to read this threaded comment; however, '
+                'any edits to it will get removed if the file is opened in a newer version of Excel.\n\n'
+                'Comment:\n    Is this final?\nReply:\n    Yes',
+          ),
+        },
+      ),
+    );
     expect(sheet.comments[(row: 0, column: 0)]?.text, 'Estimate - confirm with finance');
     expect(sheet.comments[(row: 0, column: 0)]?.author, 'Rina');
     final threaded = sheet.comments[(row: 3, column: 2)]!;
@@ -53,15 +58,17 @@ void main() {
   });
 
   test('a formula filled down shows in each cell with its references moved', () {
-    final sheet = sheetOf(const XlsxTestSheet('S', {
-      'A1': 1,
-      'A2': 2,
-      'A3': 3,
-      'B1': XlsxTestXml('<f t="shared" ref="B1:B3" si="0">A1*2</f><v>2</v>'),
-      'B2': XlsxTestXml('<f t="shared" si="0"/><v>4</v>'),
-      'B3': XlsxTestXml('<f t="shared" si="0"/>'),
-      'C1': XlsxTestXml('<f t="array" ref="C1">SUM(A1:A3*2)</f><v>12</v>'),
-    }));
+    final sheet = sheetOf(
+      const XlsxTestSheet('S', {
+        'A1': 1,
+        'A2': 2,
+        'A3': 3,
+        'B1': XlsxTestXml('<f t="shared" ref="B1:B3" si="0">A1*2</f><v>2</v>'),
+        'B2': XlsxTestXml('<f t="shared" si="0"/><v>4</v>'),
+        'B3': XlsxTestXml('<f t="shared" si="0"/>'),
+        'C1': XlsxTestXml('<f t="array" ref="C1">SUM(A1:A3*2)</f><v>12</v>'),
+      }),
+    );
     expect(at(sheet, 'B1')!.formulaText, '=A1*2');
     expect(at(sheet, 'B2')!.formulaText, '=A2*2');
     expect(at(sheet, 'B2')!.text, '4');
@@ -72,17 +79,31 @@ void main() {
   });
 
   group('conditional formatting', () {
-    const red = '<dxf><font><b/><color rgb="FF9C0006"/></font><fill><patternFill><bgColor rgb="FFFFC7CE"/></patternFill></fill></dxf>';
+    const red =
+        '<dxf><font><b/><color rgb="FF9C0006"/></font><fill><patternFill><bgColor rgb="FFFFC7CE"/></patternFill></fill></dxf>';
     const green = '<dxf><fill><patternFill><bgColor rgb="FFC6EFCE"/></patternFill></fill></dxf>';
     String rule(String sqref, String body) => '<conditionalFormatting sqref="$sqref">$body</conditionalFormatting>';
 
     test('cellIs: against a constant and against a cell, with between', () {
       final sheet = sheetOf(
-        XlsxTestSheet('S', const {'A1': 50, 'A2': 150, 'A3': 100, 'B1': 120, 'C1': 5, 'C2': 15}, afterSheetData: [
-          rule('A1:A3', '<cfRule type="cellIs" dxfId="0" priority="1" operator="greaterThan"><formula>100</formula></cfRule>'),
-          rule('A1:A3', r'<cfRule type="cellIs" dxfId="1" priority="2" operator="lessThan"><formula>$B$1</formula></cfRule>'),
-          rule('C1:C2', '<cfRule type="cellIs" dxfId="1" priority="3" operator="between"><formula>1</formula><formula>10</formula></cfRule>'),
-        ].join()),
+        XlsxTestSheet(
+          'S',
+          const {'A1': 50, 'A2': 150, 'A3': 100, 'B1': 120, 'C1': 5, 'C2': 15},
+          afterSheetData: [
+            rule(
+              'A1:A3',
+              '<cfRule type="cellIs" dxfId="0" priority="1" operator="greaterThan"><formula>100</formula></cfRule>',
+            ),
+            rule(
+              'A1:A3',
+              r'<cfRule type="cellIs" dxfId="1" priority="2" operator="lessThan"><formula>$B$1</formula></cfRule>',
+            ),
+            rule(
+              'C1:C2',
+              '<cfRule type="cellIs" dxfId="1" priority="3" operator="between"><formula>1</formula><formula>10</formula></cfRule>',
+            ),
+          ].join(),
+        ),
         dxfs: [red, green],
       );
       expect(at(sheet, 'A2')!.style.fillColor, 0xFFFFC7CE);
@@ -96,10 +117,20 @@ void main() {
 
     test('earlier priority wins a property; stopIfTrue stops later rules', () {
       final sheet = sheetOf(
-        XlsxTestSheet('S', const {'A1': 200, 'A2': 5}, afterSheetData: [
-          rule('A1:A2', '<cfRule type="cellIs" dxfId="1" priority="2" operator="greaterThan"><formula>0</formula></cfRule>'),
-          rule('A1:A2', '<cfRule type="cellIs" dxfId="0" priority="1" operator="greaterThan" stopIfTrue="1"><formula>100</formula></cfRule>'),
-        ].join()),
+        XlsxTestSheet(
+          'S',
+          const {'A1': 200, 'A2': 5},
+          afterSheetData: [
+            rule(
+              'A1:A2',
+              '<cfRule type="cellIs" dxfId="1" priority="2" operator="greaterThan"><formula>0</formula></cfRule>',
+            ),
+            rule(
+              'A1:A2',
+              '<cfRule type="cellIs" dxfId="0" priority="1" operator="greaterThan" stopIfTrue="1"><formula>100</formula></cfRule>',
+            ),
+          ].join(),
+        ),
         dxfs: [red, green],
       );
       expect(at(sheet, 'A1')!.style.fillColor, 0xFFFFC7CE);
@@ -108,18 +139,25 @@ void main() {
 
     test('text, blanks, top N, above average and duplicates', () {
       final sheet = sheetOf(
-        XlsxTestSheet('S', const {
-          'A1': 'Overdue', 'A2': 'On track', 'A3': 'overdue soon', //
-          'B1': 10, 'B2': 40, 'B3': 30, 'B4': 20,
-          'C1': 'x', 'C2': 'y', 'C3': 'X',
-          'D1': 'a', 'D3': 'b',
-        }, afterSheetData: [
-          rule('A1:A3', '<cfRule type="containsText" dxfId="0" priority="1" operator="containsText" text="overdue"/>'),
-          rule('B1:B4', '<cfRule type="top10" dxfId="0" priority="2" rank="1"/>'),
-          rule('B1:B4', '<cfRule type="aboveAverage" dxfId="1" priority="3"/>'),
-          rule('C1:C3', '<cfRule type="duplicateValues" dxfId="0" priority="4"/>'),
-          rule('D1:D3', '<cfRule type="containsBlanks" dxfId="1" priority="5"/>'),
-        ].join()),
+        XlsxTestSheet(
+          'S',
+          const {
+            'A1': 'Overdue', 'A2': 'On track', 'A3': 'overdue soon', //
+            'B1': 10, 'B2': 40, 'B3': 30, 'B4': 20,
+            'C1': 'x', 'C2': 'y', 'C3': 'X',
+            'D1': 'a', 'D3': 'b',
+          },
+          afterSheetData: [
+            rule(
+              'A1:A3',
+              '<cfRule type="containsText" dxfId="0" priority="1" operator="containsText" text="overdue"/>',
+            ),
+            rule('B1:B4', '<cfRule type="top10" dxfId="0" priority="2" rank="1"/>'),
+            rule('B1:B4', '<cfRule type="aboveAverage" dxfId="1" priority="3"/>'),
+            rule('C1:C3', '<cfRule type="duplicateValues" dxfId="0" priority="4"/>'),
+            rule('D1:D3', '<cfRule type="containsBlanks" dxfId="1" priority="5"/>'),
+          ].join(),
+        ),
         dxfs: [red, green],
       );
       expect(at(sheet, 'A1')!.style.fillColor, 0xFFFFC7CE);
@@ -134,12 +172,24 @@ void main() {
     });
 
     test('a colour scale and a data bar', () {
-      final sheet = sheetOf(XlsxTestSheet('S', const {'A1': 0, 'A2': 50, 'A3': 100}, afterSheetData: [
-        rule('A1:A3', '<cfRule type="colorScale" priority="1"><colorScale><cfvo type="min"/><cfvo type="max"/>'
-            '<color rgb="FFFFFFFF"/><color rgb="FF000000"/></colorScale></cfRule>'),
-        rule('A1:A3', '<cfRule type="dataBar" priority="2"><dataBar><cfvo type="min"/><cfvo type="max"/>'
-            '<color rgb="FF638EC6"/></dataBar></cfRule>'),
-      ].join()));
+      final sheet = sheetOf(
+        XlsxTestSheet(
+          'S',
+          const {'A1': 0, 'A2': 50, 'A3': 100},
+          afterSheetData: [
+            rule(
+              'A1:A3',
+              '<cfRule type="colorScale" priority="1"><colorScale><cfvo type="min"/><cfvo type="max"/>'
+                  '<color rgb="FFFFFFFF"/><color rgb="FF000000"/></colorScale></cfRule>',
+            ),
+            rule(
+              'A1:A3',
+              '<cfRule type="dataBar" priority="2"><dataBar><cfvo type="min"/><cfvo type="max"/>'
+                  '<color rgb="FF638EC6"/></dataBar></cfRule>',
+            ),
+          ].join(),
+        ),
+      );
       expect(at(sheet, 'A1')!.style.fillColor, 0xFFFFFFFF);
       expect(at(sheet, 'A2')!.style.fillColor, anyOf(0xFF808080, 0xFF7F7F7F));
       expect(at(sheet, 'A3')!.style.fillColor, 0xFF000000);
@@ -151,7 +201,14 @@ void main() {
 
     test('rules it can\'t evaluate (expressions) change nothing', () {
       final sheet = sheetOf(
-        XlsxTestSheet('S', const {'A1': 1}, afterSheetData: rule('A1', r'<cfRule type="expression" dxfId="0" priority="1"><formula>$A1&gt;0</formula></cfRule>')),
+        XlsxTestSheet(
+          'S',
+          const {'A1': 1},
+          afterSheetData: rule(
+            'A1',
+            r'<cfRule type="expression" dxfId="0" priority="1"><formula>$A1&gt;0</formula></cfRule>',
+          ),
+        ),
         dxfs: [red],
       );
       expect(at(sheet, 'A1')!.style.fillColor, isNull);

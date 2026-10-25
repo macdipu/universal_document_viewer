@@ -5,14 +5,22 @@ import 'package:universal_document_viewer/sheets.dart';
 import 'package:universal_document_viewer/testing.dart';
 
 void main() {
-  Future<SpreadsheetController> load(WidgetTester tester, {ReadingPosition? position, void Function(ReadingPosition)? onPosition}) async {
+  Future<SpreadsheetController> load(
+    WidgetTester tester, {
+    ReadingPosition? position,
+    void Function(ReadingPosition)? onPosition,
+  }) async {
     final controller = SpreadsheetController(initialPosition: position, onPositionChanged: onPosition);
     addTearDown(controller.dispose);
-    await tester.runAsync(() => controller.loadXlsx(buildXlsx([
+    await tester.runAsync(
+      () => controller.loadXlsx(
+        buildXlsx([
           XlsxTestSheet('Data', {for (var r = 1; r <= 200; r++) 'A$r': 'Row $r', 'D150': 'here'}),
           const XlsxTestSheet('My Notes', {'B3': 'note'}),
           const XlsxTestSheet('Frozen', {'A1': 'Head', 'A2': 1}, frozenRows: 1),
-        ])));
+        ]),
+      ),
+    );
     return controller;
   }
 
@@ -20,7 +28,11 @@ void main() {
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SheetGrid(controller: controller))));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: SheetGrid(controller: controller)),
+      ),
+    );
     await tester.pump();
   }
 

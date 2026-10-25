@@ -117,12 +117,20 @@ class OpcPackage {
         : p.posix.join(p.posix.dirname(source), '_rels', '${p.posix.basename(source)}.rels');
     final doc = readXml(relsPart);
     if (doc == null) return const [];
-    final baseDir = source.isEmpty ? '' : p.posix.dirname(sourcePart.startsWith('/') ? sourcePart.substring(1) : sourcePart);
+    final baseDir = source.isEmpty
+        ? ''
+        : p.posix.dirname(sourcePart.startsWith('/') ? sourcePart.substring(1) : sourcePart);
     return [
       for (final rel in doc.rootElement.childElements)
         if (rel.getAttribute('Id') case final id?)
           if (rel.getAttribute('Target') case final target?)
-            _relationship(id, rel.getAttribute('Type') ?? '', target, rel.getAttribute('TargetMode') == 'External', baseDir),
+            _relationship(
+              id,
+              rel.getAttribute('Type') ?? '',
+              target,
+              rel.getAttribute('TargetMode') == 'External',
+              baseDir,
+            ),
     ];
   }
 

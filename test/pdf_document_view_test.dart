@@ -60,7 +60,11 @@ void main() {
   testWidgets('a resize keeps the zoom and the page being read', (tester) async {
     addTearDown(tester.view.reset);
     final controller = PdfDocumentController();
-    await tester.pumpWidget(MaterialApp(home: PdfDocumentView(path: _features, controller: controller)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PdfDocumentView(path: _features, controller: controller),
+      ),
+    );
     await _until(tester, () => controller.isReady);
     await tester.pump();
     await tester.pump();
@@ -95,9 +99,17 @@ void main() {
   testWidgets('a new controller is opened', (tester) async {
     final first = PdfDocumentController();
     final second = PdfDocumentController();
-    await tester.pumpWidget(MaterialApp(home: PdfDocumentView(path: _features, controller: first)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PdfDocumentView(path: _features, controller: first),
+      ),
+    );
     await _until(tester, () => first.isReady);
-    await tester.pumpWidget(MaterialApp(home: PdfDocumentView(path: _features, controller: second)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PdfDocumentView(path: _features, controller: second),
+      ),
+    );
     await _until(tester, () => second.isReady);
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -110,11 +122,13 @@ void main() {
 
   testWidgets('a thumbnail built before the document opens renders once it does', (tester) async {
     final controller = PdfDocumentController();
-    await tester.pumpWidget(MaterialApp(
-      home: Center(
-        child: SizedBox(width: 70, height: 90, child: PdfPageThumbnail(controller: controller, pageNumber: 1)),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox(width: 70, height: 90, child: PdfPageThumbnail(controller: controller, pageNumber: 1)),
+        ),
       ),
-    ));
+    );
     expect(find.byType(RawImage), findsNothing);
     await tester.runAsync(() => controller.open(_features));
     await _until(tester, () => find.byType(RawImage).evaluate().isNotEmpty);

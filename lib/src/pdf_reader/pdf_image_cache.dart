@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -37,7 +36,7 @@ class PdfImageCache extends ChangeNotifier {
   final _tiles = <PdfTileKey, ui.Image>{};
 
   /// Most recently used last; keys are page ints (bases) or tile keys.
-  final _lru = LinkedHashSet<Object>();
+  final _lru = <Object>{};
   final _inFlight = <Object, PdfRenderTask>{};
 
   /// What the last [request] asked for (bases and tiles). Never evicted:
@@ -62,8 +61,7 @@ class PdfImageCache extends ChangeNotifier {
   /// The base width to render for a page shown [displayWidth] device
   /// pixels wide: rounded up to a 256-pixel step, so small changes in size
   /// don't re-render.
-  static int baseWidthFor(double displayWidth) =>
-      (((displayWidth / 256).ceil()) * 256).clamp(256, maxBaseWidth);
+  static int baseWidthFor(double displayWidth) => (((displayWidth / 256).ceil()) * 256).clamp(256, maxBaseWidth);
 
   /// Asks for what the view needs now: base images for [basePages] at
   /// [baseWidth] device pixels (on-screen pages [visiblePages] first, the
@@ -89,12 +87,16 @@ class PdfImageCache extends ChangeNotifier {
       if (_inFlight.containsKey(page)) continue;
       final size = document.pageSizes[page];
       final height = math.max(1, (width * size.height / size.width).round());
-      _start(page, document.render(
+      _start(
         page,
-        fullWidth: width,
-        fullHeight: height,
-        priority: visiblePages.contains(page) ? PdfPriority.visible : PdfPriority.prefetch,
-      ), (image) => _bases[page] = image);
+        document.render(
+          page,
+          fullWidth: width,
+          fullHeight: height,
+          priority: visiblePages.contains(page) ? PdfPriority.visible : PdfPriority.prefetch,
+        ),
+        (image) => _bases[page] = image,
+      );
     }
     for (final key in tiles) {
       wanted.add(key);
@@ -107,12 +109,11 @@ class PdfImageCache extends ChangeNotifier {
         math.min(tileSize.toDouble(), full.height - key.row * tileSize),
       );
       if (region.width <= 0 || region.height <= 0) continue;
-      _start(key, document.render(
-        key.page,
-        fullWidth: full.width.round(),
-        fullHeight: full.height.round(),
-        region: region,
-      ), (image) => _tiles[key] = image);
+      _start(
+        key,
+        document.render(key.page, fullWidth: full.width.round(), fullHeight: full.height.round(), region: region),
+        (image) => _tiles[key] = image,
+      );
     }
     for (final key in _inFlight.keys.toList()) {
       if (!wanted.contains(key)) _inFlight.remove(key)?.cancel();
@@ -121,34 +122,37 @@ class PdfImageCache extends ChangeNotifier {
 
   void _start(Object key, PdfRenderTask task, void Function(ui.Image) store) {
     _inFlight[key] = task;
-    task.result.then((rendered) async {
-      final ui.Image image;
-      try {
-        image = await rendered.toImage();
-      } catch (_) {
-        // Couldn't decode: as if the render failed (asked again once the
-        // view moves).
+    task.result.then(
+      (rendered) async {
+        final ui.Image image;
+        try {
+          image = await rendered.toImage();
+        } catch (_) {
+          // Couldn't decode: as if the render failed (asked again once the
+          // view moves).
+          if (identical(_inFlight[key], task)) _inFlight.remove(key);
+          return;
+        }
+        if (_disposed || !identical(_inFlight[key], task)) {
+          image.dispose();
+          return;
+        }
+        _inFlight.remove(key);
+        final old = key is int ? _bases[key] : _tiles[key];
+        if (old != null) {
+          _bytes -= _sizeOf(old);
+          old.dispose();
+        }
+        store(image);
+        _bytes += _sizeOf(image);
+        _touch(key);
+        _evict();
+        notifyListeners();
+      },
+      onError: (Object error) {
         if (identical(_inFlight[key], task)) _inFlight.remove(key);
-        return;
-      }
-      if (_disposed || !identical(_inFlight[key], task)) {
-        image.dispose();
-        return;
-      }
-      _inFlight.remove(key);
-      final old = key is int ? _bases[key] : _tiles[key];
-      if (old != null) {
-        _bytes -= _sizeOf(old);
-        old.dispose();
-      }
-      store(image);
-      _bytes += _sizeOf(image);
-      _touch(key);
-      _evict();
-      notifyListeners();
-    }, onError: (Object error) {
-      if (identical(_inFlight[key], task)) _inFlight.remove(key);
-    });
+      },
+    );
   }
 
   void _touch(Object key) {

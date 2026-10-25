@@ -55,7 +55,8 @@ class ParagraphGeometry {
     end = math.min(format.indentRight * wordScale, maxIndent / 2);
     final lines = [format.borderTop, format.borderBottom, format.borderLeft, format.borderRight];
     decorated = format.fill != null || lines.any((b) => b != null && b.width > 0);
-    double side(BorderLine? line) => line == null || line.width == 0 || line.width * wordScale < 1 ? 0 : line.width * wordScale;
+    double side(BorderLine? line) =>
+        line == null || line.width == 0 || line.width * wordScale < 1 ? 0 : line.width * wordScale;
     if (decorated) {
       boxHorizontal = 8 + side(format.borderLeft) + side(format.borderRight);
       boxVertical = 4 + side(format.borderTop) + side(format.borderBottom);
@@ -97,22 +98,22 @@ class WordParagraphStyler {
 
   /// Line height for a paragraph, as a multiple of its font size.
   static double lineHeightOf(ParagraphFormat format, double firstSize) => switch (format.lineSpacingRule) {
-        // Word's single spacing is about 1.15x the font size for its default
-        // fonts; multiples scale that.
-        LineSpacingRule.auto => 1.15 * format.lineSpacing,
-        LineSpacingRule.exact => (format.lineSpacing / firstSize).clamp(0.8, 4.0),
-        LineSpacingRule.atLeast => math.max(1.15, format.lineSpacing / firstSize).clamp(1.0, 4.0),
-      };
+    // Word's single spacing is about 1.15x the font size for its default
+    // fonts; multiples scale that.
+    LineSpacingRule.auto => 1.15 * format.lineSpacing,
+    LineSpacingRule.exact => (format.lineSpacing / firstSize).clamp(0.8, 4.0),
+    LineSpacingRule.atLeast => math.max(1.15, format.lineSpacing / firstSize).clamp(1.0, 4.0),
+  };
 
   static double firstSizeOf(WordParagraph paragraph) =>
       paragraph.inlines.whereType<WordText>().firstOrNull?.format.size ?? paragraph.marker?.format.size ?? 11;
 
   static TextAlign textAlignOf(ParagraphFormat format) => switch (format.alignment) {
-        ParagraphAlignment.left => TextAlign.start,
-        ParagraphAlignment.center => TextAlign.center,
-        ParagraphAlignment.right => TextAlign.end,
-        ParagraphAlignment.justify => TextAlign.justify,
-      };
+    ParagraphAlignment.left => TextAlign.start,
+    ParagraphAlignment.center => TextAlign.center,
+    ParagraphAlignment.right => TextAlign.end,
+    ParagraphAlignment.justify => TextAlign.justify,
+  };
 
   /// The marker hangs in its own column for a tab suffix; otherwise it's
   /// part of the text.
@@ -231,7 +232,11 @@ class WordParagraphStyler {
           addWidget(
             onNote == null
                 ? mark
-                : Semantics(button: true, label: 'Note $label', child: GestureDetector(onTap: () => onNote(inline), child: mark)),
+                : Semantics(
+                    button: true,
+                    label: 'Note $label',
+                    child: GestureDetector(onTap: () => onNote(inline), child: mark),
+                  ),
             _textSize(label, small),
             label.length,
             PlaceholderAlignment.top,
@@ -289,7 +294,10 @@ class WordParagraphStyler {
   }
 
   static Size _textSize(String text, TextStyle style) {
-    final painter = TextPainter(text: TextSpan(text: text, style: style), textDirection: TextDirection.ltr)..layout();
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
     final size = painter.size;
     painter.dispose();
     return size;

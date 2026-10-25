@@ -77,10 +77,10 @@ class _Binary {
       OS.macOS => ('mac', 'lib/libpdfium.dylib', 'libpdfium.dylib'),
       OS.windows => ('win', 'bin/pdfium.dll', 'pdfium.dll'),
       OS.iOS => (
-          code.iOS.targetSdk == IOSSdk.iPhoneSimulator ? 'ios-simulator' : 'ios-device',
-          'lib/libpdfium.dylib',
-          'libpdfium.dylib',
-        ),
+        code.iOS.targetSdk == IOSSdk.iPhoneSimulator ? 'ios-simulator' : 'ios-device',
+        'lib/libpdfium.dylib',
+        'libpdfium.dylib',
+      ),
       final other => throw UnsupportedError('PDFium: unsupported platform $other'),
     };
     final archive = 'pdfium-$platform-$arch';

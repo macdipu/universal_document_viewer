@@ -95,11 +95,11 @@ class SpreadsheetController extends ChangeNotifier {
 
   /// Where the current sheet's rows and columns sit; cached per sheet.
   SheetGeometry get geometry => _geometry ??= SheetGeometry(
-        currentSheet ?? const Worksheet(name: '', rows: []),
-        rowCount: currentRows.length,
-        columnCount: columnCount,
-        minFrozenRows: _freezeTopRow ? 1 : 0,
-      );
+    currentSheet ?? const Worksheet(name: '', rows: []),
+    rowCount: currentRows.length,
+    columnCount: columnCount,
+    minFrozenRows: _freezeTopRow ? 1 : 0,
+  );
 
   bool _freezeTopRow = false;
 
@@ -151,6 +151,7 @@ class SpreadsheetController extends ChangeNotifier {
     final index = _sheets.indexWhere((sheet) => sheet.name.toLowerCase() == lower);
     return index < 0 ? null : index;
   }
+
   int get frozenRows => currentSheet?.frozenRows ?? 0;
   int get frozenColumns => currentSheet?.frozenColumns ?? 0;
 
@@ -282,8 +283,9 @@ class SpreadsheetController extends ChangeNotifier {
     return {
       PositionKeys.sheetIndex: _activeSheet,
       PositionKeys.row: grid.visibleRows.isEmpty ? 0 : grid.visibleRows[grid.visibleRowAtScrollOffset(vertical)],
-      PositionKeys.column:
-          grid.visibleColumns.isEmpty ? 0 : grid.visibleColumns[grid.visibleColumnAtScrollOffset(horizontal)],
+      PositionKeys.column: grid.visibleColumns.isEmpty
+          ? 0
+          : grid.visibleColumns[grid.visibleColumnAtScrollOffset(horizontal)],
       PositionKeys.verticalOffset: vertical,
       PositionKeys.horizontalOffset: horizontal,
       if (_freezeTopRow) PositionKeys.freezeTopRow: true,
@@ -400,8 +402,8 @@ class SpreadsheetController extends ChangeNotifier {
     final index = sheetName == null
         ? _activeSheet
         : ignoreCase
-            ? _sheetIndexNamed(sheetName) ?? -1
-            : _sheets.indexWhere((sheet) => sheet.name == sheetName);
+        ? _sheetIndexNamed(sheetName) ?? -1
+        : _sheets.indexWhere((sheet) => sheet.name == sheetName);
     if (index < 0) return null;
     return (index, CellMatch(row: row - 1, column: column - 1));
   }
@@ -432,8 +434,10 @@ class SpreadsheetController extends ChangeNotifier {
       verticalController.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeInOut);
     }
     if (column != null && horizontalController.hasClients) {
-      final target =
-          (grid.scrollOffsetOfColumn(column) * _zoom).clamp(0.0, horizontalController.position.maxScrollExtent);
+      final target = (grid.scrollOffsetOfColumn(column) * _zoom).clamp(
+        0.0,
+        horizontalController.position.maxScrollExtent,
+      );
       horizontalController.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeInOut);
     }
   }

@@ -234,8 +234,12 @@ class _PdfDocumentViewState extends State<PdfDocumentView> with SingleTickerProv
     final hit = match.bounds;
     final bounds = match.rects.isEmpty
         ? page
-        : Rect.fromLTRB(page.left + hit.left * factor, page.top + hit.top * factor, page.left + hit.right * factor,
-            page.top + hit.bottom * factor);
+        : Rect.fromLTRB(
+            page.left + hit.left * factor,
+            page.top + hit.top * factor,
+            page.left + hit.right * factor,
+            page.top + hit.bottom * factor,
+          );
     final visible = _visibleRect();
     if (visible.deflate(8).contains(bounds.topLeft) && visible.deflate(8).contains(bounds.bottomRight)) return;
     _setTransform(_scale, bounds.center - Offset(visible.width / 2, visible.height / 2));
@@ -374,92 +378,101 @@ class _PdfDocumentViewState extends State<PdfDocumentView> with SingleTickerProv
     final document = controller.document;
     final cache = _cache;
     if (document == null || cache == null) {
-      return ColoredBox(color: background, child: const Center(child: CircularProgressIndicator()));
+      return ColoredBox(
+        color: background,
+        child: const Center(child: CircularProgressIndicator()),
+      );
     }
     return ColoredBox(
       color: background,
-      child: LayoutBuilder(builder: (context, constraints) {
-        final viewport = constraints.biggest;
-        final key = (viewport, controller.viewMode, document);
-        if (key != _layoutKey) {
-          final previous = _layoutKey as (Size, PdfReaderViewMode, Object)?;
-          final restoring = previous == null || previous.$2 != controller.viewMode || previous.$3 != document;
-          final reading = restoring ? controller.initialPageNumber - 1 : controller.currentPage - 1;
-          // Only the viewport changed (the keyboard or search bar opened,
-          // the window was resized): in continuous mode the reader stays
-          // where they were, at the same zoom, rather than being sent back
-          // to the top of the page at zoom 1. Pages only change width, so
-          // a spot on a page maps across by proportion.
-          final oldLayout = _layout;
-          final anchor =
-              !restoring && _positioned && oldLayout != null && !oldLayout.isHorizontal ? _anchorIn(oldLayout) : null;
-          final scale = _scale;
-          final fresh =
-              _layout = PdfLayout(pageSizes: document.pageSizes, viewport: viewport, mode: controller.viewMode);
-          _layoutKey = key;
-          _positioned = false;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            // Only the latest layout's positioning applies.
-            if (!mounted || _positioned || !identical(_layout, fresh)) return;
-            _positioned = true;
-            if (anchor != null && anchor.$1 < fresh.pages.length) {
-              final (index, spot) = anchor;
-              final page = fresh.pages[index];
-              _setTransform(scale, Offset(page.left + spot.dx * page.width, page.top + spot.dy * page.height));
-            } else {
-              _transform.value = Matrix4.identity();
-              _jumpToPage(reading);
-            }
-            _scheduleUpdate();
-          });
-        }
-        final layout = _layout!;
-        return GestureDetector(
-          onDoubleTapDown: (details) => _doubleTapAt = details.localPosition,
-          onDoubleTap: () {
-            final visible = _visibleRect();
-            final focus = visible.topLeft + (_doubleTapAt ?? viewport.center(Offset.zero)) / _scale;
-            _setZoom(_scale > 1.1 ? 1 : 2.5, focus: focus);
-          },
-          child: InteractiveViewer.builder(
-            transformationController: _transform,
-            minScale: 1,
-            maxScale: _maxZoom,
-            boundaryMargin: EdgeInsets.zero,
-            // Horizontal pages snap instead of gliding on.
-            interactionEndFrictionCoefficient: layout.isHorizontal ? 1 : 0.0000135,
-            onInteractionStart: (_) => _snap.stop(),
-            onInteractionEnd: _onInteractionEnd,
-            builder: (context, quad) {
-              final bounds = _quadBounds(quad).inflate(layout.isHorizontal ? viewport.width : viewport.height);
-              return Listener(
-                onPointerSignal: _onWheel,
-                child: SizedBox.fromSize(
-                  size: layout.size,
-                  child: Stack(
-                    children: [
-                      for (final page in layout.pagesIn(bounds))
-                        Positioned.fromRect(
-                          rect: layout.pages[page],
-                          child: _PdfPage(
-                            key: ValueKey(page),
-                            page: page,
-                            cache: cache,
-                            search: controller.searchController,
-                            pageSize: document.pageSizes[page],
-                            tiles: _tilesByPage[page] ?? const [],
-                            devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-                            onTap: (local) => _onPageTap(page, local),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              );
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final viewport = constraints.biggest;
+          final key = (viewport, controller.viewMode, document);
+          if (key != _layoutKey) {
+            final previous = _layoutKey as (Size, PdfReaderViewMode, Object)?;
+            final restoring = previous == null || previous.$2 != controller.viewMode || previous.$3 != document;
+            final reading = restoring ? controller.initialPageNumber - 1 : controller.currentPage - 1;
+            // Only the viewport changed (the keyboard or search bar opened,
+            // the window was resized): in continuous mode the reader stays
+            // where they were, at the same zoom, rather than being sent back
+            // to the top of the page at zoom 1. Pages only change width, so
+            // a spot on a page maps across by proportion.
+            final oldLayout = _layout;
+            final anchor = !restoring && _positioned && oldLayout != null && !oldLayout.isHorizontal
+                ? _anchorIn(oldLayout)
+                : null;
+            final scale = _scale;
+            final fresh = _layout = PdfLayout(
+              pageSizes: document.pageSizes,
+              viewport: viewport,
+              mode: controller.viewMode,
+            );
+            _layoutKey = key;
+            _positioned = false;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              // Only the latest layout's positioning applies.
+              if (!mounted || _positioned || !identical(_layout, fresh)) return;
+              _positioned = true;
+              if (anchor != null && anchor.$1 < fresh.pages.length) {
+                final (index, spot) = anchor;
+                final page = fresh.pages[index];
+                _setTransform(scale, Offset(page.left + spot.dx * page.width, page.top + spot.dy * page.height));
+              } else {
+                _transform.value = Matrix4.identity();
+                _jumpToPage(reading);
+              }
+              _scheduleUpdate();
+            });
+          }
+          final layout = _layout!;
+          return GestureDetector(
+            onDoubleTapDown: (details) => _doubleTapAt = details.localPosition,
+            onDoubleTap: () {
+              final visible = _visibleRect();
+              final focus = visible.topLeft + (_doubleTapAt ?? viewport.center(Offset.zero)) / _scale;
+              _setZoom(_scale > 1.1 ? 1 : 2.5, focus: focus);
             },
-          ),
-        );
-      }),
+            child: InteractiveViewer.builder(
+              transformationController: _transform,
+              minScale: 1,
+              maxScale: _maxZoom,
+              boundaryMargin: EdgeInsets.zero,
+              // Horizontal pages snap instead of gliding on.
+              interactionEndFrictionCoefficient: layout.isHorizontal ? 1 : 0.0000135,
+              onInteractionStart: (_) => _snap.stop(),
+              onInteractionEnd: _onInteractionEnd,
+              builder: (context, quad) {
+                final bounds = _quadBounds(quad).inflate(layout.isHorizontal ? viewport.width : viewport.height);
+                return Listener(
+                  onPointerSignal: _onWheel,
+                  child: SizedBox.fromSize(
+                    size: layout.size,
+                    child: Stack(
+                      children: [
+                        for (final page in layout.pagesIn(bounds))
+                          Positioned.fromRect(
+                            rect: layout.pages[page],
+                            child: _PdfPage(
+                              key: ValueKey(page),
+                              page: page,
+                              cache: cache,
+                              search: controller.searchController,
+                              pageSize: document.pageSizes[page],
+                              tiles: _tilesByPage[page] ?? const [],
+                              devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                              onTap: (local) => _onPageTap(page, local),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 

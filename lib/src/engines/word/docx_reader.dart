@@ -59,7 +59,11 @@ class _Field {
 /// `PAGE` / `NUMPAGES` (with any switches) -> their kind.
 PageFieldKind? _pageFieldKind(String instruction) {
   final name = instruction.trim().split(RegExp(r'\s+')).first.toUpperCase();
-  return switch (name) { 'PAGE' => PageFieldKind.page, 'NUMPAGES' => PageFieldKind.pageCount, _ => null };
+  return switch (name) {
+    'PAGE' => PageFieldKind.page,
+    'NUMPAGES' => PageFieldKind.pageCount,
+    _ => null,
+  };
 }
 
 /// What the block parser needs about the part it's reading.
@@ -129,9 +133,9 @@ class _DocxParser {
     }
     final rels = package.relationshipsOf(documentPath);
     XmlDocument? partOfType(String kind) => switch (rels.where((r) => !r.external && r.isOfType(kind)).firstOrNull) {
-          final rel? => package.readXml(rel.target),
-          null => null,
-        };
+      final rel? => package.readXml(rel.target),
+      null => null,
+    };
     theme = WordTheme.parse(partOfType('theme'));
     styles = WordStyles.parse(partOfType('styles'), theme);
     numbering = WordNumbering.parse(partOfType('numbering'), theme);
@@ -258,19 +262,27 @@ class _DocxParser {
             null => null,
           };
           final anchor = wAttr(child, 'anchor');
-          _inlines(child, part, paragraphRun, out, carried,
-              link: target == null && anchor == null ? link : WordLink(url: target, anchor: anchor));
+          _inlines(
+            child,
+            part,
+            paragraphRun,
+            out,
+            carried,
+            link: target == null && anchor == null ? link : WordLink(url: target, anchor: anchor),
+          );
         case 'fldSimple':
           final instruction = wAttr(child, 'instr') ?? '';
           if (_pageFieldKind(instruction) case final kind?) {
             final saved = <WordInline>[];
             _inlines(child, part, paragraphRun, saved, carried, link: link);
             final texts = saved.whereType<WordText>();
-            out.add(WordPageField(
-              kind,
-              fallback: texts.map((t) => t.text).join(),
-              format: texts.firstOrNull?.format ?? paragraphRun.build(),
-            ));
+            out.add(
+              WordPageField(
+                kind,
+                fallback: texts.map((t) => t.text).join(),
+                format: texts.firstOrNull?.format ?? paragraphRun.build(),
+              ),
+            );
           } else {
             _inlines(child, part, paragraphRun, out, carried, link: _hyperlinkField(instruction) ?? link);
           }
@@ -335,11 +347,13 @@ class _DocxParser {
           if (visible()) out.add(WordTab(format: format));
         case 'br':
           if (visible()) {
-            out.add(WordBreak(switch (wAttr(child, 'type')) {
-              'page' => BreakKind.page,
-              'column' => BreakKind.column,
-              _ => BreakKind.line,
-            }));
+            out.add(
+              WordBreak(switch (wAttr(child, 'type')) {
+                'page' => BreakKind.page,
+                'column' => BreakKind.column,
+                _ => BreakKind.line,
+              }),
+            );
           }
         case 'cr':
           if (visible()) out.add(const WordBreak(BreakKind.line));
@@ -378,21 +392,26 @@ class _DocxParser {
           final footnote = child.localName == 'footnoteReference';
           final labels = footnote ? _footnoteLabels : _endnoteLabels;
           // A custom mark is the run text that follows; no number of its own.
-          final custom = switch (wAttr(child, 'customMarkFollows')) { '1' || 'true' || 'on' => true, _ => false };
+          final custom = switch (wAttr(child, 'customMarkFollows')) {
+            '1' || 'true' || 'on' => true,
+            _ => false,
+          };
           final label = labels.putIfAbsent(
             id,
             () => custom
                 ? ''
                 : footnote
-                    ? '${labels.length + 1}'
-                    : WordNumbering.formatNumber(labels.length + 1, 'lowerRoman'),
+                ? '${labels.length + 1}'
+                : WordNumbering.formatNumber(labels.length + 1, 'lowerRoman'),
           );
-          out.add(WordNoteReference(
-            kind: footnote ? NoteKind.footnote : NoteKind.endnote,
-            id: id,
-            label: label,
-            format: format,
-          ));
+          out.add(
+            WordNoteReference(
+              kind: footnote ? NoteKind.footnote : NoteKind.endnote,
+              id: id,
+              label: label,
+              format: format,
+            ),
+          );
         case 'footnoteRef' || 'endnoteRef':
           // Inside a note: the note's own mark.
           text(_currentNoteLabel ?? '');
@@ -416,8 +435,8 @@ class _DocxParser {
     if (match == null) return null;
     final args = match.group(1)!;
     final anchor = RegExp(r'\\l\s+"([^"]*)"').firstMatch(args)?.group(1);
-    final url = RegExp(r'^\s*"([^"]*)"').firstMatch(args)?.group(1) ??
-        RegExp(r'^\s*([^\s\\"]+)').firstMatch(args)?.group(1);
+    final url =
+        RegExp(r'^\s*"([^"]*)"').firstMatch(args)?.group(1) ?? RegExp(r'^\s*([^\s\\"]+)').firstMatch(args)?.group(1);
     if (url == null && anchor == null) return null;
     return WordLink(url: url, anchor: anchor);
   }
@@ -521,8 +540,14 @@ class _DocxParser {
     _textBoxes(element, part, carried);
   }
 
-  WordImage? _image(String relationshipId, _PartContext part, double width, double height, String? description,
-      bool floating) {
+  WordImage? _image(
+    String relationshipId,
+    _PartContext part,
+    double width,
+    double height,
+    String? description,
+    bool floating,
+  ) {
     final rel = part.relationships[relationshipId];
     if (rel == null || rel.external) return null;
     final target = rel.target;
@@ -736,10 +761,10 @@ class _DocxParser {
     final size = wChild(sectPr, 'pgSz');
     final margins = wChild(sectPr, 'pgMar');
     Map<HeaderFooterKind, List<WordBlock>> parts(String reference) => {
-          for (final ref in wChildren(sectPr, reference))
-            if (part.relationships[wAttr(ref, 'id')] case final rel? when !rel.external)
-              _kind(wAttr(ref, 'type')): _headerFooter(rel.target),
-        };
+      for (final ref in wChildren(sectPr, reference))
+        if (part.relationships[wAttr(ref, 'id')] case final rel? when !rel.external)
+          _kind(wAttr(ref, 'type')): _headerFooter(rel.target),
+    };
     final landscape = wAttr(size, 'orient') == 'landscape';
     // Pages between half an inch and Word's 22 inches, margins within the
     // page: a malformed size would otherwise lay out absurd (or no) pages.
@@ -764,24 +789,24 @@ class _DocxParser {
   static const double _maxPageSize = 1584;
 
   static HeaderFooterKind _kind(String? type) => switch (type) {
-        'first' => HeaderFooterKind.first,
-        'even' => HeaderFooterKind.even,
-        _ => HeaderFooterKind.defaultKind,
-      };
+    'first' => HeaderFooterKind.first,
+    'even' => HeaderFooterKind.even,
+    _ => HeaderFooterKind.defaultKind,
+  };
 
   final _headerFooterCache = <String, List<WordBlock>>{};
 
   List<WordBlock> _headerFooter(String path) => _headerFooterCache.putIfAbsent(path, () {
-        final doc = package.readXml(path);
-        if (doc == null) return const [];
-        final saved = List.of(_fields);
-        _fields.clear();
-        final blocks = _blocks(doc.rootElement, _context(path));
-        _fields
-          ..clear()
-          ..addAll(saved);
-        return blocks;
-      });
+    final doc = package.readXml(path);
+    if (doc == null) return const [];
+    final saved = List.of(_fields);
+    _fields.clear();
+    final blocks = _blocks(doc.rootElement, _context(path));
+    _fields
+      ..clear()
+      ..addAll(saved);
+    return blocks;
+  });
 
   /// A section without its own header/footer of a kind uses the previous
   /// section's (§17.10.5).
@@ -789,33 +814,36 @@ class _DocxParser {
     final result = <WordSection>[];
     for (final section in sections) {
       final previous = result.isEmpty ? null : result.last;
-      result.add(WordSection(
-        pageWidth: section.pageWidth,
-        pageHeight: section.pageHeight,
-        marginTop: section.marginTop,
-        marginBottom: section.marginBottom,
-        marginLeft: section.marginLeft,
-        marginRight: section.marginRight,
-        headers: {...?previous?.headers, ...section.headers},
-        footers: {...?previous?.footers, ...section.footers},
-        titlePage: section.titlePage,
-      ));
+      result.add(
+        WordSection(
+          pageWidth: section.pageWidth,
+          pageHeight: section.pageHeight,
+          marginTop: section.marginTop,
+          marginBottom: section.marginBottom,
+          marginLeft: section.marginLeft,
+          marginRight: section.marginRight,
+          headers: {...?previous?.headers, ...section.headers},
+          footers: {...?previous?.footers, ...section.footers},
+          titlePage: section.titlePage,
+        ),
+      );
     }
     return result;
   }
 
   /// Footnotes or endnotes that the text refers to, in reference order.
   Map<String, List<WordBlock>> _notes(
-      List<OpcRelationship> rels, String kind, String element, Map<String, String> labels) {
+    List<OpcRelationship> rels,
+    String kind,
+    String element,
+    Map<String, String> labels,
+  ) {
     if (labels.isEmpty) return const {};
     final rel = rels.where((r) => !r.external && r.isOfType(kind)).firstOrNull;
     final doc = rel == null ? null : package.readXml(rel.target);
     if (doc == null) return const {};
     final context = _context(rel!.target);
-    final byId = {
-      for (final note in wChildren(doc.rootElement, element))
-        if (wAttr(note, 'id') case final id?) id: note,
-    };
+    final byId = {for (final note in wChildren(doc.rootElement, element)) ?wAttr(note, 'id'): note};
     final notes = <String, List<WordBlock>>{};
     // A note can refer to another note, which numbers it (adds to [labels])
     // while this walks them: work through a list that grows to match.
@@ -840,7 +868,10 @@ class _DocxParser {
     final merged = <WordInline>[];
     for (final inline in inlines) {
       final previous = merged.isEmpty ? null : merged.last;
-      if (inline is WordText && previous is WordText && previous.format == inline.format && previous.link == inline.link) {
+      if (inline is WordText &&
+          previous is WordText &&
+          previous.format == inline.format &&
+          previous.link == inline.link) {
         merged[merged.length - 1] = WordText(previous.text + inline.text, format: inline.format, link: inline.link);
       } else {
         merged.add(inline);
@@ -869,14 +900,14 @@ class _CellDraft {
   int rowSpan = 1;
 
   WordTableCell build() => WordTableCell(
-        blocks,
-        columnSpan: columnSpan,
-        rowSpan: rowSpan,
-        covered: covered,
-        fill: fill,
-        verticalAlignment: verticalAlignment,
-        borders: borders,
-      );
+    blocks,
+    columnSpan: columnSpan,
+    rowSpan: rowSpan,
+    covered: covered,
+    fill: fill,
+    verticalAlignment: verticalAlignment,
+    borders: borders,
+  );
 }
 
 /// `w:tblLook`: which of a table style's conditional formats apply. Both
@@ -901,9 +932,9 @@ class _TableLook {
   factory _TableLook.read(XmlElement? look) {
     if (look == null) return const _TableLook();
     bool? flag(String name) => switch (wAttr(look, name)) {
-          null => null,
-          final v => v == '1' || v == 'true' || v == 'on',
-        };
+      null => null,
+      final v => v == '1' || v == 'true' || v == 'on',
+    };
     final hex = int.tryParse(wAttr(look, 'val') ?? '', radix: 16) ?? 0;
     bool bit(int mask) => hex & mask != 0;
     return _TableLook(

@@ -8,10 +8,10 @@ import 'package:universal_document_viewer/testing.dart';
 
 void main() {
   Uint8List workbook() => buildXlsx(const [
-        XlsxTestSheet('Sheet1', {'A1': 'Name', 'A2': 'Alice'}),
-        XlsxTestSheet('Secret', {'A1': 'hidden'}, state: 'hidden'),
-        XlsxTestSheet('Later', {'B3': 'alice again'}),
-      ]);
+    XlsxTestSheet('Sheet1', {'A1': 'Name', 'A2': 'Alice'}),
+    XlsxTestSheet('Secret', {'A1': 'hidden'}, state: 'hidden'),
+    XlsxTestSheet('Later', {'B3': 'alice again'}),
+  ]);
 
   test('loads an .xlsx, leaving out hidden sheets', () async {
     final sheet = SpreadsheetController();
@@ -23,11 +23,13 @@ void main() {
   });
 
   test('restores the saved sheet and offsets', () async {
-    final sheet = SpreadsheetController(initialPosition: {
-      PositionKeys.sheetIndex: 1,
-      PositionKeys.verticalOffset: 72.0,
-      PositionKeys.horizontalOffset: 110.0,
-    });
+    final sheet = SpreadsheetController(
+      initialPosition: {
+        PositionKeys.sheetIndex: 1,
+        PositionKeys.verticalOffset: 72.0,
+        PositionKeys.horizontalOffset: 110.0,
+      },
+    );
     await sheet.loadXlsx(workbook());
     expect(sheet.activeSheetIndex, 1);
     expect(sheet.initialVerticalOffset, 72);

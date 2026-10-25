@@ -40,7 +40,7 @@ class PptxSlide {
 
   /// Everything searchable on the slide.
   String get text => [
-    if (title case final title?) title,
+    ?title,
     for (final block in blocks)
       if (block is PptxParagraph)
         block.text
@@ -116,7 +116,7 @@ class PptxParser {
 
     final slidePaths = <String>[
       for (final id in presentation.findAllElements('sldId', namespaceUri: _ns.p))
-        if (presentationRels[id.getAttribute('id', namespaceUri: _ns.r)] case final target?) target,
+        ?presentationRels[id.getAttribute('id', namespaceUri: _ns.r)],
     ];
     final index = only != null && only >= 0 && only < slidePaths.length ? only : 0;
     final wanted = only == null ? slidePaths : slidePaths.skip(index).take(1);
@@ -137,9 +137,9 @@ class PptxParser {
 
   /// Relationship id -> internal target part, for [part].
   static Map<String, String> _targets(OpcPackage package, String part) => {
-        for (final rel in package.relationshipsOf(part))
-          if (!rel.external) rel.id: rel.target,
-      };
+    for (final rel in package.relationshipsOf(part))
+      if (!rel.external) rel.id: rel.target,
+  };
 
   static PptxSlide _slide(XmlDocument doc, Map<String, String> rels, _Pictures pictures) {
     String? title;
@@ -202,8 +202,7 @@ class PptxParser {
 
   /// A paragraph's `lvl`, clamped to DrawingML's nine levels (0-8): any
   /// other number would indent the paragraph off the slide.
-  static int _level(XmlElement? properties) =>
-      (int.tryParse(properties?.getAttribute('lvl') ?? '') ?? 0).clamp(0, 8);
+  static int _level(XmlElement? properties) => (int.tryParse(properties?.getAttribute('lvl') ?? '') ?? 0).clamp(0, 8);
 
   /// Text runs (`a:t`) in order; line breaks (`a:br`) become newlines.
   static String _text(XmlElement element) {

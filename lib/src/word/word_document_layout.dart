@@ -21,7 +21,8 @@ class WordDocumentLayout {
   WordDocumentLayout(this.document) {
     final first = document.sections.first;
     final last = document.sections.last;
-    final header = first.headers[first.titlePage ? HeaderFooterKind.first : HeaderFooterKind.defaultKind] ??
+    final header =
+        first.headers[first.titlePage ? HeaderFooterKind.first : HeaderFooterKind.defaultKind] ??
         first.headers[HeaderFooterKind.defaultKind];
     final footer = last.footers[HeaderFooterKind.defaultKind];
     for (final block in header ?? const <WordBlock>[]) {

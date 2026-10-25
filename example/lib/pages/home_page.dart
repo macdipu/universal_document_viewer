@@ -19,9 +19,7 @@ class HomePage extends StatelessWidget {
 
   Future<void> _pick(BuildContext context) async {
     final file = await openFile(
-      acceptedTypeGroups: [
-        XTypeGroup(label: 'Documents', extensions: DocumentFormat.supportedExtensions.toList()),
-      ],
+      acceptedTypeGroups: [XTypeGroup(label: 'Documents', extensions: DocumentFormat.supportedExtensions.toList())],
     );
     if (file == null || !context.mounted) return;
     library.addOpened(file.path);
@@ -29,13 +27,15 @@ class HomePage extends StatelessWidget {
   }
 
   void _open(BuildContext context, String path, _Reader reader) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => switch (reader) {
-        _Reader.viewer => ReaderPage(library: library, path: path),
-        _Reader.word => WordPage(library: library, path: path),
-        _Reader.sheet => SheetPage(library: library, path: path),
-      },
-    ));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => switch (reader) {
+          _Reader.viewer => ReaderPage(library: library, path: path),
+          _Reader.word => WordPage(library: library, path: path),
+          _Reader.sheet => SheetPage(library: library, path: path),
+        },
+      ),
+    );
   }
 
   @override
@@ -61,10 +61,7 @@ class HomePage extends StatelessWidget {
               ],
             ),
             const SliverToBoxAdapter(child: _Intro()),
-            if (library.opened.isNotEmpty) ...[
-              const _Header('Your files'),
-              _grid(context, library.opened),
-            ],
+            if (library.opened.isNotEmpty) ...[const _Header('Your files'), _grid(context, library.opened)],
             const _Header('Samples'),
             _grid(context, library.samples),
             const SliverToBoxAdapter(child: SizedBox(height: 96)),
@@ -127,7 +124,9 @@ class HomePage extends StatelessWidget {
                           const PopupMenuItem(value: _Reader.viewer, child: Text('Open with DocumentViewer')),
                           PopupMenuItem(
                             value: dedicated,
-                            child: Text(dedicated == _Reader.word ? 'Open in the Word reader' : 'Open in the sheet reader'),
+                            child: Text(
+                              dedicated == _Reader.word ? 'Open in the Word reader' : 'Open in the sheet reader',
+                            ),
                           ),
                         ],
                       ),
@@ -182,14 +181,14 @@ enum _Reader { viewer, word, sheet }
 /// The label and colour each format is shown with.
 extension on DocumentFormat? {
   (String, Color) get look => switch (this) {
-        DocumentFormat.pdf => ('PDF', const Color(0xFFC62828)),
-        DocumentFormat.word => ('Word', const Color(0xFF1565C0)),
-        DocumentFormat.excel => ('Excel', const Color(0xFF2E7D32)),
-        DocumentFormat.csv => ('CSV', const Color(0xFF00796B)),
-        DocumentFormat.powerpoint => ('Slides', const Color(0xFFE65100)),
-        DocumentFormat.text => ('Text', const Color(0xFF546E7A)),
-        null => ('Other', const Color(0xFF757575)),
-      };
+    DocumentFormat.pdf => ('PDF', const Color(0xFFC62828)),
+    DocumentFormat.word => ('Word', const Color(0xFF1565C0)),
+    DocumentFormat.excel => ('Excel', const Color(0xFF2E7D32)),
+    DocumentFormat.csv => ('CSV', const Color(0xFF00796B)),
+    DocumentFormat.powerpoint => ('Slides', const Color(0xFFE65100)),
+    DocumentFormat.text => ('Text', const Color(0xFF546E7A)),
+    null => ('Other', const Color(0xFF757575)),
+  };
 }
 
 /// What the package reads, as a row of format badges.
@@ -210,11 +209,7 @@ class _Intro extends StatelessWidget {
             style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [for (final format in DocumentFormat.values) _FormatBadge(format)],
-          ),
+          Wrap(spacing: 6, runSpacing: 6, children: [for (final format in DocumentFormat.values) _FormatBadge(format)]),
         ],
       ),
     );
@@ -249,11 +244,11 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-          child: Text(text, style: Theme.of(context).textTheme.titleMedium),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+      child: Text(text, style: Theme.of(context).textTheme.titleMedium),
+    ),
+  );
 }
 
 /// [DocumentThumbnails] of the page [position] is on. Renders are kept per
@@ -279,7 +274,7 @@ class _Thumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final page = {for (final key in _pageKeys) if (position?[key] case final value?) key: value};
+    final page = {for (final key in _pageKeys) key: ?position?[key]};
     final render = _renders.putIfAbsent(
       '$path|$page',
       () => DocumentThumbnails.render(path, width: 360, position: page.isEmpty ? null : page),
@@ -292,10 +287,10 @@ class _Thumbnail extends StatelessWidget {
         builder: (context, snapshot) => switch (snapshot.data) {
           final png? => Image.memory(png, fit: BoxFit.cover, alignment: Alignment.topCenter),
           null when snapshot.connectionState == ConnectionState.done => Icon(
-              locked ? Icons.lock_outline : Icons.description_outlined,
-              size: 40,
-              color: scheme.onSurfaceVariant,
-            ),
+            locked ? Icons.lock_outline : Icons.description_outlined,
+            size: 40,
+            color: scheme.onSurfaceVariant,
+          ),
           null => const Center(child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))),
         },
       ),

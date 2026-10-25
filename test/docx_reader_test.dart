@@ -78,20 +78,22 @@ void main() {
 
   group('built in memory', () {
     test('fields: results shown, instructions hidden, HYPERLINK fields link', () {
-      final doc = DocxReader.read(buildDocx(
-        '<w:p>'
-        '<w:r><w:t xml:space="preserve">Page </w:t></w:r>'
-        '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> PAGE </w:instrText></w:r>'
-        '<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>7</w:t></w:r>'
-        '<w:r><w:fldChar w:fldCharType="end"/></w:r>'
-        '<w:r><w:t xml:space="preserve"> see </w:t></w:r>'
-        '<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
-        '<w:r><w:instrText xml:space="preserve"> HYPERLINK "https://a.example" </w:instrText></w:r>'
-        '<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>here</w:t></w:r>'
-        '<w:r><w:fldChar w:fldCharType="end"/></w:r>'
-        '<w:fldSimple w:instr=" HYPERLINK \\l &quot;intro&quot; "><w:r><w:t>back</w:t></w:r></w:fldSimple>'
-        '</w:p>',
-      ));
+      final doc = DocxReader.read(
+        buildDocx(
+          '<w:p>'
+          '<w:r><w:t xml:space="preserve">Page </w:t></w:r>'
+          '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> PAGE </w:instrText></w:r>'
+          '<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>7</w:t></w:r>'
+          '<w:r><w:fldChar w:fldCharType="end"/></w:r>'
+          '<w:r><w:t xml:space="preserve"> see </w:t></w:r>'
+          '<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+          '<w:r><w:instrText xml:space="preserve"> HYPERLINK "https://a.example" </w:instrText></w:r>'
+          '<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>here</w:t></w:r>'
+          '<w:r><w:fldChar w:fldCharType="end"/></w:r>'
+          '<w:fldSimple w:instr=" HYPERLINK \\l &quot;intro&quot; "><w:r><w:t>back</w:t></w:r></w:fldSimple>'
+          '</w:p>',
+        ),
+      );
       final paragraph = paragraphs(doc.body).single;
       expect(paragraph.plainText, 'Page 7 see hereback');
       final texts = paragraph.inlines.whereType<WordText>().toList();
@@ -100,25 +102,31 @@ void main() {
     });
 
     test('tracked changes show as accepted; hidden text is left out', () {
-      final doc = DocxReader.read(buildDocx(
-        '<w:p><w:r><w:t xml:space="preserve">kept </w:t></w:r>'
-        '<w:ins><w:r><w:t>added</w:t></w:r></w:ins>'
-        '<w:del><w:r><w:delText>removed</w:delText></w:r></w:del>'
-        '<w:r><w:rPr><w:vanish/></w:rPr><w:t>secret</w:t></w:r></w:p>',
-      ));
+      final doc = DocxReader.read(
+        buildDocx(
+          '<w:p><w:r><w:t xml:space="preserve">kept </w:t></w:r>'
+          '<w:ins><w:r><w:t>added</w:t></w:r></w:ins>'
+          '<w:del><w:r><w:delText>removed</w:delText></w:r></w:del>'
+          '<w:r><w:rPr><w:vanish/></w:rPr><w:t>secret</w:t></w:r></w:p>',
+        ),
+      );
       expect(paragraphs(doc.body).single.plainText, 'kept added');
     });
 
     test('footnotes and endnotes: numbered by first reference', () {
-      final doc = DocxReader.read(buildDocx(
-        '<w:p><w:r><w:t>A</w:t></w:r><w:r><w:footnoteReference w:id="5"/></w:r>'
-        '<w:r><w:t>B</w:t></w:r><w:r><w:footnoteReference w:id="2"/></w:r>'
-        '<w:r><w:endnoteReference w:id="1"/></w:r></w:p>',
-        footnotes: '<w:footnote w:type="separator" w:id="-1"><w:p/></w:footnote>'
-            '<w:footnote w:id="2"><w:p><w:r><w:footnoteRef/></w:r><w:r><w:t xml:space="preserve"> Second</w:t></w:r></w:p></w:footnote>'
-            '<w:footnote w:id="5"><w:p><w:r><w:footnoteRef/></w:r><w:r><w:t xml:space="preserve"> First</w:t></w:r></w:p></w:footnote>',
-        endnotes: '<w:endnote w:id="1"><w:p><w:r><w:endnoteRef/></w:r><w:r><w:t xml:space="preserve"> End</w:t></w:r></w:p></w:endnote>',
-      ));
+      final doc = DocxReader.read(
+        buildDocx(
+          '<w:p><w:r><w:t>A</w:t></w:r><w:r><w:footnoteReference w:id="5"/></w:r>'
+          '<w:r><w:t>B</w:t></w:r><w:r><w:footnoteReference w:id="2"/></w:r>'
+          '<w:r><w:endnoteReference w:id="1"/></w:r></w:p>',
+          footnotes:
+              '<w:footnote w:type="separator" w:id="-1"><w:p/></w:footnote>'
+              '<w:footnote w:id="2"><w:p><w:r><w:footnoteRef/></w:r><w:r><w:t xml:space="preserve"> Second</w:t></w:r></w:p></w:footnote>'
+              '<w:footnote w:id="5"><w:p><w:r><w:footnoteRef/></w:r><w:r><w:t xml:space="preserve"> First</w:t></w:r></w:p></w:footnote>',
+          endnotes:
+              '<w:endnote w:id="1"><w:p><w:r><w:endnoteRef/></w:r><w:r><w:t xml:space="preserve"> End</w:t></w:r></w:p></w:endnote>',
+        ),
+      );
       final refs = paragraphs(doc.body).single.inlines.whereType<WordNoteReference>().toList();
       expect([for (final r in refs) r.label], ['1', '2', 'i']);
       expect(paragraphs(doc.footnotes['5']!).single.plainText, '1 First');
@@ -127,15 +135,17 @@ void main() {
     });
 
     test('styles: default paragraph style, basedOn, toggles, character styles', () {
-      final doc = DocxReader.read(buildDocx(
-        p('body') + p('heading', props: '<w:pStyle w:val="H"/>') +
-            '<w:p><w:pPr><w:pStyle w:val="H"/></w:pPr><w:r><w:rPr><w:rStyle w:val="Strong"/></w:rPr><w:t>toggled</w:t></w:r></w:p>',
-        styles: '<w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="20"/></w:rPr></w:rPrDefault></w:docDefaults>'
-            '<w:style w:type="paragraph" w:default="1" w:styleId="Body"><w:rPr><w:color w:val="333333"/></w:rPr></w:style>'
-            '<w:style w:type="paragraph" w:styleId="Base"><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style>'
-            '<w:style w:type="paragraph" w:styleId="H"><w:basedOn w:val="Base"/><w:pPr><w:outlineLvl w:val="1"/></w:pPr></w:style>'
-            '<w:style w:type="character" w:styleId="Strong"><w:rPr><w:b/></w:rPr></w:style>',
-      ));
+      final doc = DocxReader.read(
+        buildDocx(
+          '${p('body')}${p('heading', props: '<w:pStyle w:val="H"/>')}<w:p><w:pPr><w:pStyle w:val="H"/></w:pPr><w:r><w:rPr><w:rStyle w:val="Strong"/></w:rPr><w:t>toggled</w:t></w:r></w:p>',
+          styles:
+              '<w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="20"/></w:rPr></w:rPrDefault></w:docDefaults>'
+              '<w:style w:type="paragraph" w:default="1" w:styleId="Body"><w:rPr><w:color w:val="333333"/></w:rPr></w:style>'
+              '<w:style w:type="paragraph" w:styleId="Base"><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style>'
+              '<w:style w:type="paragraph" w:styleId="H"><w:basedOn w:val="Base"/><w:pPr><w:outlineLvl w:val="1"/></w:pPr></w:style>'
+              '<w:style w:type="character" w:styleId="Strong"><w:rPr><w:b/></w:rPr></w:style>',
+        ),
+      );
       final [body, heading, toggled] = paragraphs(doc.body);
       final bodyRun = (body.inlines.single as WordText).format;
       expect(bodyRun.size, 10);
@@ -150,27 +160,46 @@ void main() {
     test('numbering: levels, templates, restarts, continuing lists', () {
       String item(String text, int numId, [int level = 0]) =>
           p(text, props: '<w:numPr><w:ilvl w:val="$level"/><w:numId w:val="$numId"/></w:numPr>');
-      final doc = DocxReader.read(buildDocx(
-        item('one', 1) + item('one.a', 1, 1) + item('one.b', 1, 1) + item('two', 1) + item('two.a', 1, 1) +
-            p('break') + item('three', 1) + item('restart', 2),
-        numbering: '<w:abstractNum w:abstractNumId="0">'
-            '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl>'
-            '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%1.%2)"/></w:lvl>'
-            '</w:abstractNum>'
-            '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'
-            '<w:num w:numId="2"><w:abstractNumId w:val="0"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>',
-      ));
-      expect([for (final p in paragraphs(doc.body)) p.marker?.text],
-          ['1.', '1.a)', '1.b)', '2.', '2.a)', null, '3.', '1.']);
+      final doc = DocxReader.read(
+        buildDocx(
+          item('one', 1) +
+              item('one.a', 1, 1) +
+              item('one.b', 1, 1) +
+              item('two', 1) +
+              item('two.a', 1, 1) +
+              p('break') +
+              item('three', 1) +
+              item('restart', 2),
+          numbering:
+              '<w:abstractNum w:abstractNumId="0">'
+              '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl>'
+              '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%1.%2)"/></w:lvl>'
+              '</w:abstractNum>'
+              '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'
+              '<w:num w:numId="2"><w:abstractNumId w:val="0"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>',
+        ),
+      );
+      expect(
+        [for (final p in paragraphs(doc.body)) p.marker?.text],
+        ['1.', '1.a)', '1.b)', '2.', '2.a)', null, '3.', '1.'],
+      );
     });
 
     test('not a document', () {
-      expect(() => DocxReader.read(buildXlsx(const [XlsxTestSheet('S', {'A1': 'x'})])), throwsA(isA<DocxFormatException>()));
+      expect(
+        () => DocxReader.read(
+          buildXlsx(const [
+            XlsxTestSheet('S', {'A1': 'x'}),
+          ]),
+        ),
+        throwsA(isA<DocxFormatException>()),
+      );
     });
   });
 
   group('malformed or hostile input', () {
-    const drawingNs = 'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
+    const drawingNs =
+        'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
         'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
         'xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"';
     const vmlNs = 'xmlns:v="urn:schemas-microsoft-com:vml"';
@@ -180,12 +209,12 @@ void main() {
     String drawingBoxes(int depth, String inner) => depth == 0
         ? inner
         : '<w:p><w:r><w:drawing><wp:inline $drawingNs><wp:extent cx="1" cy="1"/><a:graphic><a:graphicData>'
-            '<wps:wsp><wps:txbx><w:txbxContent>${drawingBoxes(depth - 1, inner)}</w:txbxContent></wps:txbx></wps:wsp>'
-            '</a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
+              '<wps:wsp><wps:txbx><w:txbxContent>${drawingBoxes(depth - 1, inner)}</w:txbxContent></wps:txbx></wps:wsp>'
+              '</a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
     String vmlBoxes(int depth, String inner) => depth == 0
         ? inner
         : '<w:p><w:r><w:pict><v:shape $vmlNs><v:textbox><w:txbxContent>${vmlBoxes(depth - 1, inner)}'
-            '</w:txbxContent></v:textbox></v:shape></w:pict></w:r></w:p>';
+              '</w:txbxContent></v:textbox></v:shape></w:pict></w:r></w:p>';
     int count(WordDocument doc, String text) => paragraphs(doc.body).where((p) => p.plainText == text).length;
 
     test('nested text boxes are read once each, and a deep nest is cut off quickly', () {
@@ -215,7 +244,8 @@ void main() {
       expect(firstSpan(noGrid), 64);
     });
 
-    String listItem(String level) => '<w:p><w:pPr><w:numPr><w:ilvl w:val="$level"/><w:numId w:val="1"/></w:numPr></w:pPr>'
+    String listItem(String level) =>
+        '<w:p><w:pPr><w:numPr><w:ilvl w:val="$level"/><w:numId w:val="1"/></w:numPr></w:pPr>'
         '<w:r><w:t>x</w:t></w:r></w:p>';
     String list(String level, {String start = '1', String format = 'decimal', String text = '%1.', String num = ''}) =>
         '<w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="$level"><w:start w:val="$start"/><w:numFmt w:val="$format"/>'
@@ -228,43 +258,58 @@ void main() {
       expect(marker(listItem('-1'), list('-1')), isNull);
       expect(marker(listItem('0'), list('0', text: '%0.%1')), '.1');
       expect(
-        marker(listItem('0'), list('0', num: '<w:lvlOverride w:ilvl="-3"><w:startOverride w:val="5"/></w:lvlOverride>'
-            '<w:lvlOverride w:ilvl="12"><w:startOverride w:val="5"/></w:lvlOverride>')),
+        marker(
+          listItem('0'),
+          list(
+            '0',
+            num:
+                '<w:lvlOverride w:ilvl="-3"><w:startOverride w:val="5"/></w:lvlOverride>'
+                '<w:lvlOverride w:ilvl="12"><w:startOverride w:val="5"/></w:lvlOverride>',
+          ),
+        ),
         '1.',
       );
     });
 
     test('list numbers are bounded, so letter numbering stays short', () {
       expect(marker(listItem('0'), list('0', start: '100000000', format: 'lowerLetter'))!.length, lessThan(1300));
-      final overridden = marker(listItem('0'),
-          list('0', num: '<w:lvlOverride w:ilvl="0"><w:startOverride w:val="-100000000"/></w:lvlOverride>'));
+      final overridden = marker(
+        listItem('0'),
+        list('0', num: '<w:lvlOverride w:ilvl="0"><w:startOverride w:val="-100000000"/></w:lvlOverride>'),
+      );
       expect(overridden, '0.');
     });
 
     test('a footnote that refers to another footnote', () {
-      final doc = DocxReader.read(buildDocx(
-        '<w:p><w:r><w:footnoteReference w:id="1"/></w:r></w:p>',
-        footnotes: '<w:footnote w:id="1"><w:p><w:r><w:t>one</w:t></w:r><w:r><w:footnoteReference w:id="2"/></w:r></w:p>'
-            '</w:footnote><w:footnote w:id="2"><w:p><w:r><w:t>two</w:t></w:r></w:p></w:footnote>',
-      ));
+      final doc = DocxReader.read(
+        buildDocx(
+          '<w:p><w:r><w:footnoteReference w:id="1"/></w:r></w:p>',
+          footnotes:
+              '<w:footnote w:id="1"><w:p><w:r><w:t>one</w:t></w:r><w:r><w:footnoteReference w:id="2"/></w:r></w:p>'
+              '</w:footnote><w:footnote w:id="2"><w:p><w:r><w:t>two</w:t></w:r></w:p></w:footnote>',
+        ),
+      );
       expect(doc.footnotes.keys, ['1', '2']);
       expect(paragraphs(doc.footnotes['2']!).single.plainText, 'two');
     });
 
     test('only the body ends sections: a header referencing itself, a text box section', () {
-      final header = '<?xml version="1.0"?>'
+      final header =
+          '<?xml version="1.0"?>'
           '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="$relNs">'
           '<w:p><w:pPr><w:sectPr><w:headerReference w:type="default" r:id="rH"/></w:sectPr></w:pPr>'
           '<w:r><w:t>head</w:t></w:r></w:p></w:hdr>';
-      final headerRels = '<?xml version="1.0"?>'
+      final headerRels =
+          '<?xml version="1.0"?>'
           '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
           '<Relationship Id="rH" Type="$relNs/header" Target="header1.xml"/></Relationships>';
-      final doc = DocxReader.read(buildDocx(
-        drawingBoxes(1, '<w:p><w:pPr><w:sectPr/></w:pPr></w:p>') +
-            '<w:p><w:r><w:t>body</w:t></w:r></w:p><w:sectPr><w:headerReference w:type="default" r:id="rH"/></w:sectPr>',
-        relationships: '<Relationship Id="rH" Type="$relNs/header" Target="header1.xml"/>',
-        media: {'header1.xml': header.codeUnits, '_rels/header1.xml.rels': headerRels.codeUnits},
-      ));
+      final doc = DocxReader.read(
+        buildDocx(
+          '${drawingBoxes(1, '<w:p><w:pPr><w:sectPr/></w:pPr></w:p>')}<w:p><w:r><w:t>body</w:t></w:r></w:p><w:sectPr><w:headerReference w:type="default" r:id="rH"/></w:sectPr>',
+          relationships: '<Relationship Id="rH" Type="$relNs/header" Target="header1.xml"/>',
+          media: {'header1.xml': header.codeUnits, '_rels/header1.xml.rels': headerRels.codeUnits},
+        ),
+      );
       expect(doc.sections, hasLength(1));
       expect(doc.body.whereType<WordSectionBreak>(), isEmpty);
       expect(paragraphs(doc.sections.single.headers[HeaderFooterKind.defaultKind]!).single.plainText, 'head');
