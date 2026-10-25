@@ -14,7 +14,7 @@ void main() {
 
   test('loads an .xlsx, leaving out hidden sheets', () async {
     final sheet = SpreadsheetController();
-    await sheet.loadXlsx(workbook());
+    await sheet.loadBytes(workbook());
     expect(sheet.error, isNull);
     expect(sheet.sheetNames.length, 2);
     expect(sheet.sheetNames, isNot(contains('Secret')));
@@ -29,7 +29,7 @@ void main() {
         PositionKeys.horizontalOffset: 110.0,
       },
     );
-    await sheet.loadXlsx(workbook());
+    await sheet.loadBytes(workbook());
     expect(sheet.activeSheetIndex, 1);
     expect(sheet.initialVerticalOffset, 72);
     expect(sheet.initialHorizontalOffset, 110);
@@ -37,13 +37,13 @@ void main() {
 
   test('a saved sheet past the end falls back to the first', () async {
     final sheet = SpreadsheetController(initialPosition: {PositionKeys.sheetIndex: 7});
-    await sheet.loadXlsx(workbook());
+    await sheet.loadBytes(workbook());
     expect(sheet.activeSheetIndex, 0);
   });
 
   test('loads CSV, including quoted commas and new lines', () async {
     final sheet = SpreadsheetController();
-    await sheet.loadCsv(Uint8List.fromList(utf8.encode('Name,Note\n"Doe, Jane","two\nlines"\n')));
+    await sheet.loadBytes(Uint8List.fromList(utf8.encode('Name,Note\n"Doe, Jane","two\nlines"\n')));
     expect(sheet.error, isNull);
     expect(sheet.currentRows[1][0]?.text, 'Doe, Jane');
     expect(sheet.currentRows[1][1]?.text, 'two\nlines');
@@ -51,15 +51,15 @@ void main() {
 
   test('typed errors', () async {
     final damaged = SpreadsheetController();
-    await damaged.loadXlsx(Uint8List.fromList([1, 2, 3]));
+    await damaged.loadBytes(Uint8List.fromList([1, 2, 3]));
     expect(damaged.error, DocumentLoadError.corrupted);
-    expect((SpreadsheetController()..rejectAsTooLarge()).error, DocumentLoadError.tooLarge);
+    expect((SpreadsheetController()..markFailed(DocumentLoadError.tooLarge)).error, DocumentLoadError.tooLarge);
   });
 
   test('search is per sheet; switching sheets clears it and reports the position', () async {
     ReadingPosition? reported;
     final sheet = SpreadsheetController(onPositionChanged: (p) => reported = p);
-    await sheet.loadXlsx(workbook());
+    await sheet.loadBytes(workbook());
     sheet.search('ALICE');
     expect(sheet.matches.map((m) => (m.row, m.column)), [(1, 0)]);
     sheet.switchSheet(1);
@@ -74,10 +74,10 @@ void main() {
     for (var i = 0; i < 10; i++) {
       sheet.zoomIn();
     }
-    expect(sheet.zoom, SpreadsheetController.maxZoom);
+    expect(sheet.zoom, sheet.maxZoom);
     for (var i = 0; i < 10; i++) {
       sheet.zoomOut();
     }
-    expect(sheet.zoom, SpreadsheetController.minZoom);
+    expect(sheet.zoom, sheet.minZoom);
   });
 }

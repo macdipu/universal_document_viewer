@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -131,7 +129,7 @@ void main() {
 
   test('the sheet controller reads the workbook with its formatting', () async {
     final controller = SpreadsheetController();
-    await controller.loadXlsx(await File(sample('sales.xlsx')).readAsBytes());
+    await controller.loadFile(sample('sales.xlsx'));
     expect(controller.sheetNames, ['Regions', 'Orders']);
     final units = controller.currentRows[2][1]!;
     expect(units.style.fillColor, isNotNull, reason: 'South is under target: conditional fill');

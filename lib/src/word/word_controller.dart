@@ -1,8 +1,10 @@
 import 'dart:isolate';
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:meta/meta.dart';
 
+import '../common/document_controller.dart';
 import '../common/reader_contract.dart';
 import '../common/zip_safety_guard.dart';
 import '../engines/word/docx_reader.dart';
@@ -11,32 +13,36 @@ import 'word_document_layout.dart';
 import 'word_pagination.dart';
 import 'word_search_controller.dart';
 
-/// How [WordView] lays the document out.
+/// How [WordView] lays a document out.
 enum WordViewMode {
-  /// Reflowed to the screen.
+  /// Reflowed to the screen, like a web page.
   continuous,
 
-  /// Word's print layout: real pages.
+  /// Word's print layout: real pages, each with its headers, footers and
+  /// page numbers.
   paged,
 }
 
-/// State for [WordView]: a `.docx` checked by [ZipSafetyGuard] and
-/// parsed off the UI isolate, search within it, the layout ([viewMode]),
-/// [zoom], the page in view and the scroll position.
+/// Loads a Word (`.docx`) document for [WordView]: its layout
+/// ([viewMode]), zoom, search, the page in view and the scroll position.
 ///
-/// The position is reported through [onPositionChanged] as
-/// `{scroll_offset, view_mode, paragraph}` (the offset belongs to that
-/// layout; `paragraph`, the number of the paragraph at the top, is there
-/// once the view has found it); saving it (and debouncing) is the app's
-/// business.
-class WordController extends ChangeNotifier {
-  WordController({ReadingPosition? initialPosition, this.onPositionChanged}) {
+/// Bytes pass [ZipSafetyGuard] and are parsed off the UI isolate. In print
+/// layout, [location] counts pages; reflowed, it's how far through the
+/// document the reader is, in percent. The [position] is
+/// `{scroll_offset, view_mode, paragraph}`: the offset belongs to that
+/// layout, and `paragraph` (the paragraph at the top) lets a thumbnail show
+/// the page the reader left off on.
+class WordController extends DocumentController {
+  /// Reopens in the layout and at the offset saved in [initialPosition],
+  /// if any.
+  WordController({ReadingPosition? initialPosition, super.onPositionChanged}) {
     if (initialPosition != null) restore(initialPosition);
+    _search.addListener(_onSearchChanged);
   }
 
-  /// Applies a saved position: the layout and the offset in it. For an
-  /// app that reads the position after creating the controller; call
-  /// before the view is shown.
+  /// Applies a saved position: the layout and the offset in it. For an app
+  /// that reads the position after creating the controller; call before
+  /// the view is shown.
   void restore(ReadingPosition position) {
     _viewMode = WordViewMode.values.asNameMap()[position[PositionKeys.viewMode]] ?? _viewMode;
     if (position[PositionKeys.scrollOffset] case final num offset when offset > 0) {
@@ -44,166 +50,195 @@ class WordController extends ChangeNotifier {
     }
   }
 
-  /// Where the document scrolls to once shown. Settable until then, for an
-  /// app that reads the saved position after creating the controller.
+  /// Where the document scrolls to once shown. Settable until then.
   double initialScrollOffset = 0;
 
+  /// The view's vertical scrolling.
+  @internal
+  final scrollController = ScrollController();
+
+  WordDocumentLayout? _layout;
+
+  /// The parsed document laid out for the view; null until loaded.
+  @internal
+  WordDocumentLayout? get layout => _layout;
+
+  /// The parsed document; null until loaded.
+  WordDocument? get document => _layout?.document;
+
+  /// Checks [bytes] with [ZipSafetyGuard], then parses them in a background
+  /// isolate.
+  @override
+  Future<void> loadBytes(Uint8List bytes) async {
+    markLoading();
+    switch (ZipSafetyGuard.check(bytes)) {
+      case ZipSafetyResult.tooLarge:
+        markFailed(DocumentLoadError.tooLarge);
+      case ZipSafetyResult.corrupted:
+        markFailed(DocumentLoadError.corrupted);
+      case ZipSafetyResult.safe:
+        try {
+          final document = await Isolate.run(() => DocxReader.read(bytes));
+          if (isDisposed) return;
+          final layout = WordDocumentLayout(document);
+          _layout = layout;
+          _search.setParagraphs([for (final p in layout.paragraphs) p.plainText]);
+          _resetLocation();
+          markReady();
+        } catch (_) {
+          markFailed(DocumentLoadError.corrupted);
+        }
+    }
+  }
+
+  // ---- Layout
+
   WordViewMode _viewMode = WordViewMode.continuous;
+
+  /// Reflowed or print layout.
   WordViewMode get viewMode => _viewMode;
 
   /// Switches layout; the view keeps the paragraph being read in view.
   set viewMode(WordViewMode mode) {
     if (mode == _viewMode) return;
     _viewMode = mode;
+    _pages = null;
+    _resetLocation();
     notifyListeners();
   }
 
+  /// Where the reader is until [WordView] has laid the document out: the
+  /// first page (of a count not known yet), or the top.
+  void _resetLocation() => updateLocation(
+    _viewMode == WordViewMode.paged
+        ? const DocumentLocation(current: 1, count: 0, unit: DocumentUnit.page)
+        : const DocumentLocation(current: 0, count: 100, unit: DocumentUnit.percent),
+  );
+
+  /// Switches between [WordViewMode.continuous] and [WordViewMode.paged].
   void toggleViewMode() =>
       viewMode = _viewMode == WordViewMode.continuous ? WordViewMode.paged : WordViewMode.continuous;
 
-  static const double minZoom = 0.5;
-  static const double maxZoom = 3.0;
-  static const double zoomStep = 0.25;
+  List<WordPage>? _pages;
 
-  double _zoom = 1;
+  /// The number of pages in print layout; null when reflowed, which has no
+  /// pages.
+  int? get pageCount => _pages?.length;
 
-  /// How large the document is drawn: the text reflows at this scale in
-  /// [WordViewMode.continuous]; the pages scale (panning sideways when
-  /// wider than the view) in [WordViewMode.paged].
-  double get zoom => _zoom;
-  bool get canZoomIn => _zoom < maxZoom;
-  bool get canZoomOut => _zoom > minZoom;
+  /// The pages in print layout, for [WordPageThumbnail].
+  @internal
+  List<WordPage>? get pages => _pages;
 
-  void zoomIn() => _setZoom(_zoom + zoomStep);
-  void zoomOut() => _setZoom(_zoom - zoomStep);
+  // ---- Where the reader is
 
-  void _setZoom(double value) {
-    final zoom = value.clamp(minZoom, maxZoom);
-    if (zoom == _zoom) return;
-    _zoom = zoom;
-    notifyListeners();
+  double _offset = 0;
+  int? _topParagraph;
+
+  @override
+  ReadingPosition get position => {
+    PositionKeys.scrollOffset: _offset,
+    PositionKeys.viewMode: _viewMode.name,
+    PositionKeys.paragraph: ?_topParagraph,
+  };
+
+  /// [WordView] reports its pages (in print layout) and where the reader is.
+  @internal
+  void reportLayout({List<WordPage>? pages, int? currentPage, required double progress}) {
+    _pages = pages;
+    updateLocation(
+      pages != null
+          ? DocumentLocation(current: currentPage ?? 1, count: pages.length, unit: DocumentUnit.page)
+          : DocumentLocation(current: (progress * 100).round(), count: 100, unit: DocumentUnit.percent),
+    );
   }
 
-  final _pageCount = ValueNotifier<int?>(null);
-  final _currentPage = ValueNotifier<int>(1);
-  final _progress = ValueNotifier<double>(0);
-
-  /// The number of pages in [WordViewMode.paged]; null in
-  /// [WordViewMode.continuous], which has no pages.
-  ValueListenable<int?> get pageCount => _pageCount;
-
-  /// The (1-based) page in view, in [WordViewMode.paged].
-  ValueListenable<int> get currentPage => _currentPage;
-
-  /// How far through the document the view is scrolled, 0 to 1.
-  ValueListenable<double> get progress => _progress;
+  /// [WordView] reports the vertical scroll here, with the paragraph at the
+  /// top when it knows it.
+  @internal
+  void onScrollOffsetChanged(double offset, {int? topParagraph}) {
+    _offset = offset;
+    if (topParagraph != null) _topParagraph = topParagraph;
+    reportPosition();
+  }
 
   int? _pendingPage;
 
-  /// Scrolls to [page] (1-based) in [WordViewMode.paged]; ignored otherwise.
-  void goToPage(int page) {
-    final count = _pageCount.value;
-    if (count == null) return;
-    _pendingPage = page.clamp(1, count);
-    notifyListeners();
+  /// Shows page [number] (from 1) in print layout; reflowed, scrolls
+  /// [number] percent of the way through.
+  @override
+  void goTo(int number) {
+    if (_pages case final pages?) {
+      _pendingPage = number.clamp(1, pages.length);
+      notifyListeners();
+    } else if (scrollController.hasClients) {
+      final position = scrollController.position;
+      position.jumpTo(position.maxScrollExtent * number.clamp(0, 100) / 100);
+    }
   }
 
-  /// For [WordView]: the page asked for by [goToPage], once.
+  /// [WordView] takes the page [goTo] asked for, once.
+  @internal
   int? takePendingPage() {
     final page = _pendingPage;
     _pendingPage = null;
     return page;
   }
 
-  List<WordPage>? _pages;
+  // ---- Zoom
 
-  /// The pages in [WordViewMode.paged], for [WordPageThumbnail]; null in
-  /// [WordViewMode.continuous]. [pageCount] changes when they do.
-  List<WordPage>? get pages => _pages;
+  double _zoom = 1;
 
-  /// For [WordView]: the pages, and where the reader is.
-  void reportLayout({List<WordPage>? pages, int? currentPage, double? progress}) {
-    _pages = pages;
-    _pageCount.value = pages?.length;
-    if (currentPage != null) _currentPage.value = currentPage;
-    if (progress != null) _progress.value = progress;
-  }
+  /// How large the document is drawn: reflowed, the text reflows at this
+  /// scale; in print layout, the pages scale (panning sideways when wider
+  /// than the view).
+  @override
+  double get zoom => _zoom;
 
-  final ValueChanged<ReadingPosition>? onPositionChanged;
+  @override
+  double get minZoom => 0.5;
 
-  final searchController = WordSearchController();
-  final scrollController = ScrollController();
+  @override
+  double get maxZoom => 3;
 
-  bool _disposed = false;
-
-  bool _loaded = false;
-
-  /// True once [load] finished, successfully or not.
-  bool get isLoaded => _loaded;
-
-  DocumentLoadError? _error;
-  DocumentLoadError? get error => _error;
-
-  WordDocumentLayout? _layout;
-
-  /// The parsed document laid out for display; null until [load] succeeds.
-  WordDocumentLayout? get layout => _layout;
-  WordDocument? get document => _layout?.document;
-
-  /// Checks [bytes] with [ZipSafetyGuard], then parses them in a background
-  /// isolate.
-  Future<void> load(Uint8List bytes) async {
-    switch (ZipSafetyGuard.check(bytes)) {
-      case ZipSafetyResult.tooLarge:
-        _error = DocumentLoadError.tooLarge;
-      case ZipSafetyResult.corrupted:
-        _error = DocumentLoadError.corrupted;
-      case ZipSafetyResult.safe:
-        try {
-          final document = await Isolate.run(() => DocxReader.read(bytes));
-          if (_disposed) return;
-          final layout = WordDocumentLayout(document);
-          _layout = layout;
-          searchController.setParagraphs([for (final p in layout.paragraphs) p.plainText]);
-        } catch (_) {
-          _error = DocumentLoadError.corrupted;
-        }
-    }
-    if (_disposed) return;
-    _loaded = true;
+  @override
+  void setZoom(double zoom) {
+    zoom = zoom.clamp(minZoom, maxZoom);
+    if (zoom == _zoom) return;
+    _zoom = zoom;
     notifyListeners();
   }
 
-  /// For a caller whose own read failed (e.g. the file vanished). A no-op
-  /// once disposed: the read can fail because the reader was closed.
-  void rejectAsCorrupted() {
-    if (_disposed) return;
-    _error = DocumentLoadError.corrupted;
-    _loaded = true;
-    notifyListeners();
-  }
+  // ---- Search
 
-  /// The view reports the document's vertical scroll here, with the
-  /// number of the paragraph at the top when it knows it.
-  void onScrollOffsetChanged(double offset, {int? topParagraph}) => onPositionChanged?.call({
-    PositionKeys.scrollOffset: offset,
-    PositionKeys.viewMode: _viewMode.name,
-    PositionKeys.paragraph: ?topParagraph,
-  });
+  final _search = WordSearchController();
 
-  void search(String query) => searchController.search(query);
-  void clearSearch() => searchController.clear();
-  void nextMatch() => searchController.next();
-  void previousMatch() => searchController.previous();
+  /// The search, for the paragraphs to highlight their matches.
+  @internal
+  WordSearchController get searchController => _search;
+
+  void _onSearchChanged() => updateSearch(
+    DocumentSearchState(query: _search.query, matchCount: _search.matchCount, currentMatch: _search.currentMatchIndex),
+  );
+
+  /// Finds every occurrence of [query] (ignoring case) in the body, tables,
+  /// headers, footers and notes, and shows the first.
+  @override
+  void search(String query) => _search.search(query);
+
+  @override
+  void clearSearch() => _search.clear();
+
+  @override
+  void nextMatch() => _search.next();
+
+  @override
+  void previousMatch() => _search.previous();
 
   @override
   void dispose() {
-    _disposed = true;
-    searchController.dispose();
+    _search.removeListener(_onSearchChanged);
+    _search.dispose();
     scrollController.dispose();
-    _pageCount.dispose();
-    _currentPage.dispose();
-    _progress.dispose();
     super.dispose();
   }
 }

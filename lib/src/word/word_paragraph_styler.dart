@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../common/document_viewer_strings.dart';
+import '../common/document_viewer_theme.dart';
 import '../engines/word/word_model.dart';
 import 'word_search_controller.dart';
 
@@ -85,9 +87,22 @@ class ParagraphGeometry {
 /// Turns paragraphs into styled text, for the paragraph widget and for the
 /// page measurer alike, so what is measured is what is drawn.
 class WordParagraphStyler {
-  WordParagraphStyler({required this.scheme, required this.linkColor, this.pageNumber, this.pageCount});
+  WordParagraphStyler({
+    required this.scheme,
+    required this.linkColor,
+    this.pageNumber,
+    this.pageCount,
+    this.strings = const DocumentViewerStrings(),
+    this.matchColors,
+  });
+
+  /// Search highlight colours; null for the [scheme]'s defaults.
+  final DocumentViewerTheme? matchColors;
 
   final ColorScheme scheme;
+
+  /// For the screen-reader label of a note mark.
+  final DocumentViewerStrings strings;
 
   /// The document theme's hyperlink colour (0xAARRGGBB).
   final int linkColor;
@@ -181,7 +196,11 @@ class WordParagraphStyler {
 
     Color? highlightAt(int start, int end) {
       for (final h in highlights) {
-        if (h.start < end && start < h.end) return h.current ? scheme.tertiaryContainer : scheme.secondaryContainer;
+        if (h.start < end && start < h.end) {
+          return h.current
+              ? matchColors?.currentMatchBackground ?? scheme.tertiaryContainer
+              : matchColors?.matchBackground ?? scheme.secondaryContainer;
+        }
       }
       return null;
     }
@@ -234,7 +253,7 @@ class WordParagraphStyler {
                 ? mark
                 : Semantics(
                     button: true,
-                    label: 'Note $label',
+                    label: strings.noteMark(label),
                     child: GestureDetector(onTap: () => onNote(inline), child: mark),
                   ),
             _textSize(label, small),

@@ -4,6 +4,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../common/document_viewer_strings.dart';
+import '../common/document_viewer_theme.dart';
 import '../engines/word/word_model.dart';
 import 'word_document_layout.dart';
 import 'word_paragraph_styler.dart';
@@ -63,6 +65,8 @@ WordParagraphStyler stylerOf(BuildContext context) {
     linkColor: WordScope.of(context).layout.document.linkColor,
     pageNumber: page?.number,
     pageCount: page?.count,
+    strings: DocumentViewerStrings.of(context),
+    matchColors: DocumentViewerTheme.of(context),
   );
 }
 

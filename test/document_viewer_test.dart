@@ -37,10 +37,14 @@ void main() {
     expect(find.byTooltip('Zoom in'), findsOneWidget);
   });
 
-  testWidgets('opens PowerPoint with slide navigation', (tester) async {
+  testWidgets('opens PowerPoint, with the toolbar stepping between slides', (tester) async {
     await pumpViewer(tester, 'deck.pptx', buildPptx([titleShape('Hello'), titleShape('Bye')]));
     expect(find.text('Hello'), findsOneWidget);
-    expect(find.text('1 / 2'), findsOneWidget);
+    expect(find.text('Slide 1 of 2'), findsOneWidget);
+    await tester.tap(find.byTooltip('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bye'), findsOneWidget);
+    expect(find.text('Slide 2 of 2'), findsOneWidget);
   });
 
   testWidgets('says when a type is not supported', (tester) async {

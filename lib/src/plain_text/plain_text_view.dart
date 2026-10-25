@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
 
+import '../common/document_viewer_theme.dart';
 import 'plain_text_controller.dart';
 import 'text_line_metrics.dart';
 
-/// A plain-text document as scrolling lines, with search matches
-/// highlighted. Restores [PlainTextController.initialScrollOffset] once
-/// laid out and reports scrolling to the controller.
+/// Shows a [PlainTextController]'s document as scrolling lines.
+///
+/// Long lines wrap or scroll sideways ([PlainTextController.wrap]); the
+/// text is [fontSize] times [PlainTextController.zoom]. Search matches are
+/// highlighted, the current one apart from the rest. Reopens at
+/// [PlainTextController.initialScrollOffset] and reports scrolling back to
+/// the controller.
 class PlainTextView extends StatefulWidget {
-  const PlainTextView({super.key, required this.controller, this.fontSize = 14, this.wrap = true});
+  /// Shows [controller]'s document, at [fontSize] before zoom.
+  const PlainTextView({super.key, required this.controller, this.fontSize = 16});
 
+  /// The document to show.
   final PlainTextController controller;
-  final double fontSize;
 
-  /// Wrap long lines; when false each line scrolls horizontally.
-  final bool wrap;
+  /// The text size at zoom 1, in logical pixels.
+  final double fontSize;
 
   @override
   State<PlainTextView> createState() => _PlainTextViewState();
@@ -83,11 +89,9 @@ class _PlainTextViewState extends State<PlainTextView> {
       builder: (context, _) {
         final lines = widget.controller.lines;
         final query = widget.controller.searchQuery;
-        final matches = widget.controller.matches;
-        final current = widget.controller.currentMatch;
-        final currentLine = current >= 0 && current < matches.length ? matches[current] : null;
-        final fontSize = widget.fontSize;
-        final wrap = widget.wrap;
+        final current = widget.controller.currentTextMatch;
+        final fontSize = widget.fontSize * widget.controller.zoom;
+        final wrap = widget.controller.wrap;
         return Container(
           color: Theme.of(context).colorScheme.surface,
           child: LayoutBuilder(
@@ -103,7 +107,7 @@ class _PlainTextViewState extends State<PlainTextView> {
                     fontSize: fontSize,
                     wrap: wrap,
                     highlightQuery: query,
-                    isCurrentMatch: index == currentLine,
+                    currentMatchStart: current?.line == index ? current!.start : null,
                   ),
                 ),
               );
@@ -121,15 +125,16 @@ class _TextLine extends StatelessWidget {
   final bool wrap;
   final String highlightQuery;
 
-  /// The line the search is on: its matches stand out from the others'.
-  final bool isCurrentMatch;
+  /// Where the search's current match starts, when it's on this line: that
+  /// occurrence stands out from the others.
+  final int? currentMatchStart;
 
   const _TextLine({
     required this.text,
     required this.fontSize,
     required this.wrap,
     required this.highlightQuery,
-    this.isCurrentMatch = false,
+    this.currentMatchStart,
   });
 
   /// Room between lines for comfortable reading.
@@ -158,7 +163,7 @@ class _TextLine extends StatelessWidget {
   }
 
   TextSpan _highlighted(String text, String query, TextStyle style, BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final highlights = DocumentViewerTheme.of(context);
     final lower = text.toLowerCase();
     final lowerQuery = query.toLowerCase();
     final spans = <TextSpan>[];
@@ -170,13 +175,11 @@ class _TextLine extends StatelessWidget {
         break;
       }
       if (index > start) spans.add(TextSpan(text: text.substring(start, index)));
+      final isCurrentMatch = index == currentMatchStart;
       spans.add(
         TextSpan(
           text: text.substring(index, index + query.length),
-          style: TextStyle(
-            backgroundColor: isCurrentMatch ? scheme.tertiaryContainer : scheme.secondaryContainer,
-            color: isCurrentMatch ? scheme.onTertiaryContainer : scheme.onSecondaryContainer,
-          ),
+          style: highlights.matchStyle(current: isCurrentMatch),
         ),
       );
       start = index + query.length;

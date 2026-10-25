@@ -1,50 +1,76 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../common/document_controller.dart';
 import '../common/document_format.dart';
+import '../common/document_viewer_strings.dart';
 import '../common/reader_contract.dart';
-import '../common/zip_safety_guard.dart';
-import '../engines/pdfium/pdf_types.dart';
 import '../pdf/pdf_controller.dart';
 import '../pdf/pdf_view.dart';
-import '../spreadsheet/spreadsheet_view.dart';
-import '../spreadsheet/spreadsheet_controller.dart';
-import '../slides/slides_controller.dart';
-import '../slides/slides_view.dart';
 import '../plain_text/plain_text_controller.dart';
 import '../plain_text/plain_text_view.dart';
+import '../slides/slides_controller.dart';
+import '../slides/slides_view.dart';
+import '../spreadsheet/spreadsheet_controller.dart';
+import '../spreadsheet/spreadsheet_view.dart';
 import '../word/word_controller.dart';
 import '../word/word_view.dart';
 
-/// Opens any file universal_document_viewer reads and shows it with the matching
-/// reader: PDF, Word, Excel (with sheet tabs), CSV, PowerPoint (with slide
-/// navigation) or text.
+/// Shows any document the package reads, with the matching reader and a
+/// small toolbar: PDF, Word, Excel (with sheet tabs), CSV, PowerPoint or
+/// plain text.
 ///
-/// A ready-made viewer for apps that just want to show a document; for
-/// search UI, custom chrome or saving positions, use the per-format
-/// controllers and views it's built from (see `pdf.dart`, `docx.dart`,
-/// `sheets.dart`, `slides.dart`, `text.dart`).
+/// ```dart
+/// DocumentViewer.file(path)
+/// ```
+///
+/// The toolbar shows where the reader is, steps between pages or slides,
+/// zooms and searches; hide it with `showToolbar: false`. For your own
+/// toolbar or layout, use the format's controller and view instead (see
+/// [DocumentController]).
 class DocumentViewer extends StatefulWidget {
+  /// Shows the document at [path], choosing the reader by its extension.
   const DocumentViewer.file(
-    this.path, {
+    String this.path, {
     super.key,
     this.initialPosition,
     this.onPositionChanged,
     this.errorBuilder,
     this.passwordProvider,
-  });
+    this.showToolbar = true,
+  }) : bytes = null,
+       format = null;
 
-  final String path;
+  /// Shows a document held in memory, of the given [format].
+  const DocumentViewer.bytes(
+    Uint8List this.bytes, {
+    required DocumentFormat this.format,
+    super.key,
+    this.initialPosition,
+    this.onPositionChanged,
+    this.errorBuilder,
+    this.passwordProvider,
+    this.showToolbar = true,
+  }) : path = null;
+
+  /// The file to show, for [DocumentViewer.file].
+  final String? path;
+
+  /// The document's bytes, for [DocumentViewer.bytes].
+  final Uint8List? bytes;
+
+  /// What [bytes] are, for [DocumentViewer.bytes].
+  final DocumentFormat? format;
 
   /// Where to reopen, as saved from [onPositionChanged].
   final ReadingPosition? initialPosition;
 
-  /// Called as the reader moves; store the map to reopen there later.
+  /// Called as the reader moves; save the map to reopen there later.
   final ValueChanged<ReadingPosition>? onPositionChanged;
 
-  /// Shown when the file can't be opened. Defaults to a short message.
+  /// Shown when the document can't be opened. Defaults to a short message
+  /// from [DocumentViewerStrings.loadError].
   final Widget Function(BuildContext context, DocumentLoadError error)? errorBuilder;
 
   /// Asked for the password of an encrypted PDF, once per attempt, until it
@@ -52,18 +78,15 @@ class DocumentViewer extends StatefulWidget {
   /// PDF shows [DocumentLoadError.passwordRequired].
   final PdfPasswordProvider? passwordProvider;
 
+  /// Whether to show the toolbar under the document.
+  final bool showToolbar;
+
   @override
   State<DocumentViewer> createState() => _DocumentViewerState();
 }
 
 class _DocumentViewerState extends State<DocumentViewer> {
-  ChangeNotifier? _controller;
-  DocumentLoadError? _error;
-  bool _loading = true;
-
-  /// Bumped per [_open], so a load that finishes after the path changed (or
-  /// the viewer went away) disposes its controller instead of showing it.
-  int _generation = 0;
+  DocumentController? _controller;
 
   @override
   void initState() {
@@ -74,93 +97,40 @@ class _DocumentViewerState extends State<DocumentViewer> {
   @override
   void didUpdateWidget(DocumentViewer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.path == oldWidget.path) return;
+    if (widget.path == oldWidget.path &&
+        identical(widget.bytes, oldWidget.bytes) &&
+        widget.format == oldWidget.format) {
+      return;
+    }
     _controller?.dispose();
-    _controller = null;
-    _error = null;
-    _loading = true;
     _open();
   }
 
-  Future<void> _open() async {
-    final generation = ++_generation;
+  void _open() {
+    final format = widget.format ?? DocumentFormat.fromPath(widget.path!);
     final at = widget.initialPosition;
     final report = widget.onPositionChanged;
-    final file = File(widget.path);
-    ChangeNotifier? controller;
-    DocumentLoadError? error;
-    try {
-      switch (DocumentFormat.fromPath(widget.path)) {
-        case null:
-          error = DocumentLoadError.unsupported;
-        case DocumentFormat.pdf:
-          // The PDF engine reads the file itself (and asks for passwords).
-          controller = PdfController(initialPosition: at, onPositionChanged: report);
-        case DocumentFormat.word:
-          final word = WordController(initialPosition: at, onPositionChanged: report);
-          controller = word;
-          if (await _readOffice(file) case final bytes?) {
-            await word.load(bytes);
-            error = word.error;
-          } else {
-            error = DocumentLoadError.tooLarge;
-          }
-        case DocumentFormat.excel:
-          final sheet = SpreadsheetController(initialPosition: at, onPositionChanged: report);
-          controller = sheet;
-          if (await _readOffice(file) case final bytes?) {
-            await sheet.loadXlsx(bytes);
-            error = sheet.error;
-          } else {
-            error = DocumentLoadError.tooLarge;
-          }
-        case DocumentFormat.csv:
-          final sheet = SpreadsheetController(initialPosition: at, onPositionChanged: report);
-          controller = sheet;
-          if (await file.length() > SpreadsheetController.maxCsvBytes) {
-            sheet.rejectAsTooLarge();
-          } else {
-            await sheet.loadCsv(await file.readAsBytes());
-          }
-          error = sheet.error;
-        case DocumentFormat.powerpoint:
-          final deck = SlidesController(initialPosition: at, onPositionChanged: report);
-          controller = deck;
-          if (await _readOffice(file) case final bytes?) {
-            await deck.load(bytes);
-            error = deck.error;
-          } else {
-            error = DocumentLoadError.tooLarge;
-          }
-        case DocumentFormat.text:
-          final text = PlainTextController(initialPosition: at, onPositionChanged: report);
-          controller = text;
-          if (await file.length() > PlainTextController.maxBytes) {
-            error = DocumentLoadError.tooLarge;
-          } else {
-            text.load(await file.readAsBytes());
-            error = text.error;
-          }
-      }
-    } catch (_) {
-      error = DocumentLoadError.corrupted;
+    final controller = switch (format) {
+      null => null,
+      DocumentFormat.pdf => PdfController(
+        initialPosition: at,
+        onPositionChanged: report,
+        passwordProvider: widget.passwordProvider,
+      ),
+      DocumentFormat.word => WordController(initialPosition: at, onPositionChanged: report),
+      DocumentFormat.excel ||
+      DocumentFormat.csv => SpreadsheetController(initialPosition: at, onPositionChanged: report, format: format),
+      DocumentFormat.powerpoint => SlidesController(initialPosition: at, onPositionChanged: report),
+      DocumentFormat.text => PlainTextController(initialPosition: at, onPositionChanged: report),
+    };
+    _controller = controller;
+    if (controller == null) return;
+    if (widget.bytes case final bytes?) {
+      controller.loadBytes(bytes);
+    } else {
+      controller.loadFile(widget.path!);
     }
-    if (!mounted || generation != _generation) {
-      controller?.dispose();
-      return;
-    }
-    setState(() {
-      _controller = controller;
-      _error = error;
-      _loading = false;
-    });
   }
-
-  /// The Office file's bytes, or null when it is over
-  /// [ZipSafetyGuard.maxFileBytes] - checked before reading, so a huge file
-  /// is never pulled into memory only to be refused.
-  static Future<Uint8List?> _readOffice(File file) async =>
-      await file.length() > ZipSafetyGuard.maxFileBytes ? null : await file.readAsBytes();
 
   @override
   void dispose() {
@@ -168,91 +138,202 @@ class _DocumentViewerState extends State<DocumentViewer> {
     super.dispose();
   }
 
+  Widget _error(BuildContext context, DocumentLoadError error) =>
+      widget.errorBuilder?.call(context, error) ??
+      Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(DocumentViewerStrings.of(context).loadError(error), textAlign: TextAlign.center),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    final error = _error;
-    if (error != null) {
-      return widget.errorBuilder?.call(context, error) ??
-          Center(child: Text(_errorText(error), textAlign: TextAlign.center));
-    }
-    return switch (_controller) {
-      final PdfController pdf => PdfView(
-        path: widget.path,
-        controller: pdf,
-        passwordProvider: widget.passwordProvider,
-        errorBuilder: (context, error) {
-          final loadError = _pdfError(error);
-          return widget.errorBuilder?.call(context, loadError) ?? Center(child: Text(_errorText(loadError)));
-        },
-      ),
-      final WordController word => WordView(controller: word),
-      final SpreadsheetController sheet => _SheetWithTabs(controller: sheet),
-      final SlidesController deck => Column(
-        children: [
-          Expanded(child: SlidesView(controller: deck)),
-          if (deck.slides.isNotEmpty) SlideNavigationBar(controller: deck),
-        ],
-      ),
-      final PlainTextController text => PlainTextView(controller: text),
-      _ => Center(child: Text(_errorText(DocumentLoadError.unsupported))),
-    };
+    final controller = _controller;
+    if (controller == null) return _error(context, DocumentLoadError.unsupported);
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        switch (controller.status) {
+          case DocumentStatus.idle || DocumentStatus.loading:
+            return const Center(child: CircularProgressIndicator());
+          case DocumentStatus.failed:
+            return _error(context, controller.error ?? DocumentLoadError.corrupted);
+          case DocumentStatus.ready:
+            break;
+        }
+        return Column(
+          children: [
+            Expanded(child: _view(controller)),
+            if (controller case final SpreadsheetController sheet when sheet.sheetNames.length > 1)
+              _SheetTabs(controller: sheet),
+            if (widget.showToolbar) _Toolbar(controller: controller),
+          ],
+        );
+      },
+    );
   }
 
-  /// An encrypted PDF the reader couldn't unlock - no password, a wrong
-  /// one, or an encryption PDFium doesn't support - is password protected,
-  /// not damaged.
-  static DocumentLoadError _pdfError(Object error) => switch (error) {
-    PdfOpenException(error: PdfOpenError.password || PdfOpenError.security) => DocumentLoadError.passwordRequired,
-    _ => DocumentLoadError.corrupted,
-  };
-
-  static String _errorText(DocumentLoadError error) => switch (error) {
-    DocumentLoadError.tooLarge => 'This document is too large to open.',
-    DocumentLoadError.corrupted => 'This document may be damaged or incomplete.',
-    DocumentLoadError.passwordRequired => 'This document is password protected.',
-    DocumentLoadError.unsupported => 'This file type is not supported.',
+  Widget _view(DocumentController controller) => switch (controller) {
+    final PdfController pdf => PdfView(controller: pdf, errorBuilder: _error),
+    final WordController word => WordView(controller: word),
+    final SpreadsheetController sheet => SpreadsheetView(key: ValueKey(sheet.activeSheetIndex), controller: sheet),
+    final SlidesController slides => SlidesView(controller: slides),
+    final PlainTextController text => PlainTextView(controller: text),
+    _ => const SizedBox.shrink(),
   };
 }
 
-/// [SpreadsheetView] with a tab per sheet when there's more than one.
-class _SheetWithTabs extends StatelessWidget {
-  const _SheetWithTabs({required this.controller});
+/// A tab per sheet, for a workbook with more than one.
+class _SheetTabs extends StatelessWidget {
+  const _SheetTabs({required this.controller});
 
   final SpreadsheetController controller;
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) => Column(
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         children: [
-          Expanded(
-            child: SpreadsheetView(key: ValueKey(controller.activeSheetIndex), controller: controller),
-          ),
-          if (controller.sheetNames.length > 1)
-            SafeArea(
-              top: false,
-              child: SizedBox(
-                height: 44,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    for (var i = 0; i < controller.sheetNames.length; i++)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                        child: ChoiceChip(
-                          label: Text(controller.sheetNames[i]),
-                          selected: i == controller.activeSheetIndex,
-                          onSelected: (_) => controller.switchSheet(i),
-                        ),
-                      ),
-                  ],
-                ),
+          for (var i = 0; i < controller.sheetNames.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: ChoiceChip(
+                label: Text(controller.sheetNames[i]),
+                selected: i == controller.activeSheetIndex,
+                onSelected: (_) => controller.switchSheet(i),
               ),
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Where the reader is, page or slide steps, zoom and search: built only on
+/// [DocumentController], so it's the same for every format.
+class _Toolbar extends StatefulWidget {
+  const _Toolbar({required this.controller});
+
+  final DocumentController controller;
+
+  @override
+  State<_Toolbar> createState() => _ToolbarState();
+}
+
+class _ToolbarState extends State<_Toolbar> {
+  bool _searching = false;
+  final _query = TextEditingController();
+
+  DocumentController get controller => widget.controller;
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  void _closeSearch() {
+    _query.clear();
+    controller.clearSearch();
+    setState(() => _searching = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = DocumentViewerStrings.of(context);
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(height: 52, child: _searching ? _searchRow(strings) : _mainRow(strings)),
+      ),
+    );
+  }
+
+  Widget _mainRow(DocumentViewerStrings strings) {
+    return ValueListenableBuilder(
+      valueListenable: controller.location,
+      builder: (context, location, _) {
+        final stepped = location.unit == DocumentUnit.page || location.unit == DocumentUnit.slide;
+        return Row(
+          children: [
+            IconButton(
+              tooltip: strings.search,
+              icon: const Icon(Icons.search_rounded),
+              onPressed: () => setState(() => _searching = true),
+            ),
+            const Spacer(),
+            if (stepped)
+              IconButton(
+                tooltip: strings.previous,
+                icon: const Icon(Icons.chevron_left_rounded),
+                onPressed: location.current > 1 ? () => controller.goTo(location.current - 1) : null,
+              ),
+            Text(strings.location(location), style: Theme.of(context).textTheme.labelLarge),
+            if (stepped)
+              IconButton(
+                tooltip: strings.next,
+                icon: const Icon(Icons.chevron_right_rounded),
+                onPressed: location.current < location.count ? () => controller.goTo(location.current + 1) : null,
+              ),
+            const Spacer(),
+            IconButton(
+              tooltip: strings.zoomOut,
+              icon: const Icon(Icons.zoom_out_rounded),
+              onPressed: controller.canZoomOut ? controller.zoomOut : null,
+            ),
+            IconButton(
+              tooltip: strings.zoomIn,
+              icon: const Icon(Icons.zoom_in_rounded),
+              onPressed: controller.canZoomIn ? controller.zoomIn : null,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _searchRow(DocumentViewerStrings strings) {
+    return Row(
+      children: [
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextField(
+            controller: _query,
+            autofocus: true,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(hintText: strings.search, border: InputBorder.none),
+            onChanged: controller.search,
+            // Enter steps to the next match; the field keeps focus.
+            onSubmitted: (_) => controller.nextMatch(),
+            onEditingComplete: () {},
+          ),
+        ),
+        ValueListenableBuilder(
+          valueListenable: controller.searchState,
+          builder: (context, state, _) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(strings.searchStatus(state), style: Theme.of(context).textTheme.bodySmall),
+              IconButton(
+                tooltip: strings.previousMatch,
+                icon: const Icon(Icons.keyboard_arrow_up_rounded),
+                onPressed: state.matchCount > 0 ? controller.previousMatch : null,
+              ),
+              IconButton(
+                tooltip: strings.nextMatch,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                onPressed: state.matchCount > 0 ? controller.nextMatch : null,
+              ),
+            ],
+          ),
+        ),
+        IconButton(tooltip: strings.closeSearch, icon: const Icon(Icons.close_rounded), onPressed: _closeSearch),
+      ],
     );
   }
 }

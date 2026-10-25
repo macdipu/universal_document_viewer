@@ -2,9 +2,20 @@
 
 ## Unreleased (0.2.0)
 
-### Breaking: one naming pattern
+0.2.0 gives every format the same API and makes the package cleaner to use and to contribute to. It breaks 0.1 code; the tables below say what to change.
 
-Every format now has a `<Format>Controller` and a `<Format>View`, and each library is named for its format. `universal_document_viewer.dart` exports everything, so one import is enough.
+### One controller contract: `DocumentController`
+
+Every format's controller extends `DocumentController`, so one toolbar, search bar and position display serve them all:
+
+- **loading:** `loadFile(path)`, `loadBytes(bytes)`, `status` (`DocumentStatus.idle`, `loading`, `ready`, `failed`), `error` (`DocumentLoadError`);
+- **where the reader is:** `location` (a `ValueListenable<DocumentLocation>`: current, count and unit, which is page, slide, row, line or percent), `goTo(number)`, and `position` / `onPositionChanged` to save and restore it;
+- **zoom:** `zoom`, `minZoom`, `maxZoom`, `canZoomIn`, `canZoomOut`, `zoomIn()`, `zoomOut()`, `setZoom(zoom)`;
+- **search:** `search(query)`, `nextMatch()`, `previousMatch()`, `clearSearch()`, and `searchState` (a `ValueListenable<DocumentSearchState>`: query, match count, current match). Search now counts **occurrences** in every format (spreadsheets count matching cells, as Excel's Find does), and the current match is highlighted apart from the others.
+
+### Breaking: names
+
+Every format now has a `<Format>Controller` and a `<Format>View`, and each library is named for its format. `universal_document_viewer.dart` exports everything, so one import is enough; each format library also exports the shared contract.
 
 | 0.1 | 0.2 |
 |---|---|
@@ -19,19 +30,46 @@ Every format now has a `<Format>Controller` and a `<Format>View`, and each libra
 | `TextDocumentController`, `TextDocumentView` | `PlainTextController`, `PlainTextView` |
 | `BorderLine`, `CellBorders` (Word model) | `WordBorderLine`, `WordCellBorders` (the spreadsheet model keeps `BorderLine` and `CellBorders`) |
 
-These are no longer exported (they were implementation details): `WordScope`, `WordBlockView`, `WordDocumentLayout`, `WordPage`, `WordPagination`, `SheetGeometry`, `TextLineMetrics`, and `pdf_layout.dart` apart from `PdfViewMode`.
+### Breaking: behaviour and members
+
+| 0.1 | 0.2 |
+|---|---|
+| `controller.load(bytes)`, `loadXlsx(bytes)`, `loadCsv(bytes)` | `controller.loadBytes(bytes)`, or `controller.loadFile(path)`, which checks the size before reading |
+| `PdfView(path: …, passwordProvider: …)` | `PdfController(passwordProvider: …)..loadFile(path)`, then `PdfView(controller: …)` |
+| `PdfController.open(path)`, `isReady` | `loadFile(path)`, `status == DocumentStatus.ready` |
+| `PdfController.error` (the engine's exception) | `error` is a `DocumentLoadError`; the exception is `errorDetail` |
+| `PdfView.errorBuilder: (context, Object error)` | `(context, DocumentLoadError error)` |
+| `rejectAsTooLarge()`, `rejectAsCorrupted()` | `markFailed(DocumentLoadError.tooLarge)` (or `.corrupted`) |
+| `SpreadsheetController.goTo('B3')` | `goToCell('B3')`; `goTo(row)` scrolls to a row |
+| Word `goToPage(n)`, `currentPage`, `progress`, `pageCount.value` | `goTo(n)`, `location.value`, `pageCount` (an `int?`) |
+| `SlidesController.matches` (slide indexes), `PlainTextController.matches` (line indexes) | lists of `SlideMatch` and `TextMatch`: one per occurrence |
+| static `minZoom`, `maxZoom`, `zoomStep` | instance getters on each controller |
+| `PlainTextView(wrap: …, fontSize: 14)` | `PlainTextController.wrap`; `PlainTextView(fontSize: 16)` is the size at zoom 1 |
+| `pdfSearchStatusLabel(…)` | `DocumentViewerStrings.of(context).searchStatus(controller.searchState.value)` |
+| `SlideNavigationBar`, `showGoToDialog`, the sheet's zoom buttons (`showZoomControls`) | removed from the format views: build them from the controller, or use `DocumentViewer`'s toolbar. The example app has a go-to-cell dialog to copy. |
+| `WordSearchController`, `PdfSearchController` (`controller.searchController`) | internal: use `searchState` |
+
+These are no longer exported (they were implementation details): `WordScope`, `WordBlockView`, `WordDocumentLayout`, `WordPage`, `WordPagination`, `SheetGeometry`, `TextLineMetrics`, `showCellDetail`, `SelectionSummary`, `GridSelection`, and `pdf_layout.dart` apart from `PdfViewMode`.
 
 ### Added
 
-- Word: zoom (`zoom`, `zoomIn`, `zoomOut`; the text reflows in the continuous layout, and pages scale and pan sideways in print layout), the page in view (`pageCount`, `currentPage`, `progress`), `goToPage`, and `WordPageThumbnail` for page previews.
-- PowerPoint: zoom (`zoom`, `zoomIn`, `zoomOut`); slides highlight text matching the search.
-- Spreadsheets: `SpreadsheetView(showZoomControls: false)` hides the grid's own zoom buttons, for apps with their own.
-- For contributors: CONTRIBUTING, a code of conduct, a security policy, issue and pull-request templates, CI (format, analyze, test, pub.dev score) and an architecture guide (`doc/architecture.md`). The code follows `flutter_lints` and one formatting width.
+- `DocumentViewer` has a toolbar: where the reader is, previous and next for pages and slides, zoom, and search with match stepping (`showToolbar: false` hides it). `DocumentViewer.bytes(bytes, format: …)` shows a document held in memory.
+- `DocumentViewerStrings` holds every text the widgets show (English by default). Subclass it and provide it with `DocumentViewerStringsScope` to translate or reword.
+- `DocumentViewerTheme`, a `ThemeExtension`, sets the search highlight colours.
+- PDF: `loadBytes` opens a PDF held in memory.
+- Spreadsheets: `SpreadsheetController(format: …)` says whether `loadBytes` gets a workbook or CSV; left null, it tells from the bytes.
+- Word: zoom (the text reflows in the continuous layout, and pages scale and pan sideways in print layout), page tracking in print layout, and `WordPageThumbnail` for page previews.
+- PowerPoint: zoom.
+- For contributors: CONTRIBUTING, a code of conduct, a security policy, issue and pull-request templates, CI (format, analyze, test, pub.dev score), an architecture guide (`doc/architecture.md`), and contract tests that every format's controller passes. The code follows `flutter_lints` and one formatting width.
+
+### Fixed
+
+- A damaged `.xlsx` is reported as damaged instead of opening as a CSV of its bytes; binary content in a `.csv` is refused.
 
 ### Changed
 
-- Text: more space between lines and wider margins; the line the search is on highlights its matches apart from the others.
-- PDF: the search status reads "2 of 4" (was "2 of 4 result(s)").
+- Plain text: more space between lines and wider margins.
+- The search status reads "2 of 4" (was "2 of 4 result(s)").
 
 ## 0.1.1
 

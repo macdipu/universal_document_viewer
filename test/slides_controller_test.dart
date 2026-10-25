@@ -17,7 +17,7 @@ void main() {
 
   test('loads slides and starts on the first', () async {
     final deck = deckWith();
-    await deck.load(threeSlides);
+    await deck.loadBytes(threeSlides);
     expect(deck.isLoaded, isTrue);
     expect(deck.error, isNull);
     expect(deck.slides.map((s) => s.title), ['Welcome', 'Budget', 'Revenue outlook']);
@@ -26,7 +26,7 @@ void main() {
 
   test('restores a saved slide, clamped to the slides that exist', () async {
     final deck = deckWith(at: {PositionKeys.slideIndex: 9});
-    await deck.load(threeSlides);
+    await deck.loadBytes(threeSlides);
     expect(deck.currentSlide, 2);
     expect(deck.pageController?.initialPage, 2);
   });
@@ -34,22 +34,23 @@ void main() {
   test('reports the position when the slide changes', () async {
     ReadingPosition? reported;
     final deck = deckWith(onMoved: (p) => reported = p);
-    await deck.load(threeSlides);
+    await deck.loadBytes(threeSlides);
     deck.onSlideChanged(1);
     expect(reported, {PositionKeys.slideIndex: 1, PositionKeys.slideCount: 3});
   });
 
   test('typed errors for damaged files', () async {
     final deck = deckWith();
-    await deck.load(Uint8List.fromList([1, 2, 3, 4]));
+    await deck.loadBytes(Uint8List.fromList([1, 2, 3, 4]));
     expect(deck.error, DocumentLoadError.corrupted);
   });
 
-  test('search finds slides from the one on screen and cycles', () async {
+  test('search finds every occurrence, from the slide on screen, and cycles', () async {
     final deck = deckWith();
-    await deck.load(threeSlides);
+    await deck.loadBytes(threeSlides);
     deck.search('REVENUE');
-    expect(deck.matches, [1, 2]);
+    expect(deck.matches, const [SlideMatch(1, 0), SlideMatch(2, 0)]);
+    expect(deck.searchState.value.matchCount, 2);
     expect(deck.currentSlide, 1);
     deck.nextMatch();
     expect(deck.currentSlide, 2);
@@ -64,19 +65,19 @@ void main() {
 
   test('zoom steps within its limits', () async {
     final deck = deckWith();
-    await deck.load(threeSlides);
+    await deck.loadBytes(threeSlides);
     expect(deck.zoom, 1);
     deck.zoomIn();
     expect(deck.zoom, 1.25);
     for (var i = 0; i < 20; i++) {
       deck.zoomIn();
     }
-    expect(deck.zoom, SlidesController.maxZoom);
+    expect(deck.zoom, deck.maxZoom);
     expect(deck.canZoomIn, isFalse);
     for (var i = 0; i < 20; i++) {
       deck.zoomOut();
     }
-    expect(deck.zoom, SlidesController.minZoom);
+    expect(deck.zoom, deck.minZoom);
     expect(deck.canZoomOut, isFalse);
   });
 }

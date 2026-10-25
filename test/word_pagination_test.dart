@@ -102,7 +102,7 @@ void main() {
     );
     final controller = WordController(initialPosition: const {'view_mode': 'paged'});
     addTearDown(controller.dispose);
-    await tester.runAsync(() => controller.load(bytes));
+    await tester.runAsync(() => controller.loadBytes(bytes));
     tester.view.physicalSize = const Size(900, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

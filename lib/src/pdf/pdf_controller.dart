@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
+import 'package:meta/meta.dart';
 
+import '../common/document_controller.dart';
 import '../common/reader_contract.dart';
 import '../engines/pdfium/pdf_engine.dart';
 import '../engines/pdfium/pdf_types.dart';
@@ -27,21 +30,6 @@ Future<bool?> probePdfTextLayer(int pageCount, Future<String?> Function(int page
   return allLoaded ? false : null;
 }
 
-/// A search status line: "No searchable text found." for a scanned PDF
-/// without a text layer, "No matches" for an ordinary zero-match search.
-String pdfSearchStatusLabel({
-  required bool hasPattern,
-  required bool isSearching,
-  required int matchCount,
-  required int? currentIndex,
-  required bool? hasTextLayer,
-}) {
-  if (!hasPattern) return '';
-  if (isSearching && matchCount == 0) return 'Searching…';
-  if (matchCount == 0) return hasTextLayer == false ? 'No searchable text found.' : 'No matches';
-  return '${(currentIndex ?? 0) + 1} of $matchCount';
-}
-
 /// Asked for a password when a PDF is encrypted; null gives up.
 typedef PdfPasswordProvider = Future<String?> Function();
 
@@ -54,16 +42,24 @@ class PdfSearchController extends ChangeNotifier {
   String? get pattern => _pattern;
 
   bool _searching = false;
+
+  /// Whether pages are still being searched.
   bool get isSearching => _searching;
 
   final _matches = <PdfTextMatch>[];
+
+  /// The matches found so far, in page order.
   List<PdfTextMatch> get matches => List.unmodifiable(_matches);
+
+  /// Whether anything was found.
   bool get hasMatches => _matches.isNotEmpty;
 
   int _current = -1;
 
   /// Index into [matches], or -1.
   int get currentIndex => _current;
+
+  /// The match on screen, if any.
   PdfTextMatch? get currentMatch => _current < 0 ? null : _matches[_current];
 
   final _byPage = <int, List<int>>{};
@@ -92,35 +88,49 @@ class PdfSearchController extends ChangeNotifier {
   }
 }
 
-/// State for [PdfView]: the open document (with the password
-/// retry), the page on screen, page count, layout, zoom, and search.
+/// Opens a PDF for [PdfView]: the document (asking [passwordProvider]
+/// for the password of an encrypted one), the page on screen, the layout
+/// ([viewMode]), zoom and search.
 ///
-/// The position is reported through [onPositionChanged] as `{page_number,
-/// page_count, view_mode}` on every page change and layout switch; saving
-/// it (and debouncing) is the app's business.
-class PdfController extends ChangeNotifier {
-  PdfController({ReadingPosition? initialPosition, this.onPositionChanged}) {
+/// The [position] is `{page_number, page_count, view_mode}`, reported on
+/// every page change and layout switch.
+class PdfController extends DocumentController {
+  /// Reopens on the page and in the layout saved in [initialPosition], if
+  /// any.
+  PdfController({ReadingPosition? initialPosition, super.onPositionChanged, this.passwordProvider}) {
     if (initialPosition != null) restore(initialPosition);
+    searchController.addListener(_onSearchChanged);
   }
 
-  final ValueChanged<ReadingPosition>? onPositionChanged;
+  /// Asked for the password of an encrypted PDF, once per attempt, until
+  /// it returns null (give up) or the password works. Without one, an
+  /// encrypted PDF fails with [DocumentLoadError.passwordRequired].
+  final PdfPasswordProvider? passwordProvider;
 
+  /// The search, for the view to draw its matches.
+  @internal
   final searchController = PdfSearchController();
-
-  bool _disposed = false;
 
   PdfiumDocument? _document;
 
-  /// The open document; null until [open] succeeds.
+  /// The open document; null until loaded. For rendering or extracting
+  /// text yourself.
   PdfiumDocument? get document => _document;
 
-  bool get isReady => _document != null;
+  Object? _openFailure;
 
-  Object? _error;
+  /// What went wrong opening the document, in the engine's terms (a
+  /// [PdfOpenException] or [PdfEngineException]); null unless loading
+  /// failed. [error] says the same in [DocumentLoadError] terms.
+  Object? get errorDetail => _openFailure;
 
-  /// Why the document couldn't be opened (a [PdfOpenException] or
-  /// [PdfEngineException]); null otherwise.
-  Object? get error => _error;
+  /// An encrypted PDF the reader couldn't unlock (no password, a wrong
+  /// one, or an encryption PDFium doesn't support) is password protected,
+  /// not damaged.
+  static DocumentLoadError _loadErrorOf(Object failure) => switch (failure) {
+    PdfOpenException(error: PdfOpenError.password || PdfOpenError.security) => DocumentLoadError.passwordRequired,
+    _ => DocumentLoadError.corrupted,
+  };
 
   int _initialPage = 1;
 
@@ -128,12 +138,18 @@ class PdfController extends ChangeNotifier {
   int get initialPageNumber => _initialPage;
 
   int _currentPage = 1;
+
+  /// The page on screen, from 1.
   int get currentPage => _currentPage;
 
   int _pageCount = 0;
+
+  /// How many pages the document has; 0 until loaded.
   int get pageCount => _pageCount;
 
   PdfViewMode _viewMode = PdfViewMode.continuous;
+
+  /// Pages one under the other, or side by side.
   PdfViewMode get viewMode => _viewMode;
 
   bool _viewModeSettled = false;
@@ -150,48 +166,56 @@ class PdfController extends ChangeNotifier {
 
   _PdfViewHandle? _view;
 
-  /// The file open or being opened.
-  String? _path;
+  /// The source open or being opened: a path, or the bytes.
+  Object? _source;
   Future<void>? _opening;
 
-  /// Opens [path], asking [passwordProvider] for a password (once per try)
-  /// while the PDF wants one. Errors end up in [error].
+  /// Opens the PDF at [path]; PDFium reads the file itself.
   ///
-  /// Opening the file that's already open does nothing, and while it's
-  /// still opening returns the same future, so a rebuilt view can't open
-  /// (and leak) a second copy. Another file replaces the open one, which is
-  /// closed.
-  Future<void> open(String path, {PdfPasswordProvider? passwordProvider}) {
-    if (path == _path && (_document != null || _opening != null)) return _opening ?? Future.value();
-    if (_path != null && path != _path) _discardDocument();
-    _path = path;
+  /// Opening the file that's already open, or opening, does nothing (and
+  /// returns the same future). Another file replaces the open one, which
+  /// is closed.
+  @override
+  Future<void> loadFile(String path) => _openSource(path);
+
+  /// Opens a PDF held in memory.
+  @override
+  Future<void> loadBytes(Uint8List bytes) => _openSource(bytes);
+
+  Future<void> _openSource(Object source) {
+    if (source == _source && (_document != null || _opening != null)) return _opening ?? Future.value();
+    if (_source != null) _discardDocument();
+    _source = source;
     late final Future<void> opening;
-    opening = _open(path, passwordProvider).whenComplete(() {
+    opening = _open(source).whenComplete(() {
       if (identical(_opening, opening)) _opening = null;
     });
     return _opening = opening;
   }
 
-  /// Forgets the open document (and its search) for another file.
+  /// Forgets the open document (and its search) for another one.
   void _discardDocument() {
     unawaited(_document?.close());
     _document = null;
-    _error = null;
+    _openFailure = null;
     _pageCount = 0;
     _hasTextLayer = null;
     searchController._reset(null);
     searchController.notifyListeners();
-    notifyListeners();
   }
 
-  Future<void> _open(String path, PdfPasswordProvider? passwordProvider) async {
-    _error = null;
+  Future<void> _open(Object source) async {
+    markLoading();
     String? password;
-    // Superseded by disposal or by another file opened meanwhile.
-    bool stale() => _disposed || _path != path;
+    // Superseded by disposal or by another document opened meanwhile.
+    bool stale() => isDisposed || !identical(_source, source);
     while (true) {
       try {
-        final document = await PdfiumDocument.openFile(path, password: password);
+        final document = switch (source) {
+          final String path => await PdfiumDocument.openFile(path, password: password),
+          final Uint8List bytes => await PdfiumDocument.openBytes(bytes, password: password),
+          _ => throw ArgumentError.value(source),
+        };
         if (stale() || _document != null) {
           unawaited(document.close());
           return;
@@ -200,24 +224,33 @@ class PdfController extends ChangeNotifier {
         _pageCount = document.pageCount;
         _initialPage = _initialPage.clamp(1, document.pageCount < 1 ? 1 : document.pageCount);
         _currentPage = _initialPage;
-        break;
+        _updateLocation();
+        markReady();
+        return;
       } on PdfOpenException catch (e) {
         if (stale()) return;
         if (e.error == PdfOpenError.password && passwordProvider != null) {
-          password = await passwordProvider();
+          password = await passwordProvider!();
           if (stale()) return;
           if (password != null) continue;
         }
-        _error = e;
-        break;
+        _fail(e);
+        return;
       } catch (e) {
         if (stale()) return;
-        _error = e;
-        break;
+        _fail(e);
+        return;
       }
     }
-    notifyListeners();
   }
+
+  void _fail(Object failure) {
+    _openFailure = failure;
+    markFailed(_loadErrorOf(failure));
+  }
+
+  void _updateLocation() =>
+      updateLocation(DocumentLocation(current: _currentPage, count: _pageCount, unit: DocumentUnit.page));
 
   /// Applies a saved position: the page to open on and, when saved, the
   /// layout.
@@ -239,18 +272,21 @@ class PdfController extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
   ReadingPosition get position => {
     PositionKeys.pageNumber: _currentPage,
     if (_pageCount > 0) PositionKeys.pageCount: _pageCount,
     PositionKeys.viewMode: _viewMode.name,
   };
 
-  /// The view reports the page being read.
+  /// [PdfView] reports the page being read.
+  @internal
   void onPageChanged(int page) {
     if (page == _currentPage) return;
     _currentPage = page;
+    _updateLocation();
     notifyListeners();
-    onPositionChanged?.call(position);
+    reportPosition();
   }
 
   /// Stands in for an open document where no PDF engine runs (unit tests).
@@ -258,9 +294,15 @@ class PdfController extends ChangeNotifier {
   void debugSetPages({required int pageCount, required int currentPage}) {
     _pageCount = pageCount;
     _currentPage = currentPage;
+    _updateLocation();
     notifyListeners();
   }
 
+  /// Shows page [number] (from 1).
+  @override
+  void goTo(int number) => unawaited(jumpToPage(number));
+
+  /// Shows [page] (from 1), clamped to the document.
   Future<void> jumpToPage(int page) async {
     if (_pageCount < 1) return;
     final target = page.clamp(1, _pageCount);
@@ -271,34 +313,77 @@ class PdfController extends ChangeNotifier {
     }
   }
 
+  /// Switches between pages one under the other and side by side.
   void toggleViewMode() {
     _viewModeSettled = true;
     _viewMode = _viewMode == PdfViewMode.continuous ? PdfViewMode.horizontal : PdfViewMode.continuous;
     // The new layout opens on the page being read.
     _initialPage = _currentPage;
     notifyListeners();
-    if (_pageCount > 0) onPositionChanged?.call(position);
+    if (_pageCount > 0) reportPosition();
   }
 
+  // ---- Zoom
+
+  /// The zoom levels [zoomIn] and [zoomOut] step through.
   static const zoomSteps = [1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0];
 
-  Future<void> zoomIn() async {
-    final view = _view;
-    if (view == null) return;
-    view.setZoom(zoomSteps.firstWhere((z) => z > view.zoom + 0.01, orElse: () => zoomSteps.last));
-  }
+  /// The zoom on screen: 1 is page width. Pinching and double-tapping
+  /// change it too.
+  @override
+  double get zoom => _view?.zoom ?? 1;
 
-  Future<void> zoomOut() async {
-    final view = _view;
-    if (view == null) return;
-    view.setZoom(zoomSteps.lastWhere((z) => z < view.zoom - 0.01, orElse: () => zoomSteps.first));
-  }
+  @override
+  double get minZoom => zoomSteps.first;
+
+  @override
+  double get maxZoom => zoomSteps.last;
+
+  @override
+  void setZoom(double zoom) => _view?.setZoom(zoom.clamp(minZoom, maxZoom));
+
+  /// Zooms in to the next of [zoomSteps].
+  @override
+  void zoomIn() => setZoom(zoomSteps.firstWhere((z) => z > zoom + 0.01, orElse: () => zoomSteps.last));
+
+  /// Zooms out to the previous of [zoomSteps].
+  @override
+  void zoomOut() => setZoom(zoomSteps.lastWhere((z) => z < zoom - 0.01, orElse: () => zoomSteps.first));
 
   /// Back to page width (zoom 1).
-  Future<void> fitWidth() async => _view?.setZoom(1);
+  void fitWidth() => setZoom(1);
 
-  /// Searches every page for [query] (any case; a phrase may wrap lines),
-  /// jumping to the first match as soon as it's found.
+  double _reportedZoom = 1;
+
+  /// [PdfView] reports zoom changes (from pinches too) here.
+  @internal
+  void onZoomChanged() {
+    final zoom = this.zoom;
+    if ((zoom - _reportedZoom).abs() < 0.001) return;
+    _reportedZoom = zoom;
+    notifyListeners();
+  }
+
+  // ---- Search
+
+  void _onSearchChanged() {
+    final search = searchController;
+    updateSearch(
+      DocumentSearchState(
+        query: search.pattern ?? '',
+        matchCount: search._matches.length,
+        currentMatch: search._current,
+        isSearching: search._searching,
+        hasSearchableText: _hasTextLayer != false,
+      ),
+    );
+  }
+
+  /// Searches every page for [query] (ignoring case; a phrase may wrap
+  /// lines), jumping to the first match as soon as it's found. Pages are
+  /// searched in the background: [searchState] reports the matches as they
+  /// arrive.
+  @override
   void search(String query) {
     final search = searchController;
     final document = _document;
@@ -316,7 +401,7 @@ class PdfController extends ChangeNotifier {
       for (var page = 0; page < document.pageCount; page++) {
         try {
           final (hasText, found) = await document.search(page, trimmed);
-          if (_disposed || generation != search._generation) return;
+          if (isDisposed || generation != search._generation) return;
           anyText |= hasText;
           if (found.isEmpty) continue;
           search._add(found);
@@ -326,7 +411,7 @@ class PdfController extends ChangeNotifier {
           }
           search.notifyListeners();
         } catch (_) {
-          if (_disposed || generation != search._generation) return;
+          if (isDisposed || generation != search._generation) return;
         }
       }
       search._searching = false;
@@ -338,10 +423,11 @@ class PdfController extends ChangeNotifier {
     }();
   }
 
-  void clearSearch() => search('');
+  @override
+  void nextMatch() => _step(1);
 
-  Future<void> nextMatch() async => _step(1);
-  Future<void> previousMatch() async => _step(-1);
+  @override
+  void previousMatch() => _step(-1);
 
   void _step(int delta) {
     final search = searchController;
@@ -353,7 +439,7 @@ class PdfController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _disposed = true;
+    searchController.removeListener(_onSearchChanged);
     searchController.dispose();
     unawaited(_document?.close());
     super.dispose();
@@ -369,7 +455,9 @@ abstract interface class _PdfViewHandle {
 }
 
 /// For [PdfView] only: connects the view on screen.
+@internal
 extension PdfControllerView on PdfController {
+  /// Connects the view on screen.
   void attachView({
     required double Function() zoom,
     required void Function(double zoom) setZoom,
@@ -379,6 +467,7 @@ extension PdfControllerView on PdfController {
     _view = _ViewCallbacks(zoom, setZoom, jumpToPage, showMatch);
   }
 
+  /// Disconnects the view.
   void detachView() => _view = null;
 }
 
@@ -405,5 +494,6 @@ class _ViewCallbacks implements _PdfViewHandle {
 
 /// Rect helpers for page-space search hits.
 extension PdfMatchRects on PdfTextMatch {
+  /// The rectangle around all of the match's line rectangles.
   Rect get bounds => rects.isEmpty ? Rect.zero : rects.reduce((a, b) => a.expandToInclude(b));
 }

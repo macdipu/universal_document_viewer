@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../common/document_viewer_strings.dart';
 import '../engines/word/word_model.dart';
 import 'word_controller.dart';
 import 'word_document_layout.dart';
@@ -396,7 +397,7 @@ class _WordViewState extends State<WordView> {
             final children = [
               if (index == firstNote) ...[
                 const Divider(height: 32),
-                Text('Notes', style: Theme.of(context).textTheme.titleSmall),
+                Text(DocumentViewerStrings.of(context).notes, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 8),
               ] else if (item.kind == WordItemKind.footer && previous != WordItemKind.footer)
                 const Divider(height: 32),

@@ -6,6 +6,10 @@
 /// [PptxParser] reads a file into a [PptxPresentation] without showing it.
 library;
 
+export 'src/common/document_controller.dart';
+export 'src/common/document_viewer_strings.dart';
+export 'src/common/document_viewer_theme.dart';
+export 'src/common/reader_contract.dart';
 export 'src/slides/pptx_parser.dart';
 export 'src/slides/slides_controller.dart';
 export 'src/slides/slides_view.dart';

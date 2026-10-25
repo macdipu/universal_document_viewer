@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:two_dimensional_scrollables/two_dimensional_scrollables.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../common/document_viewer_strings.dart';
+import '../common/document_viewer_theme.dart';
 import '../engines/sheets/workbook.dart';
 import 'cell_border.dart';
 import 'sheet_geometry.dart';
@@ -21,19 +23,15 @@ import 'spreadsheet_controller.dart';
 /// controller's `verticalController`/`horizontalController`. Serves Excel
 /// and CSV alike.
 class SpreadsheetView extends StatefulWidget {
+  /// Shows [controller]'s sheet on screen.
+  const SpreadsheetView({super.key, required this.controller, this.emptyMessage});
+
+  /// The workbook to show.
   final SpreadsheetController controller;
-  final String emptyMessage;
 
-  /// Show the grid's own zoom buttons in the corner; off for an app that
-  /// puts [SpreadsheetController.zoomIn]/`zoomOut` in its own toolbar.
-  final bool showZoomControls;
-
-  const SpreadsheetView({
-    super.key,
-    required this.controller,
-    this.emptyMessage = 'No data to display',
-    this.showZoomControls = true,
-  });
+  /// Shown instead of the grid for a sheet with no cells. Defaults to
+  /// [DocumentViewerStrings.emptySheet].
+  final String? emptyMessage;
 
   @override
   State<SpreadsheetView> createState() => _SpreadsheetViewState();
@@ -128,7 +126,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     final rows = widget.controller.currentRows;
     final columnCount = widget.controller.columnCount;
     if (rows.isEmpty || columnCount == 0) {
-      return _EmptySheet(message: widget.emptyMessage);
+      return _EmptySheet(message: widget.emptyMessage ?? DocumentViewerStrings.of(context).emptySheet);
     }
 
     return Stack(
@@ -139,15 +137,13 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
             children: [
               if (_selection.value case final selection?)
                 _SelectionBar(
-                  summary: SelectionSummary.of(rows, columnCount, selection),
+                  summary: SelectionSummary.of(rows, columnCount, selection, DocumentViewerStrings.of(context)),
                   onClear: () => _selection.value = null,
                 ),
               Expanded(child: _buildTable(context)),
             ],
           ),
         ),
-        if (widget.showZoomControls)
-          Positioned(right: 12, bottom: 12, child: _ZoomControls(controller: widget.controller)),
       ],
     );
   }
@@ -188,7 +184,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
               label: _columnLabel(column),
               zoom: zoom,
               selected: selection == GridSelection.column(column),
-              semanticsLabel: 'Column ${_columnLabel(column)}',
+              semanticsLabel: DocumentViewerStrings.of(context).column(_columnLabel(column)),
               onTap: () => _toggleSelection(GridSelection.column(column)),
             ),
           );
@@ -200,7 +196,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
               label: '${row + 1}',
               zoom: zoom,
               selected: selection == GridSelection.row(row),
-              semanticsLabel: 'Row ${row + 1}',
+              semanticsLabel: DocumentViewerStrings.of(context).row(row + 1),
               onTap: () => _toggleSelection(GridSelection.row(row)),
             ),
           );
@@ -230,7 +226,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
             zoom: zoom,
             isLink: link != null,
             hasComment: comment != null,
-            onTap: () => showCellDetail(
+            onTap: () => _showCellDetail(
               context,
               address: '${_columnLabel(column)}${row + 1}',
               // A formula saved without its result has no value to show.
@@ -322,51 +318,13 @@ class _Merge {
   final int sheetColumn;
 }
 
-/// Floating −/+ zoom pill over the grid's corner (UX-32) - kept off the app
-/// bar, which has no room for two more actions on a phone.
-class _ZoomControls extends StatelessWidget {
-  final SpreadsheetController controller;
-
-  const _ZoomControls({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHigh,
-      elevation: 2,
-      borderRadius: BorderRadius.circular(999),
-      child: ListenableBuilder(
-        listenable: controller,
-        builder: (context, _) {
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                tooltip: 'Zoom out',
-                icon: const Icon(Icons.zoom_out_rounded),
-                onPressed: controller.canZoomOut ? controller.zoomOut : null,
-              ),
-              Text('${(controller.zoom * 100).round()}%', style: Theme.of(context).textTheme.labelMedium),
-              IconButton(
-                tooltip: 'Zoom in',
-                icon: const Icon(Icons.zoom_in_rounded),
-                onPressed: controller.canZoomIn ? controller.zoomIn : null,
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
 /// Full value of a cell, which the grid truncates (UX-32), with Copy and,
 /// for a linked cell, Open link. A formula cell also shows its [formula]
 /// (as Excel's formula bar does, with its own Copy), and a noted cell its
 /// [comment]. Web links open outside the app (`http`,
 /// `https` and `mailto` only); a link to a place in the workbook
 /// (`#Sheet2!A1`) goes to [onOpenInternalLink].
-Future<void> showCellDetail(
+Future<void> _showCellDetail(
   BuildContext context, {
   required String address,
   required String value,
@@ -382,107 +340,107 @@ Future<void> showCellDetail(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (sheetContext) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Cell $address', style: Theme.of(sheetContext).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.5),
-              child: SingleChildScrollView(
-                child: SelectableText(
-                  value.isNotEmpty
-                      ? value
-                      : formula != null
-                      ? 'No saved result: the file was saved without calculating this formula.'
-                      : '(empty)',
-                  style: value.isEmpty
-                      ? Theme.of(
-                          sheetContext,
-                        ).textTheme.bodyMedium?.copyWith(color: Theme.of(sheetContext).colorScheme.onSurfaceVariant)
-                      : Theme.of(sheetContext).textTheme.bodyLarge,
+    builder: (sheetContext) {
+      final strings = DocumentViewerStrings.of(sheetContext);
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(strings.cell(address), style: Theme.of(sheetContext).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.5),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    value.isNotEmpty
+                        ? value
+                        : formula != null
+                        ? strings.formulaWithoutResult
+                        : '(empty)',
+                    style: value.isEmpty
+                        ? Theme.of(
+                            sheetContext,
+                          ).textTheme.bodyMedium?.copyWith(color: Theme.of(sheetContext).colorScheme.onSurfaceVariant)
+                        : Theme.of(sheetContext).textTheme.bodyLarge,
+                  ),
                 ),
               ),
-            ),
-            if (formula != null) ...[
-              const SizedBox(height: 16),
-              Text('Formula', style: Theme.of(sheetContext).textTheme.labelMedium),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: SelectableText(
-                      formula,
-                      style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
+              if (formula != null) ...[
+                const SizedBox(height: 16),
+                Text(strings.formula, style: Theme.of(sheetContext).textTheme.labelMedium),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        formula,
+                        style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Copy formula',
-                    icon: const Icon(Icons.copy_rounded, size: 18),
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: formula));
-                      Navigator.of(sheetContext).pop();
-                    },
+                    IconButton(
+                      tooltip: strings.copyFormula,
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: formula));
+                        Navigator.of(sheetContext).pop();
+                      },
+                    ),
+                  ],
+                ),
+              ],
+              if (comment != null) ...[
+                const SizedBox(height: 16),
+                Text(strings.note(author: comment.author), style: Theme.of(sheetContext).textTheme.labelMedium),
+                const SizedBox(height: 4),
+                SelectableText(comment.text, style: Theme.of(sheetContext).textTheme.bodyMedium),
+              ],
+              if (link != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  link,
+                  style: Theme.of(sheetContext).textTheme.bodySmall,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              const SizedBox(height: 16),
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                children: [
+                  if (canOpenExternal || internal != null)
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        if (internal != null) {
+                          onOpenInternalLink!(internal);
+                        } else {
+                          launchUrl(external!, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      label: Text(strings.openLink),
+                    ),
+                  FilledButton.icon(
+                    onPressed: value.isEmpty
+                        ? null
+                        : () {
+                            Clipboard.setData(ClipboardData(text: value));
+                            Navigator.of(sheetContext).pop();
+                          },
+                    icon: const Icon(Icons.copy_rounded),
+                    label: Text(strings.copy),
                   ),
                 ],
               ),
             ],
-            if (comment != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                comment.author == null ? 'Note' : 'Note from ${comment.author}',
-                style: Theme.of(sheetContext).textTheme.labelMedium,
-              ),
-              const SizedBox(height: 4),
-              SelectableText(comment.text, style: Theme.of(sheetContext).textTheme.bodyMedium),
-            ],
-            if (link != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                link,
-                style: Theme.of(sheetContext).textTheme.bodySmall,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            const SizedBox(height: 16),
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 8,
-              children: [
-                if (canOpenExternal || internal != null)
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(sheetContext).pop();
-                      if (internal != null) {
-                        onOpenInternalLink!(internal);
-                      } else {
-                        launchUrl(external!, mode: LaunchMode.externalApplication);
-                      }
-                    },
-                    icon: const Icon(Icons.open_in_new_rounded),
-                    label: const Text('Open link'),
-                  ),
-                FilledButton.icon(
-                  onPressed: value.isEmpty
-                      ? null
-                      : () {
-                          Clipboard.setData(ClipboardData(text: value));
-                          Navigator.of(sheetContext).pop();
-                        },
-                  icon: const Icon(Icons.copy_rounded),
-                  label: const Text('Copy'),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
-      ),
-    ),
+      );
+    },
   );
 }
 
@@ -571,7 +529,12 @@ class GridSelection {
 class SelectionSummary {
   const SelectionSummary({required this.label, required this.values, required this.numbers});
 
-  factory SelectionSummary.of(List<List<SheetCell?>> rows, int columnCount, GridSelection selection) {
+  factory SelectionSummary.of(
+    List<List<SheetCell?>> rows,
+    int columnCount,
+    GridSelection selection,
+    DocumentViewerStrings strings,
+  ) {
     final cells = selection.isRow
         ? [
             for (var c = 0; c < columnCount; c++)
@@ -579,7 +542,7 @@ class SelectionSummary {
           ]
         : [for (final row in rows) selection.index < row.length ? row[selection.index] : null];
     return SelectionSummary(
-      label: selection.isRow ? 'Row ${selection.index + 1}' : 'Column ${_columnLabel(selection.index)}',
+      label: selection.isRow ? strings.row(selection.index + 1) : strings.column(_columnLabel(selection.index)),
       values: [for (final cell in cells) cell?.text ?? ''],
       numbers: [for (final cell in cells) ?cell?.number],
     );
@@ -619,11 +582,12 @@ class _SelectionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final average = summary.average;
+    final strings = DocumentViewerStrings.of(context);
     final details = [
       // Excel's status-bar wording, short enough for a phone.
-      'Count ${summary.count}',
-      if (summary.numbers.isNotEmpty) 'Sum ${_formatNumber(summary.sum)}',
-      if (average != null) 'Avg ${_formatNumber(average)}',
+      strings.count(summary.count),
+      if (summary.numbers.isNotEmpty) strings.sum(_formatNumber(summary.sum)),
+      if (average != null) strings.average(_formatNumber(average)),
     ].join(' · ');
     return Container(
       color: Theme.of(context).colorScheme.primaryContainer,
@@ -649,7 +613,7 @@ class _SelectionBar extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Copy ${summary.label.toLowerCase()}',
+            tooltip: strings.copySelection(summary.label),
             icon: const Icon(Icons.copy_rounded, size: 20),
             color: Theme.of(context).colorScheme.onPrimaryContainer,
             onPressed: summary.count == 0
@@ -662,7 +626,7 @@ class _SelectionBar extends StatelessWidget {
                   },
           ),
           IconButton(
-            tooltip: 'Clear selection',
+            tooltip: strings.clearSelection,
             icon: const Icon(Icons.close_rounded, size: 20),
             color: Theme.of(context).colorScheme.onPrimaryContainer,
             onPressed: onClear,
@@ -703,14 +667,15 @@ class _DataCell extends StatelessWidget {
     final background = style.fillColor == null ? null : Color(style.fillColor!);
     // Theme colours, not a hard-coded orange (UX-32): the current match
     // stands out, other matches are marked lightly.
+    final highlights = DocumentViewerTheme.of(context);
     final fill = switch (highlight) {
-      _CellHighlight.current => scheme.tertiaryContainer,
-      _CellHighlight.match => scheme.secondaryContainer.withValues(alpha: 0.5),
+      _CellHighlight.current => highlights.currentMatchBackground,
+      _CellHighlight.match => highlights.matchBackground!.withValues(alpha: 0.5),
       _CellHighlight.selected => scheme.primaryContainer,
       _CellHighlight.none => background,
     };
     final textColor = switch (highlight) {
-      _CellHighlight.current => scheme.onTertiaryContainer,
+      _CellHighlight.current => highlights.currentMatchForeground!,
       _CellHighlight.selected => scheme.onPrimaryContainer,
       _CellHighlight.match => scheme.onSurface,
       _CellHighlight.none => _ownTextColor(style, fill, scheme),
@@ -880,97 +845,5 @@ class _CommentMarkerPainter extends BoxPainter {
       ..lineTo(right, top + marker.size)
       ..close();
     canvas.drawPath(path, Paint()..color = marker.color);
-  }
-}
-
-/// Asks for a cell or sheet and goes there with
-/// [SpreadsheetController.goTo]: `D120`, `Sheet2!B3`, or a sheet's name
-/// (the sheets are offered as chips). Stays open with a message when
-/// there's no such place.
-Future<void> showGoToDialog(BuildContext context, SpreadsheetController controller) {
-  return showDialog<void>(
-    context: context,
-    builder: (_) => _GoToDialog(controller: controller),
-  );
-}
-
-class _GoToDialog extends StatefulWidget {
-  const _GoToDialog({required this.controller});
-
-  final SpreadsheetController controller;
-
-  @override
-  State<_GoToDialog> createState() => _GoToDialogState();
-}
-
-class _GoToDialogState extends State<_GoToDialog> {
-  final _field = TextEditingController();
-  String? _error;
-
-  @override
-  void dispose() {
-    _field.dispose();
-    super.dispose();
-  }
-
-  void _go(String reference) {
-    if (widget.controller.goTo(reference)) {
-      Navigator.of(context).pop();
-    } else {
-      setState(() => _error = 'No cell or sheet called "${reference.trim()}"');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final names = widget.controller.sheetNames;
-    return AlertDialog(
-      title: const Text('Go to'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _field,
-            autofocus: true,
-            textCapitalization: TextCapitalization.characters,
-            textInputAction: TextInputAction.go,
-            decoration: InputDecoration(
-              labelText: 'Cell',
-              hintText: names.length > 1 ? 'D120 or ${names[1]}!B3' : 'D120',
-              errorText: _error,
-            ),
-            onChanged: (_) {
-              if (_error != null) setState(() => _error = null);
-            },
-            onSubmitted: _go,
-          ),
-          if (names.length > 1) ...[
-            const SizedBox(height: 16),
-            Text('Sheets', style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (var i = 0; i < names.length; i++)
-                  ChoiceChip(
-                    label: Text(names[i]),
-                    selected: i == widget.controller.activeSheetIndex,
-                    onSelected: (_) {
-                      widget.controller.switchSheet(i);
-                      Navigator.of(context).pop();
-                    },
-                  ),
-              ],
-            ),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        FilledButton(onPressed: () => _go(_field.text), child: const Text('Go')),
-      ],
-    );
   }
 }

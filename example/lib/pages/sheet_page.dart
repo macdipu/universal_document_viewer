@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:universal_document_viewer/universal_document_viewer.dart';
 
 import '../library.dart';
+import '../widgets/go_to_cell_dialog.dart';
 
 /// An Excel workbook or CSV in [SpreadsheetView], with what a reader app adds
 /// around it: sheet tabs, search, go to a cell and freezing the header row.
@@ -27,23 +26,9 @@ class _SheetPageState extends State<SheetPage> {
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final file = File(widget.path);
-    final csv = DocumentFormat.fromPath(widget.path) == DocumentFormat.csv;
-    try {
-      // Refuse an oversized CSV before reading it into memory.
-      if (csv && await file.length() > SpreadsheetController.maxCsvBytes) {
-        _controller.rejectAsTooLarge();
-        return;
-      }
-      final bytes = await file.readAsBytes();
-      await (csv ? _controller.loadCsv(bytes) : _controller.loadXlsx(bytes));
-    } on FileSystemException {
-      if (mounted) _controller.rejectAsTooLarge();
-    }
+    // An .xlsx workbook or a .csv file, by its extension; an oversized file
+    // is refused before it is read.
+    _controller.loadFile(widget.path);
   }
 
   @override
@@ -66,9 +51,7 @@ class _SheetPageState extends State<SheetPage> {
                     decoration: InputDecoration(
                       hintText: 'Search this sheet',
                       border: InputBorder.none,
-                      suffixText: _controller.matches.isEmpty
-                          ? null
-                          : '${_controller.currentMatchIndex + 1}/${_controller.matches.length}',
+                      suffixText: DocumentViewerStrings.of(context).searchStatus(_controller.searchState.value),
                     ),
                     onChanged: _controller.search,
                     onSubmitted: (_) => _controller.nextMatch(),
@@ -85,7 +68,7 @@ class _SheetPageState extends State<SheetPage> {
               if (loaded)
                 PopupMenuButton<String>(
                   onSelected: (action) => switch (action) {
-                    'goto' => showGoToDialog(context, _controller),
+                    'goto' => showGoToCellDialog(context, _controller),
                     _ => _controller.freezeTopRow = !_controller.freezeTopRow,
                   },
                   itemBuilder: (_) => [

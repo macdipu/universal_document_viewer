@@ -10,7 +10,7 @@ import 'package:universal_document_viewer/src/word/word_view.dart' show WordPage
 void main() {
   Future<WordController> load(WidgetTester tester, Uint8List bytes) async {
     final controller = WordController();
-    await tester.runAsync(() => controller.load(bytes));
+    await tester.runAsync(() => controller.loadBytes(bytes));
     addTearDown(controller.dispose);
     return controller;
   }
@@ -63,8 +63,9 @@ void main() {
     final controller = WordController(onPositionChanged: reported.add);
     addTearDown(controller.dispose);
     await tester.runAsync(
-      () =>
-          controller.load(buildDocx([for (var i = 0; i < 300; i++) '<w:p><w:r><w:t>Line $i</w:t></w:r></w:p>'].join())),
+      () => controller.loadBytes(
+        buildDocx([for (var i = 0; i < 300; i++) '<w:p><w:r><w:t>Line $i</w:t></w:r></w:p>'].join()),
+      ),
     );
     await pumpView(tester, controller);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -1500));
@@ -108,7 +109,7 @@ void main() {
 
   test('rejecting after dispose does nothing', () {
     final controller = WordController()..dispose();
-    expect(controller.rejectAsCorrupted, returnsNormally);
+    expect(() => controller.markFailed(DocumentLoadError.corrupted), returnsNormally);
     expect(controller.error, isNull);
   });
 
@@ -136,7 +137,7 @@ void main() {
     final controller = WordController(onPositionChanged: reported.add);
     addTearDown(controller.dispose);
     await tester.runAsync(
-      () => controller.load(
+      () => controller.loadBytes(
         buildDocx(
           '${[for (var i = 0; i < 300; i++) '<w:p><w:r><w:t>Line $i</w:t></w:r></w:p>'].join()}'
           '<w:sectPr><w:headerReference w:type="default" r:id="rH"/>'
@@ -170,38 +171,39 @@ void main() {
   Uint8List lines(int count) =>
       buildDocx([for (var i = 0; i < count; i++) '<w:p><w:r><w:t>Line $i</w:t></w:r></w:p>'].join());
 
-  testWidgets('on pages, reports the page in view and jumps to a page', (tester) async {
+  testWidgets('on pages, location counts pages and goTo jumps to a page', (tester) async {
     final controller = await load(tester, lines(400));
     controller.viewMode = WordViewMode.paged;
     await pumpView(tester, controller);
     await tester.pump();
-    final count = controller.pageCount.value!;
+    final count = controller.pageCount!;
     expect(count, greaterThan(3));
-    expect(controller.currentPage.value, 1);
-    controller.goToPage(3);
+    expect(controller.location.value, DocumentLocation(current: 1, count: count, unit: DocumentUnit.page));
+    controller.goTo(3);
     for (var i = 0; i < 6; i++) {
       await tester.pump();
     }
-    expect(controller.currentPage.value, 3);
-    controller.goToPage(99);
+    expect(controller.location.value.current, 3);
+    controller.goTo(99);
     for (var i = 0; i < 6; i++) {
       await tester.pump();
     }
-    expect(controller.currentPage.value, count, reason: 'clamped to the last page');
-    expect(controller.progress.value, greaterThan(0.9));
+    expect(controller.location.value.current, count, reason: 'clamped to the last page');
   });
 
-  testWidgets('continuous layout has no pages but reports progress', (tester) async {
+  testWidgets('reflowed, location is a percentage and goTo scrolls to one', (tester) async {
     final controller = await load(tester, lines(300));
     await pumpView(tester, controller);
     await tester.pump();
-    expect(controller.pageCount.value, isNull);
-    controller.goToPage(2);
+    expect(controller.pageCount, isNull);
+    expect(controller.location.value, const DocumentLocation(current: 0, count: 100, unit: DocumentUnit.percent));
+    controller.goTo(50);
     await tester.pump();
-    expect(controller.progress.value, 0, reason: 'goToPage is ignored without pages');
+    await tester.pump();
+    expect(controller.location.value.current, inInclusiveRange(48, 52));
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -1500));
     await tester.pumpAndSettle();
-    expect(controller.progress.value, greaterThan(0));
+    expect(controller.location.value.current, greaterThan(52));
   });
 
   testWidgets('zoom reflows the text larger, within limits, keeping the place', (tester) async {
@@ -215,12 +217,12 @@ void main() {
     for (var i = 0; i < 20; i++) {
       controller.zoomIn();
     }
-    expect(controller.zoom, WordController.maxZoom);
+    expect(controller.zoom, controller.maxZoom);
     expect(controller.canZoomIn, isFalse);
     for (var i = 0; i < 20; i++) {
       controller.zoomOut();
     }
-    expect(controller.zoom, WordController.minZoom);
+    expect(controller.zoom, controller.minZoom);
     expect(controller.canZoomOut, isFalse);
   });
 
@@ -250,7 +252,7 @@ void main() {
     await pumpView(tester, controller);
     await tester.pump();
     final pages = controller.pages!;
-    expect(pages.length, controller.pageCount.value);
+    expect(pages.length, controller.pageCount);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -271,6 +273,6 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(controller.pages, isNull);
-    expect(controller.pageCount.value, isNull);
+    expect(controller.pageCount, isNull);
   });
 }

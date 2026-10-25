@@ -8,8 +8,12 @@
 /// extract text themselves.
 library;
 
+export 'src/common/document_controller.dart';
+export 'src/common/document_viewer_strings.dart';
+export 'src/common/document_viewer_theme.dart';
+export 'src/common/reader_contract.dart';
 export 'src/engines/pdfium/pdf_engine.dart' show PdfiumDocument, PdfRenderedImage, PdfRenderTask;
 export 'src/engines/pdfium/pdf_types.dart';
-export 'src/pdf/pdf_controller.dart' hide probePdfTextLayer;
+export 'src/pdf/pdf_controller.dart' hide PdfControllerView, probePdfTextLayer;
 export 'src/pdf/pdf_layout.dart' show PdfViewMode;
 export 'src/pdf/pdf_view.dart';

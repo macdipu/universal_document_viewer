@@ -9,10 +9,14 @@
 /// [XlsxReader] or [CsvReader] into a [Workbook].
 library;
 
+export 'src/common/document_controller.dart';
+export 'src/common/document_viewer_strings.dart';
+export 'src/common/document_viewer_theme.dart';
+export 'src/common/reader_contract.dart';
 export 'src/engines/sheets/csv_reader.dart';
 export 'src/engines/sheets/number_format.dart';
 export 'src/engines/sheets/workbook.dart';
 export 'src/engines/sheets/xlsx_reader.dart';
 export 'src/spreadsheet/cell_match.dart';
 export 'src/spreadsheet/spreadsheet_controller.dart';
-export 'src/spreadsheet/spreadsheet_view.dart';
+export 'src/spreadsheet/spreadsheet_view.dart' show SpreadsheetView;

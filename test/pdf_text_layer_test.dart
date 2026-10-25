@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:universal_document_viewer/src/pdf/pdf_controller.dart';
+import 'package:universal_document_viewer/pdf.dart';
+import 'package:universal_document_viewer/src/pdf/pdf_controller.dart' show probePdfTextLayer;
 
 // CR-OPENREADER-UX Phase 1 revision 1: the PDF zero-match label. The
 // controller wiring needs a live PdfTextSearcher (unavailable here, see
@@ -31,29 +32,30 @@ void main() {
     });
   });
 
-  group('pdfSearchStatusLabel', () {
+  group('DocumentViewerStrings.searchStatus', () {
     String label({
-      bool hasPattern = true,
+      String query = 'x',
       bool isSearching = false,
       int matchCount = 0,
-      int? currentIndex,
-      bool? hasTextLayer,
-    }) => pdfSearchStatusLabel(
-      hasPattern: hasPattern,
-      isSearching: isSearching,
-      matchCount: matchCount,
-      currentIndex: currentIndex,
-      hasTextLayer: hasTextLayer,
+      int currentMatch = -1,
+      bool hasSearchableText = true,
+    }) => const DocumentViewerStrings().searchStatus(
+      DocumentSearchState(
+        query: query,
+        matchCount: matchCount,
+        currentMatch: currentMatch,
+        isSearching: isSearching,
+        hasSearchableText: hasSearchableText,
+      ),
     );
 
-    test('empty without a query', () => expect(label(hasPattern: false), ''));
+    test('empty without a query', () => expect(label(query: ''), ''));
     test('searching', () => expect(label(isSearching: true), 'Searching…'));
-    test('zero matches in a PDF with text', () => expect(label(hasTextLayer: true), 'No matches'));
-    test('zero matches before the probe has an answer', () => expect(label(), 'No matches'));
+    test('zero matches in a document with text', () => expect(label(), 'No matches'));
     test(
       'zero matches in a scanned PDF (BRD line 1087)',
-      () => expect(label(hasTextLayer: false), 'No searchable text found.'),
+      () => expect(label(hasSearchableText: false), 'No searchable text found.'),
     );
-    test('match position', () => expect(label(matchCount: 4, currentIndex: 1), '2 of 4'));
+    test('match position', () => expect(label(matchCount: 4, currentMatch: 1), '2 of 4'));
   });
 }

@@ -21,9 +21,9 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
       - name: Analyze the package
         run: flutter analyze
-      - name: Analyze the example
+      - name: Analyze and test the example
         working-directory: example
-        run: flutter pub get && flutter analyze
+        run: flutter pub get && flutter analyze && flutter test test
       - name: Test
         # The build hook downloads the pinned PDFium for the host on the first run.
         run: flutter test

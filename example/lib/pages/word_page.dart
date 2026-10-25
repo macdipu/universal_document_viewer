@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:universal_document_viewer/word.dart';
 
@@ -27,15 +25,7 @@ class _WordPageState extends State<WordPage> {
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      await _controller.load(await File(widget.path).readAsBytes());
-    } on FileSystemException {
-      if (mounted) _controller.rejectAsCorrupted();
-    }
+    _controller.loadFile(widget.path);
   }
 
   @override
@@ -46,7 +36,6 @@ class _WordPageState extends State<WordPage> {
 
   @override
   Widget build(BuildContext context) {
-    final search = _controller.searchController;
     return Scaffold(
       appBar: AppBar(
         title: TextField(
@@ -54,11 +43,10 @@ class _WordPageState extends State<WordPage> {
           onChanged: _controller.search,
         ),
         actions: [
-          ListenableBuilder(
-            listenable: search,
-            builder: (context, _) => Center(
-              child: Text(search.matchCount == 0 ? '' : '${search.currentMatchIndex + 1}/${search.matchCount}'),
-            ),
+          ValueListenableBuilder(
+            valueListenable: _controller.searchState,
+            builder: (context, search, _) =>
+                Center(child: Text(DocumentViewerStrings.of(context).searchStatus(search))),
           ),
           IconButton(icon: const Icon(Icons.keyboard_arrow_up), onPressed: _controller.previousMatch),
           IconButton(icon: const Icon(Icons.keyboard_arrow_down), onPressed: _controller.nextMatch),
@@ -76,10 +64,12 @@ class _WordPageState extends State<WordPage> {
       ),
       body: ListenableBuilder(
         listenable: _controller,
-        // The view shows a spinner until the document is parsed.
-        builder: (context, _) => switch (_controller.error) {
-          null => WordView(controller: _controller),
-          final error => Center(child: Text('Could not open the document (${error.name}).')),
+        builder: (context, _) => switch (_controller.status) {
+          DocumentStatus.idle || DocumentStatus.loading => const Center(child: CircularProgressIndicator()),
+          DocumentStatus.failed => Center(
+            child: Text(DocumentViewerStrings.of(context).loadError(_controller.error!), textAlign: TextAlign.center),
+          ),
+          DocumentStatus.ready => WordView(controller: _controller),
         },
       ),
     );

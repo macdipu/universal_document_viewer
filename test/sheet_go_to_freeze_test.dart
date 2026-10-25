@@ -12,7 +12,7 @@ void main() {
     final controller = SpreadsheetController(initialPosition: position, onPositionChanged: onPosition);
     addTearDown(controller.dispose);
     await tester.runAsync(
-      () => controller.loadXlsx(
+      () => controller.loadBytes(
         buildXlsx([
           XlsxTestSheet('Data', {for (var r = 1; r <= 200; r++) 'A$r': 'Row $r', 'D150': 'here'}),
           const XlsxTestSheet('My Notes', {'B3': 'note'}),
@@ -39,50 +39,25 @@ void main() {
     final controller = await load(tester);
     await pumpGrid(tester, controller);
 
-    expect(controller.goTo('d150'), isTrue);
+    expect(controller.goToCell('d150'), isTrue);
     await tester.pumpAndSettle();
     expect((controller.goToTarget?.row, controller.goToTarget?.column), (149, 3));
     expect(controller.isGoToTarget(149, 3), isTrue);
     expect(find.text('here'), findsOneWidget);
     expect(controller.verticalController.offset, greaterThan(0));
 
-    expect(controller.goTo("'my notes'!b3"), isTrue);
+    expect(controller.goToCell("'my notes'!b3"), isTrue);
     await tester.pumpAndSettle();
     expect(controller.activeSheetIndex, 1);
     expect((controller.goToTarget?.row, controller.goToTarget?.column), (2, 1));
 
-    expect(controller.goTo('frozen'), isTrue);
+    expect(controller.goToCell('frozen'), isTrue);
     expect(controller.activeSheetIndex, 2);
     expect(controller.goToTarget, isNull, reason: 'a sheet switch clears the mark');
 
-    expect(controller.goTo('Nowhere!A1'), isFalse);
-    expect(controller.goTo('not a cell'), isFalse);
-    expect(controller.goTo(''), isFalse);
-  });
-
-  testWidgets('the go-to dialog goes, offers sheets, and says when nothing matches', (tester) async {
-    final controller = await load(tester);
-    await pumpGrid(tester, controller);
-    final context = tester.element(find.byType(SpreadsheetView));
-
-    showGoToDialog(context, controller);
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(ChoiceChip, 'My Notes'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'ZZ');
-    await tester.tap(find.text('Go'));
-    await tester.pumpAndSettle();
-    expect(find.text('No cell or sheet called "ZZ"'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'A120');
-    await tester.testTextInput.receiveAction(TextInputAction.go);
-    await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
-    expect((controller.goToTarget?.row, controller.goToTarget?.column), (119, 0));
-
-    showGoToDialog(context, controller);
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ChoiceChip, 'My Notes'));
-    await tester.pumpAndSettle();
-    expect(controller.activeSheetIndex, 1);
+    expect(controller.goToCell('Nowhere!A1'), isFalse);
+    expect(controller.goToCell('not a cell'), isFalse);
+    expect(controller.goToCell(''), isFalse);
   });
 
   testWidgets('freezing the header row: pins it, is reported and restored', (tester) async {

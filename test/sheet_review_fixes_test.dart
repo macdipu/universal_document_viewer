@@ -108,7 +108,7 @@ void main() {
       final controller = SpreadsheetController(initialPosition: position, onPositionChanged: onPosition);
       addTearDown(controller.dispose);
       await tester.runAsync(
-        () => controller.loadXlsx(
+        () => controller.loadBytes(
           buildXlsx([
             XlsxTestSheet('One', {for (var r = 1; r <= 300; r++) 'A$r': r, 'AB12': 'far'}),
             XlsxTestSheet('Two', {for (var r = 1; r <= 300; r++) 'A$r': r}),
@@ -120,13 +120,13 @@ void main() {
 
     testWidgets('columns past Z, ranges and in-sheet links work', (tester) async {
       final controller = await load(tester);
-      expect(controller.goTo('AB12'), isTrue);
+      expect(controller.goToCell('AB12'), isTrue);
       expect((controller.goToTarget?.row, controller.goToTarget?.column), (11, 27));
-      expect(controller.goTo('B3:C4'), isTrue);
+      expect(controller.goToCell('B3:C4'), isTrue);
       expect((controller.goToTarget?.row, controller.goToTarget?.column), (2, 1));
       expect(controller.openInternalLink('AB12'), isTrue);
       expect(controller.openInternalLink(r'Two!$AA$1'), isTrue);
-      expect(controller.goTo('A2000000'), isFalse);
+      expect(controller.goToCell('A2000000'), isFalse);
     });
 
     testWidgets('the offsets restored at open don\'t follow to another sheet', (tester) async {

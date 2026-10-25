@@ -7,41 +7,39 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vector_math/vector_math_64.dart' show Quad;
 
+import '../common/document_viewer_theme.dart';
+import '../common/document_viewer_strings.dart';
+import '../common/reader_contract.dart';
 import '../engines/pdfium/pdf_engine.dart' show PdfRenderTask;
 import '../engines/pdfium/pdf_types.dart';
 import 'pdf_controller.dart';
 import 'pdf_image_cache.dart';
 import 'pdf_layout.dart';
 
-/// A PDF file, opened by [controller] and shown in its layout: pages built
-/// only near the viewport, pinch/double-tap/wheel zoom, a low-resolution
-/// image per page sharpened by tiles when zoomed in, search highlights,
-/// and links (web links open outside the app, `http`/`https`/`mailto`
-/// only; links to pages jump).
+/// Shows the PDF a [PdfController] has opened, in its layout.
+///
+/// Pages are built only near the viewport, each as a low-resolution image
+/// sharpened with tiles when zoomed in. Pinch, double-tap or the mouse wheel
+/// zoom. Search matches are highlighted, the current one apart from the
+/// rest. Links to pages jump; web links open outside the app (`http`,
+/// `https` and `mailto` only).
 class PdfView extends StatefulWidget {
-  const PdfView({
-    super.key,
-    required this.path,
-    required this.controller,
-    this.passwordProvider,
-    this.backgroundColor,
-    this.onTap,
-    this.errorBuilder,
-  });
+  /// Shows [controller]'s document.
+  const PdfView({super.key, required this.controller, this.backgroundColor, this.onTap, this.errorBuilder});
 
-  final String path;
+  /// The document to show; load it with [PdfController.loadFile] or
+  /// [PdfController.loadBytes].
   final PdfController controller;
 
-  /// Asked for a password for an encrypted PDF, once per attempt, until it
-  /// returns null (give up) or the password works.
-  final PdfPasswordProvider? passwordProvider;
+  /// Behind and between the pages. Defaults to the theme's surface colour.
   final Color? backgroundColor;
 
   /// A tap on a page (not on a link); return true if it was handled.
   final bool Function()? onTap;
 
-  /// Shown instead of the document when it fails to open.
-  final Widget Function(BuildContext context, Object error)? errorBuilder;
+  /// Shown instead of the document when it fails to open. Defaults to a
+  /// short message.
+  final Widget Function(BuildContext context, DocumentLoadError error)? errorBuilder;
 
   @override
   State<PdfView> createState() => _PdfViewState();
@@ -84,7 +82,6 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
       jumpToPage: _jumpToPage,
       showMatch: _showMatch,
     );
-    controller.open(widget.path, passwordProvider: widget.passwordProvider);
   }
 
   @override
@@ -103,11 +100,6 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
       );
       // The old controller's images and links don't belong to this one.
       _onControllerChanged();
-    }
-    // A new controller or file has to be opened, or the view would wait on
-    // it forever. (Opening what's already open, or opening, is a no-op.)
-    if (oldWidget.controller != controller || oldWidget.path != widget.path) {
-      controller.open(widget.path, passwordProvider: widget.passwordProvider);
     }
   }
 
@@ -252,7 +244,10 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
     _updateScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateScheduled = false;
-      if (mounted) _update();
+      if (!mounted) return;
+      _update();
+      // After the frame: the transform can change during layout.
+      controller.onZoomChanged();
     });
   }
 
@@ -372,7 +367,9 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
     if (controller.error case final error?) {
       return ColoredBox(
         color: background,
-        child: widget.errorBuilder?.call(context, error) ?? const Center(child: Text('This PDF could not be opened.')),
+        child:
+            widget.errorBuilder?.call(context, error) ??
+            Center(child: Text(DocumentViewerStrings.of(context).loadError(error), textAlign: TextAlign.center)),
       );
     }
     final document = controller.document;
@@ -507,9 +504,9 @@ class _PdfPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final highlights = DocumentViewerTheme.of(context);
     return Semantics(
-      label: 'Page ${page + 1}',
+      label: DocumentViewerStrings.of(context).page(page + 1),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapUp: (details) => onTap(details.localPosition),
@@ -526,8 +523,8 @@ class _PdfPage extends StatelessWidget {
               pageSize: pageSize,
               tiles: tiles,
               devicePixelRatio: devicePixelRatio,
-              match: scheme.secondaryContainer.withValues(alpha: 0.45),
-              current: scheme.tertiary.withValues(alpha: 0.45),
+              match: highlights.matchBackground!.withValues(alpha: 0.45),
+              current: highlights.currentMatchBackground!.withValues(alpha: 0.75),
             ),
           ),
         ),

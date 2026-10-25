@@ -47,30 +47,31 @@ void main() {
 
   test('opening while an open is under way reuses it', () async {
     final controller = PdfController();
-    final first = controller.open(_features);
-    expect(identical(controller.open(_features), first), isTrue);
+    final first = controller.loadFile(_features);
+    expect(identical(controller.loadFile(_features), first), isTrue);
     await first;
     final document = controller.document;
     expect(document, isNotNull);
-    await controller.open(_features);
+    expect(controller.status, DocumentStatus.ready);
+    expect(
+      controller.location.value,
+      DocumentLocation(current: 1, count: document!.pageCount, unit: DocumentUnit.page),
+    );
+    await controller.loadFile(_features);
     expect(identical(controller.document, document), isTrue);
     controller.dispose();
   });
 
   testWidgets('a resize keeps the zoom and the page being read', (tester) async {
     addTearDown(tester.view.reset);
-    final controller = PdfController();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: PdfView(path: _features, controller: controller),
-      ),
-    );
-    await _until(tester, () => controller.isReady);
+    final controller = PdfController()..loadFile(_features);
+    await tester.pumpWidget(MaterialApp(home: PdfView(controller: controller)));
+    await _until(tester, () => controller.status == DocumentStatus.ready);
     await tester.pump();
     await tester.pump();
     controller.jumpToPage(3);
-    await controller.zoomIn();
-    await controller.zoomIn();
+    controller.zoomIn();
+    controller.zoomIn();
     await tester.pump();
     await tester.pump();
     expect(_zoom(tester), closeTo(1.5, 0.001));
@@ -96,21 +97,13 @@ void main() {
     await tester.runAsync(() async => controller.dispose());
   });
 
-  testWidgets('a new controller is opened', (tester) async {
-    final first = PdfController();
-    final second = PdfController();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: PdfView(path: _features, controller: first),
-      ),
-    );
-    await _until(tester, () => first.isReady);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: PdfView(path: _features, controller: second),
-      ),
-    );
-    await _until(tester, () => second.isReady);
+  testWidgets('a new controller shows its own document', (tester) async {
+    final first = PdfController()..loadFile(_features);
+    final second = PdfController()..loadFile(_features);
+    await tester.pumpWidget(MaterialApp(home: PdfView(controller: first)));
+    await _until(tester, () => first.status == DocumentStatus.ready);
+    await tester.pumpWidget(MaterialApp(home: PdfView(controller: second)));
+    await _until(tester, () => second.status == DocumentStatus.ready);
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsNothing);
     await tester.pumpWidget(const SizedBox());
@@ -130,7 +123,7 @@ void main() {
       ),
     );
     expect(find.byType(RawImage), findsNothing);
-    await tester.runAsync(() => controller.open(_features));
+    await tester.runAsync(() => controller.loadFile(_features));
     await _until(tester, () => find.byType(RawImage).evaluate().isNotEmpty);
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(() async => controller.dispose());

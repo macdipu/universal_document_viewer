@@ -51,12 +51,14 @@ A controller owns one open document:
 - the reading position, reported as a JSON-safe `ReadingPosition` map (see `reader_contract.dart`) and restored from one;
 - zoom, search and go to.
 
+Every controller extends `DocumentController` (`lib/src/common/document_controller.dart`), the contract an app can build one toolbar on: `loadFile`/`loadBytes` and `status`, `location` and `goTo`, `zoom`, and `search` with `searchState`. A format adds its own extras on top (PDF's layout, Word's print layout, sheets, slides). The base class keeps the shared state; a format calls its protected `markLoading`/`markReady`/`markFailed`, `updateLocation` and `updateSearch`. Members only the format's own view calls are marked `@internal`.
+
 Controllers are plain `ChangeNotifier`s with no storage and no state-management package. The app decides where positions live.
 
 ### Views
 A view draws a controller's document and reports scrolling back to it. Views are lazy: Word builds paragraphs (or pages) as they scroll in, sheets build only the cells on screen, and PDF renders pages near the viewport and sharpens them with tiles as you zoom.
 
-A view has no toolbar, dialog or English text of its own. Apps build those from the controller.
+A view has no toolbar or dialog of its own; apps build those from the controller. The little text a view does show (an empty sheet, a cell's details, screen-reader labels) comes from `DocumentViewerStrings.of(context)`, so apps can translate it, and search highlights take their colours from `DocumentViewerTheme.of(context)`.
 
 ### DocumentViewer and thumbnails
 `DocumentViewer.file(path)` picks the reader for a file and adds the small amount of UI a ready-made viewer needs. `DocumentThumbnails` renders the page a saved position resumes on, offscreen, for library screens.
@@ -68,7 +70,8 @@ A view has no toolbar, dialog or English text of its own. Apps build those from 
 | change how something is drawn | the format's view, or the Word paragraph styler / sheet cell painting |
 | add something an app controls (zoom, go to, a mode) | the controller, then its view; keep UI out of the view |
 | add built-in UI | `DocumentViewer` only |
-| support a new format | a new engine + controller + view, a `DocumentFormat` entry, `DocumentViewer`, a thumbnail renderer |
+| show new text in a view | a member on `DocumentViewerStrings`, read with `DocumentViewerStrings.of(context)` |
+| support a new format | a new engine; a controller extending `DocumentController`; a view; a `DocumentFormat` entry; `DocumentViewer`; a thumbnail renderer; a case in `test/document_controller_contract_test.dart` |
 
 ## Tests
-Engines are tested on bytes: built in memory (`testing.dart`) or from fixtures written by independent tools (`test/fixtures/*/generate.py`). Controllers and views are tested with `testWidgets`. See CONTRIBUTING for how to run them.
+Engines are tested on bytes: built in memory (`testing.dart`) or from fixtures written by independent tools (`test/fixtures/*/generate.py`). Controllers and views are tested with `testWidgets`. `test/document_controller_contract_test.dart` runs the same contract checks against every format's controller. See CONTRIBUTING for how to run them.

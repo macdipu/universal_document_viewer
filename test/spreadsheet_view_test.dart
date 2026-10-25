@@ -9,7 +9,7 @@ import 'package:universal_document_viewer/src/spreadsheet/sheet_geometry.dart';
 void main() {
   Future<SpreadsheetController> load(WidgetTester tester) async {
     final controller = SpreadsheetController();
-    await tester.runAsync(() => controller.loadXlsx(File('test/fixtures/sheets/features.xlsx').readAsBytesSync()));
+    await tester.runAsync(() => controller.loadBytes(File('test/fixtures/sheets/features.xlsx').readAsBytesSync()));
     return controller;
   }
 
@@ -64,7 +64,7 @@ void main() {
   testWidgets('tapping a cell shows its formula and note; data bars and borders draw', (tester) async {
     final controller = SpreadsheetController();
     await tester.runAsync(
-      () => controller.loadXlsx(
+      () => controller.loadBytes(
         buildXlsx([
           const XlsxTestSheet(
             'S',
