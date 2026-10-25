@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.1
+
+- Screenshots on pub.dev and in the README.
+- The example app's home screen is a grid of document cards with large thumbnails and format badges, and its sample documents read like real ones (a guide PDF, a quarterly report, a sales workbook).
+- No changes to the package's code.
+
+## 0.1.0
 
 First release.
 

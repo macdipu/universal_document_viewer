@@ -2,7 +2,7 @@ name: universal_document_viewer
 description: >-
   Open and read PDF, Word (.docx), Excel (.xlsx), CSV, PowerPoint (.pptx)
   and text documents in Flutter, with its own document engines.
-version: 0.1.0
+version: 0.1.1
 homepage: https://github.com/macdipu/universal_document_viewer
 repository: https://github.com/macdipu/universal_document_viewer
 issue_tracker: https://github.com/macdipu/universal_document_viewer/issues
@@ -12,6 +12,15 @@ topics:
   - xlsx
   - document-viewer
   - reader
+screenshots:
+  - description: 'The example app: every sample with a thumbnail of the page it resumes on.'
+    path: screenshots/1_home.png
+  - description: 'A PDF in DocumentViewer, drawn by PDFium.'
+    path: screenshots/2_pdf.png
+  - description: 'A Word report with styles, lists, a shaded table and a picture.'
+    path: screenshots/3_word.png
+  - description: 'An Excel sheet with its borders, conditional formatting, data bars and notes.'
+    path: screenshots/4_sheet.png
 
 environment:
   # two_dimensional_scrollables 0.5.5 needs Dart ^3.11 and Flutter 3.41;

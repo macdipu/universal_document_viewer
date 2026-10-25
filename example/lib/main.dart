@@ -22,6 +22,7 @@ class ExampleApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'universal_document_viewer',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(colorSchemeSeed: Colors.indigo),
       darkTheme: ThemeData(colorSchemeSeed: Colors.indigo, brightness: Brightness.dark),
       home: HomePage(library: library),

@@ -44,9 +44,8 @@ void main() {
     'report.docx': 'Quarterly Report',
     'sales.xlsx': 'Region',
     'contacts.csv': 'Name',
-    // The deck was built before the package was renamed.
-    'deck.pptx': 'open_reader_kit',
-    'notes.txt': 'Theta',
+    'deck.pptx': 'universal_document_viewer',
+    'notes.txt': 'READING NOTES',
   };
 
   for (final MapEntry(key: name, value: text) in shows.entries) {

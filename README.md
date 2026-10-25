@@ -4,6 +4,13 @@ Open and read documents in Flutter: PDF, Word (.docx), Excel (.xlsx), CSV, Power
 
 Use one widget, `DocumentViewer.file(path)`, that picks the right reader for the file type, or use the controller and view for each format when you want your own app bar, search UI or saving.
 
+<p>
+  <img src="https://raw.githubusercontent.com/macdipu/universal_document_viewer/main/screenshots/1_home.png" width="200" alt="The example app's home screen">
+  <img src="https://raw.githubusercontent.com/macdipu/universal_document_viewer/main/screenshots/2_pdf.png" width="200" alt="A PDF">
+  <img src="https://raw.githubusercontent.com/macdipu/universal_document_viewer/main/screenshots/3_word.png" width="200" alt="A Word document">
+  <img src="https://raw.githubusercontent.com/macdipu/universal_document_viewer/main/screenshots/4_sheet.png" width="200" alt="An Excel sheet">
+</p>
+
 ## Features
 
 **PDF** (`pdf.dart`)
