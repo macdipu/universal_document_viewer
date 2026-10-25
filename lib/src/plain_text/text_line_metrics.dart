@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart';
 
-/// Scroll offsets of a [TextDocumentView]'s rows, measured with the same style,
+/// Scroll offsets of a [PlainTextView]'s rows, measured with the same style,
 /// text scaling and width the rows render with, so jump-to-match lands on
 /// the matching line instead of a fixed-height guess (CR-OPENREADER-UX
 /// UX-21). Avoids a positioned-list dependency.

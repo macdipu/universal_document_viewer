@@ -1,6 +1,11 @@
-/// PowerPoint (.pptx): slides as titles, paragraphs, tables and pictures.
+/// PowerPoint (.pptx) presentations.
+///
+/// [SlidesView] shows the slides a [SlidesController] has loaded, one at a
+/// time, as a reading view: each slide's title, text, tables and pictures.
+///
+/// [PptxParser] reads a file into a [PptxPresentation] without showing it.
 library;
 
 export 'src/slides/pptx_parser.dart';
-export 'src/slides/slide_deck_controller.dart';
-export 'src/slides/slide_deck_view.dart';
+export 'src/slides/slides_controller.dart';
+export 'src/slides/slides_view.dart';

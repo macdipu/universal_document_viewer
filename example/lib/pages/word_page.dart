@@ -1,12 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:universal_document_viewer/docx.dart';
+import 'package:universal_document_viewer/word.dart';
 
 import '../library.dart';
 
-/// A `.docx` in its own reader - [WordDocumentController] and
-/// [WordDocumentView] - with search and the continuous / print layout
+/// A `.docx` in its own reader - [WordController] and
+/// [WordView] - with search and the continuous / print layout
 /// switch in the app bar.
 class WordPage extends StatefulWidget {
   const WordPage({super.key, required this.library, required this.path});
@@ -19,7 +19,7 @@ class WordPage extends StatefulWidget {
 }
 
 class _WordPageState extends State<WordPage> {
-  late final _controller = WordDocumentController(
+  late final _controller = WordController(
     initialPosition: widget.library.positionOf(widget.path),
     onPositionChanged: (position) => widget.library.savePosition(widget.path, position),
   );
@@ -78,7 +78,7 @@ class _WordPageState extends State<WordPage> {
         listenable: _controller,
         // The view shows a spinner until the document is parsed.
         builder: (context, _) => switch (_controller.error) {
-          null => WordDocumentView(controller: _controller),
+          null => WordView(controller: _controller),
           final error => Center(child: Text('Could not open the document (${error.name}).')),
         },
       ),

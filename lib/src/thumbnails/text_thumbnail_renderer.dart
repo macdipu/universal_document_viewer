@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../common/reader_contract.dart';
 import '../common/text_decoding.dart';
-import '../text/text_document_controller.dart';
+import '../plain_text/plain_text_controller.dart';
 import 'offscreen_render.dart';
 import 'thumbnail_renderer.dart';
 import 'thumbnail_sources.dart';
@@ -35,11 +35,11 @@ class TextThumbnailRenderer implements ThumbnailRenderer {
     if (line > 0) {
       lines = await parseTextFile<String?>(
         path,
-        maxBytes: TextDocumentController.maxBytes,
+        maxBytes: PlainTextController.maxBytes,
         parse: (bytes) => linesFrom(bytes, line),
       );
     } else {
-      final head = await readTextHead(path, maxBytes: TextDocumentController.maxBytes);
+      final head = await readTextHead(path, maxBytes: PlainTextController.maxBytes);
       lines = head == null ? null : linesFrom(head, 0);
     }
     if (lines == null) return null;
@@ -51,7 +51,7 @@ class TextThumbnailRenderer implements ThumbnailRenderer {
   /// bytes that don't look like text.
   @visibleForTesting
   static String? linesFrom(Uint8List bytes, int first) {
-    if (TextDocumentController.looksBinary(bytes)) return null;
+    if (PlainTextController.looksBinary(bytes)) return null;
     final lines = decodeTextBytes(bytes).split('\n');
     final start = first < lines.length ? first : 0;
     final page = lines

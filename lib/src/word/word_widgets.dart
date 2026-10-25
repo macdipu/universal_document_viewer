@@ -224,7 +224,7 @@ class _WordParagraphViewState extends State<WordParagraphView> {
     );
     if (geometry.decorated) {
       final scheme = Theme.of(context).colorScheme;
-      BorderSide side(BorderLine? line) => line == null || line.width == 0
+      BorderSide side(WordBorderLine? line) => line == null || line.width == 0
           ? BorderSide.none
           : BorderSide(
               // Under 1 px, a hairline (see the table cells).
@@ -425,7 +425,7 @@ class _WordTableCellView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    BorderSide side(BorderLine? line, bool draw) {
+    BorderSide side(WordBorderLine? line, bool draw) {
       if (!draw || line == null || line.width == 0) return BorderSide.none;
       final width = line.width * wordScale;
       return BorderSide(

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:universal_document_viewer/sheets.dart';
+import 'package:universal_document_viewer/spreadsheet.dart';
 
 void main() {
   List<List<String>> parse(String text, {String delimiter = ','}) => CsvReader.parse(text, delimiter: delimiter);

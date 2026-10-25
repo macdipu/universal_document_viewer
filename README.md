@@ -21,12 +21,12 @@ Use one widget, `DocumentViewer.file(path)`, that picks the right reader for the
 - Search across all pages with highlights, and a check for scanned PDFs without a text layer.
 - Links: web links open outside the app (`http`, `https`, `mailto` only); links to pages jump.
 
-**Word** (`docx.dart`)
+**Word** (`word.dart`)
 - Continuous layout reflowed to the screen, or print layout with measured pages, per-page headers and footers and live page numbers.
 - Paragraph and character styles, lists, tables with merged cells, images, links and bookmarks, footnotes and endnotes.
 - Parsed in a background isolate; search with highlights; scroll position restore.
 
-**Spreadsheets** (`sheets.dart`)
+**Spreadsheets** (`spreadsheet.dart`)
 - Excel `.xlsx` and CSV.
 - A lazy 2D grid: only on-screen cells are built.
 - The file's column widths and row heights, hidden rows, columns and sheets, frozen panes, merged cells, text formatting and number formats.
@@ -36,7 +36,7 @@ Use one widget, `DocumentViewer.file(path)`, that picks the right reader for the
 **PowerPoint** (`slides.dart`)
 - `.pptx` slides shown as titles, paragraphs, tables and pictures, one slide at a time, with a navigation bar and search.
 
-**Text** (`text.dart`)
+**Text** (`plain_text.dart`)
 - `.txt` and Markdown (`.md`, `.markdown`) shown as plain text, UTF-8 with a Latin-1 fallback.
 - Rejects binary files; search with highlights.
 
@@ -126,11 +126,11 @@ Every controller is a plain `ChangeNotifier` (no state-management package). Each
 
 | Import | Controller | View |
 |---|---|---|
-| `package:universal_document_viewer/pdf.dart` | `PdfDocumentController` | `PdfDocumentView` |
-| `package:universal_document_viewer/docx.dart` | `WordDocumentController` | `WordDocumentView` |
-| `package:universal_document_viewer/sheets.dart` | `SpreadsheetController` | `SheetGrid` |
-| `package:universal_document_viewer/slides.dart` | `SlideDeckController` | `SlideDeckView`, `SlideNavigationBar` |
-| `package:universal_document_viewer/text.dart` | `TextDocumentController` | `TextDocumentView` |
+| `package:universal_document_viewer/pdf.dart` | `PdfController` | `PdfView` |
+| `package:universal_document_viewer/word.dart` | `WordController` | `WordView` |
+| `package:universal_document_viewer/spreadsheet.dart` | `SpreadsheetController` | `SpreadsheetView` |
+| `package:universal_document_viewer/slides.dart` | `SlidesController` | `SlidesView`, `SlideNavigationBar` |
+| `package:universal_document_viewer/plain_text.dart` | `PlainTextController` | `PlainTextView` |
 
 ### PDF
 
@@ -139,9 +139,9 @@ The view opens the file itself; the controller drives it.
 ```dart
 import 'package:universal_document_viewer/pdf.dart';
 
-final controller = PdfDocumentController(onPositionChanged: save);
+final controller = PdfController(onPositionChanged: save);
 
-PdfDocumentView(
+PdfView(
   path: path,
   controller: controller,
   passwordProvider: () => askForPassword(), // Future<String?>; null gives up
@@ -158,13 +158,13 @@ controller.search('invoice'); // results in controller.searchController
 ### Word
 
 ```dart
-import 'package:universal_document_viewer/docx.dart';
+import 'package:universal_document_viewer/word.dart';
 
-final controller = WordDocumentController(initialPosition: saved, onPositionChanged: save);
+final controller = WordController(initialPosition: saved, onPositionChanged: save);
 await controller.load(await File(path).readAsBytes());
 
 if (controller.error == null) {
-  WordDocumentView(controller: controller);
+  WordView(controller: controller);
 }
 
 controller.toggleViewMode(); // continuous <-> print layout (WordViewMode)
@@ -177,12 +177,12 @@ controller.nextMatch();
 ### Spreadsheets
 
 ```dart
-import 'package:universal_document_viewer/sheets.dart';
+import 'package:universal_document_viewer/spreadsheet.dart';
 
 final controller = SpreadsheetController(onPositionChanged: save);
 await controller.loadXlsx(bytes); // or loadCsv(bytes)
 
-SheetGrid(controller: controller);
+SpreadsheetView(controller: controller);
 
 controller.switchSheet(1); // sheet names in controller.sheetNames
 controller.zoomIn();
@@ -193,11 +193,11 @@ controller.zoomIn();
 ```dart
 import 'package:universal_document_viewer/slides.dart';
 
-final controller = SlideDeckController(onPositionChanged: save);
+final controller = SlidesController(onPositionChanged: save);
 await controller.load(bytes);
 
 Column(children: [
-  Expanded(child: SlideDeckView(controller: controller)),
+  Expanded(child: SlidesView(controller: controller)),
   SlideNavigationBar(controller: controller),
 ]);
 ```
@@ -205,12 +205,12 @@ Column(children: [
 ### Text
 
 ```dart
-import 'package:universal_document_viewer/text.dart';
+import 'package:universal_document_viewer/plain_text.dart';
 
-final controller = TextDocumentController(onPositionChanged: save);
+final controller = PlainTextController(onPositionChanged: save);
 controller.load(bytes); // synchronous
 
-TextDocumentView(controller: controller, fontSize: 14, wrap: true);
+PlainTextView(controller: controller, fontSize: 14, wrap: true);
 ```
 
 ## Reading positions
@@ -235,7 +235,7 @@ The Word, spreadsheet, PowerPoint and text controllers expose `error` as a `Docu
 - `passwordRequired`: an encrypted PDF without (or with a wrong) password.
 - `unsupported`: not a format the kit reads.
 
-The wording is yours. `PdfDocumentController.error` holds the PDF engine's exception (`PdfOpenException` or `PdfEngineException`), and `DocumentViewer` maps every failure to a `DocumentLoadError` for its `errorBuilder`: an encrypted PDF it couldn't unlock is `passwordRequired`, any other PDF failure `corrupted`.
+The wording is yours. `PdfController.error` holds the PDF engine's exception (`PdfOpenException` or `PdfEngineException`), and `DocumentViewer` maps every failure to a `DocumentLoadError` for its `errorBuilder`: an encrypted PDF it couldn't unlock is `passwordRequired`, any other PDF failure `corrupted`.
 
 Office files are checked before they're parsed: a file over `ZipSafetyGuard.maxFileBytes` is not read at all, and `ZipSafetyGuard` refuses a ZIP whose declared contents are too large. A part that inflates past the size its ZIP declares is refused as it's read.
 

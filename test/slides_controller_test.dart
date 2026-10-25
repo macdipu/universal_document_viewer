@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/universal_document_viewer.dart';
-import 'package:universal_document_viewer/slides.dart';
 import 'package:universal_document_viewer/testing.dart';
 
 void main() {
@@ -13,8 +12,8 @@ void main() {
   ]);
 
   // Parses inline: the isolate hop is the only difference from the default.
-  SlideDeckController deckWith({ReadingPosition? at, void Function(ReadingPosition)? onMoved}) =>
-      SlideDeckController(initialPosition: at, onPositionChanged: onMoved, parse: (b) async => PptxParser.parse(b));
+  SlidesController deckWith({ReadingPosition? at, void Function(ReadingPosition)? onMoved}) =>
+      SlidesController(initialPosition: at, onPositionChanged: onMoved, parse: (b) async => PptxParser.parse(b));
 
   test('loads slides and starts on the first', () async {
     final deck = deckWith();
@@ -72,12 +71,12 @@ void main() {
     for (var i = 0; i < 20; i++) {
       deck.zoomIn();
     }
-    expect(deck.zoom, SlideDeckController.maxZoom);
+    expect(deck.zoom, SlidesController.maxZoom);
     expect(deck.canZoomIn, isFalse);
     for (var i = 0; i < 20; i++) {
       deck.zoomOut();
     }
-    expect(deck.zoom, SlideDeckController.minZoom);
+    expect(deck.zoom, SlidesController.minZoom);
     expect(deck.canZoomOut, isFalse);
   });
 }

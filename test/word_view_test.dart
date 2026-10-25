@@ -3,22 +3,22 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:universal_document_viewer/docx.dart';
 import 'package:universal_document_viewer/universal_document_viewer.dart';
 import 'package:universal_document_viewer/testing.dart';
+import 'package:universal_document_viewer/src/word/word_view.dart' show WordPageView;
 
 void main() {
-  Future<WordDocumentController> load(WidgetTester tester, Uint8List bytes) async {
-    final controller = WordDocumentController();
+  Future<WordController> load(WidgetTester tester, Uint8List bytes) async {
+    final controller = WordController();
     await tester.runAsync(() => controller.load(bytes));
     addTearDown(controller.dispose);
     return controller;
   }
 
-  Future<void> pumpView(WidgetTester tester, WordDocumentController controller) async {
+  Future<void> pumpView(WidgetTester tester, WordController controller) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: WordDocumentView(controller: controller)),
+        home: Scaffold(body: WordView(controller: controller)),
       ),
     );
     await tester.pump();
@@ -60,7 +60,7 @@ void main() {
 
   testWidgets('reports the paragraph at the top once a scroll settles', (tester) async {
     final reported = <ReadingPosition>[];
-    final controller = WordDocumentController(onPositionChanged: reported.add);
+    final controller = WordController(onPositionChanged: reported.add);
     addTearDown(controller.dispose);
     await tester.runAsync(
       () =>
@@ -75,7 +75,7 @@ void main() {
     expect(paragraph, greaterThan(20));
     // The first paragraph still showing at the top: the one before it has
     // scrolled off.
-    final top = tester.getTopLeft(find.byType(WordDocumentView)).dy;
+    final top = tester.getTopLeft(find.byType(WordView)).dy;
     expect(tester.getBottomLeft(find.textContaining('Line $paragraph', findRichText: true)).dy, greaterThan(top));
     final previous = find.textContaining('Line ${paragraph - 1}', findRichText: true);
     if (previous.evaluate().isNotEmpty) expect(tester.getBottomLeft(previous).dy, lessThanOrEqualTo(top));
@@ -107,7 +107,7 @@ void main() {
   });
 
   test('rejecting after dispose does nothing', () {
-    final controller = WordDocumentController()..dispose();
+    final controller = WordController()..dispose();
     expect(controller.rejectAsCorrupted, returnsNormally);
     expect(controller.error, isNull);
   });
@@ -133,7 +133,7 @@ void main() {
     const r = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
     const w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
     final reported = <ReadingPosition>[];
-    final controller = WordDocumentController(onPositionChanged: reported.add);
+    final controller = WordController(onPositionChanged: reported.add);
     addTearDown(controller.dispose);
     await tester.runAsync(
       () => controller.load(
@@ -215,12 +215,12 @@ void main() {
     for (var i = 0; i < 20; i++) {
       controller.zoomIn();
     }
-    expect(controller.zoom, WordDocumentController.maxZoom);
+    expect(controller.zoom, WordController.maxZoom);
     expect(controller.canZoomIn, isFalse);
     for (var i = 0; i < 20; i++) {
       controller.zoomOut();
     }
-    expect(controller.zoom, WordDocumentController.minZoom);
+    expect(controller.zoom, WordController.minZoom);
     expect(controller.canZoomOut, isFalse);
   });
 
@@ -256,7 +256,7 @@ void main() {
         home: Scaffold(
           body: Column(
             children: [
-              Expanded(child: WordDocumentView(controller: controller)),
+              Expanded(child: WordView(controller: controller)),
               SizedBox(width: 70, height: 96, child: WordPageThumbnail(controller: controller, page: 2)),
             ],
           ),

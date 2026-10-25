@@ -12,7 +12,7 @@ import '../engines/sheets/xlsx_reader.dart';
 import 'cell_match.dart';
 import 'sheet_geometry.dart';
 
-/// State for [SheetGrid]: a workbook's sheets (or a CSV's single sheet),
+/// State for [SpreadsheetView]: a workbook's sheets (or a CSV's single sheet),
 /// the sheet on screen, search within it, zoom and scrolling.
 ///
 /// Position is reported through [onPositionChanged] on every scroll and

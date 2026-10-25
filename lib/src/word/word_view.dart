@@ -5,14 +5,14 @@ import 'package:flutter/rendering.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../engines/word/word_model.dart';
-import 'word_document_controller.dart';
+import 'word_controller.dart';
 import 'word_document_layout.dart';
 import 'word_pagination.dart';
 import 'word_paragraph_styler.dart';
 import 'word_widgets.dart';
 
 /// A `.docx`, lazily built, in one of two layouts
-/// ([WordDocumentController.viewMode]):
+/// ([WordController.viewMode]):
 ///
 /// - **continuous**: the text reflowed to the screen - the first section's
 ///   header, the body, the last section's footer, then the notes;
@@ -20,26 +20,26 @@ import 'word_widgets.dart';
 ///   fit), split by measuring the text exactly as drawn, each with its
 ///   section's header and footer and live page numbers.
 ///
-/// [WordDocumentController.zoom] reflows the text larger or smaller in the
+/// [WordController.zoom] reflows the text larger or smaller in the
 /// continuous layout and scales the pages (panning sideways when wider than
 /// the view) in the paged one. The view reports the page in view and how
 /// far through the document it is back to the controller.
 ///
 /// Search highlights and jumping come from
-/// [WordDocumentController.searchController]. Tapping a note mark shows the
+/// [WordController.searchController]. Tapping a note mark shows the
 /// note; links open (web links outside the app, `http`/`https`/`mailto`
 /// only) or jump to their bookmark.
-class WordDocumentView extends StatefulWidget {
-  const WordDocumentView({super.key, required this.controller, this.padding = const EdgeInsets.all(16)});
+class WordView extends StatefulWidget {
+  const WordView({super.key, required this.controller, this.padding = const EdgeInsets.all(16)});
 
-  final WordDocumentController controller;
+  final WordController controller;
   final EdgeInsetsGeometry padding;
 
   @override
-  State<WordDocumentView> createState() => _WordDocumentViewState();
+  State<WordView> createState() => _WordViewState();
 }
 
-class _WordDocumentViewState extends State<WordDocumentView> {
+class _WordViewState extends State<WordView> {
   final _anchors = <int, BuildContext>{};
 
   /// Measured heights of the list items built so far, for estimating where
@@ -57,7 +57,7 @@ class _WordDocumentViewState extends State<WordDocumentView> {
   WordPagination? _pagination;
   Object? _paginationKey;
 
-  WordDocumentController get controller => widget.controller;
+  WordController get controller => widget.controller;
 
   @override
   void initState() {
@@ -70,7 +70,7 @@ class _WordDocumentViewState extends State<WordDocumentView> {
   }
 
   @override
-  void didUpdateWidget(WordDocumentView oldWidget) {
+  void didUpdateWidget(WordView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != controller) {
       oldWidget.controller.removeListener(_onControllerChanged);
@@ -471,7 +471,7 @@ class _WordDocumentViewState extends State<WordDocumentView> {
 class WordPageThumbnail extends StatelessWidget {
   const WordPageThumbnail({super.key, required this.controller, required this.page});
 
-  final WordDocumentController controller;
+  final WordController controller;
   final int page;
 
   @override

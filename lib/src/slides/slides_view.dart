@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
 import 'pptx_parser.dart';
-import 'slide_deck_controller.dart';
+import 'slides_controller.dart';
 
-/// One slide at a time, swiped or driven by [SlideDeckController]. Shows
+/// One slide at a time, swiped or driven by [SlidesController]. Shows
 /// each slide's title, paragraphs (with bullet indent), tables and
 /// pictures; it's a reading view, not the original layout. The text is
-/// drawn at [SlideDeckController.zoom] and reflows; text matching the
+/// drawn at [SlidesController.zoom] and reflows; text matching the
 /// search query is highlighted.
-class SlideDeckView extends StatelessWidget {
-  const SlideDeckView({super.key, required this.controller});
+class SlidesView extends StatelessWidget {
+  const SlidesView({super.key, required this.controller});
 
-  final SlideDeckController controller;
+  final SlidesController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -138,11 +138,11 @@ class SlideCard extends StatelessWidget {
   }
 }
 
-/// "n / N" with previous/next buttons, for under a [SlideDeckView].
+/// "n / N" with previous/next buttons, for under a [SlidesView].
 class SlideNavigationBar extends StatelessWidget {
   const SlideNavigationBar({super.key, required this.controller});
 
-  final SlideDeckController controller;
+  final SlidesController controller;
 
   @override
   Widget build(BuildContext context) {

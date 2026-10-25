@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/universal_document_viewer.dart';
-import 'package:universal_document_viewer/sheets.dart';
 import 'package:universal_document_viewer/testing.dart';
 
 void main() {
@@ -30,7 +29,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: SheetGrid(controller: controller)),
+        home: Scaffold(body: SpreadsheetView(controller: controller)),
       ),
     );
     await tester.pump();
@@ -64,7 +63,7 @@ void main() {
   testWidgets('the go-to dialog goes, offers sheets, and says when nothing matches', (tester) async {
     final controller = await load(tester);
     await pumpGrid(tester, controller);
-    final context = tester.element(find.byType(SheetGrid));
+    final context = tester.element(find.byType(SpreadsheetView));
 
     showGoToDialog(context, controller);
     await tester.pumpAndSettle();

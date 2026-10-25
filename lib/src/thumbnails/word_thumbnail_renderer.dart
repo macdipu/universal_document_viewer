@@ -7,7 +7,7 @@ import '../common/reader_contract.dart';
 import '../engines/word/docx_reader.dart';
 import '../engines/word/word_model.dart';
 import '../word/word_document_layout.dart';
-import '../word/word_document_view.dart';
+import '../word/word_view.dart';
 import '../word/word_pagination.dart';
 import '../word/word_paragraph_styler.dart';
 import '../word/word_search_controller.dart';

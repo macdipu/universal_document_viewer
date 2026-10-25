@@ -2,8 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:universal_document_viewer/sheets.dart';
+import 'package:universal_document_viewer/spreadsheet.dart';
 import 'package:universal_document_viewer/testing.dart';
+import 'package:universal_document_viewer/src/spreadsheet/sheet_geometry.dart';
 
 void main() {
   Future<SpreadsheetController> load(WidgetTester tester) async {
@@ -18,7 +19,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: SheetGrid(controller: controller)),
+        home: Scaffold(body: SpreadsheetView(controller: controller)),
       ),
     );
     await tester.pump();

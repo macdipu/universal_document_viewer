@@ -11,7 +11,7 @@ import 'word_document_layout.dart';
 import 'word_pagination.dart';
 import 'word_search_controller.dart';
 
-/// How [WordDocumentView] lays the document out.
+/// How [WordView] lays the document out.
 enum WordViewMode {
   /// Reflowed to the screen.
   continuous,
@@ -20,7 +20,7 @@ enum WordViewMode {
   paged,
 }
 
-/// State for [WordDocumentView]: a `.docx` checked by [ZipSafetyGuard] and
+/// State for [WordView]: a `.docx` checked by [ZipSafetyGuard] and
 /// parsed off the UI isolate, search within it, the layout ([viewMode]),
 /// [zoom], the page in view and the scroll position.
 ///
@@ -29,8 +29,8 @@ enum WordViewMode {
 /// layout; `paragraph`, the number of the paragraph at the top, is there
 /// once the view has found it); saving it (and debouncing) is the app's
 /// business.
-class WordDocumentController extends ChangeNotifier {
-  WordDocumentController({ReadingPosition? initialPosition, this.onPositionChanged}) {
+class WordController extends ChangeNotifier {
+  WordController({ReadingPosition? initialPosition, this.onPositionChanged}) {
     if (initialPosition != null) restore(initialPosition);
   }
 
@@ -108,7 +108,7 @@ class WordDocumentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// For [WordDocumentView]: the page asked for by [goToPage], once.
+  /// For [WordView]: the page asked for by [goToPage], once.
   int? takePendingPage() {
     final page = _pendingPage;
     _pendingPage = null;
@@ -121,7 +121,7 @@ class WordDocumentController extends ChangeNotifier {
   /// [WordViewMode.continuous]. [pageCount] changes when they do.
   List<WordPage>? get pages => _pages;
 
-  /// For [WordDocumentView]: the pages, and where the reader is.
+  /// For [WordView]: the pages, and where the reader is.
   void reportLayout({List<WordPage>? pages, int? currentPage, double? progress}) {
     _pages = pages;
     _pageCount.value = pages?.length;

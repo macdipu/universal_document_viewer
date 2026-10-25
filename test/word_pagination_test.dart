@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:universal_document_viewer/docx.dart';
+import 'package:universal_document_viewer/word.dart';
 import 'package:universal_document_viewer/src/word/word_pagination.dart';
 import 'package:universal_document_viewer/src/word/word_paragraph_styler.dart';
 import 'package:universal_document_viewer/testing.dart';
+import 'package:universal_document_viewer/src/word/word_document_layout.dart';
 
 String para(String text, {String props = ''}) =>
     '<w:p><w:pPr>$props</w:pPr><w:r><w:t xml:space="preserve">$text</w:t></w:r></w:p>';
@@ -99,7 +100,7 @@ void main() {
                 .codeUnits,
       },
     );
-    final controller = WordDocumentController(initialPosition: const {'view_mode': 'paged'});
+    final controller = WordController(initialPosition: const {'view_mode': 'paged'});
     addTearDown(controller.dispose);
     await tester.runAsync(() => controller.load(bytes));
     tester.view.physicalSize = const Size(900, 1400);
@@ -107,7 +108,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: WordDocumentView(controller: controller)),
+        home: Scaffold(body: WordView(controller: controller)),
       ),
     );
     await tester.pump();

@@ -1,12 +1,36 @@
 # Changelog
 
-## Unreleased
+## Unreleased (0.2.0)
 
+### Breaking: one naming pattern
+
+Every format now has a `<Format>Controller` and a `<Format>View`, and each library is named for its format. `universal_document_viewer.dart` exports everything, so one import is enough.
+
+| 0.1 | 0.2 |
+|---|---|
+| `import '…/docx.dart'` or `'…/word.dart'` | `import '…/word.dart'` |
+| `import '…/sheets.dart'` | `import '…/spreadsheet.dart'` |
+| `import '…/text.dart'` | `import '…/plain_text.dart'` |
+| `PdfDocumentController`, `PdfDocumentView` | `PdfController`, `PdfView` |
+| `PdfReaderViewMode` | `PdfViewMode` |
+| `WordDocumentController`, `WordDocumentView` | `WordController`, `WordView` |
+| `SheetGrid` | `SpreadsheetView` |
+| `SlideDeckController`, `SlideDeckView` | `SlidesController`, `SlidesView` |
+| `TextDocumentController`, `TextDocumentView` | `PlainTextController`, `PlainTextView` |
+| `BorderLine`, `CellBorders` (Word model) | `WordBorderLine`, `WordCellBorders` (the spreadsheet model keeps `BorderLine` and `CellBorders`) |
+
+These are no longer exported (they were implementation details): `WordScope`, `WordBlockView`, `WordDocumentLayout`, `WordPage`, `WordPagination`, `SheetGeometry`, `TextLineMetrics`, and `pdf_layout.dart` apart from `PdfViewMode`.
+
+### Added
+
+- Word: zoom (`zoom`, `zoomIn`, `zoomOut`; the text reflows in the continuous layout, and pages scale and pan sideways in print layout), the page in view (`pageCount`, `currentPage`, `progress`), `goToPage`, and `WordPageThumbnail` for page previews.
+- PowerPoint: zoom (`zoom`, `zoomIn`, `zoomOut`); slides highlight text matching the search.
+- Spreadsheets: `SpreadsheetView(showZoomControls: false)` hides the grid's own zoom buttons, for apps with their own.
 - For contributors: CONTRIBUTING, a code of conduct, a security policy, issue and pull-request templates, CI (format, analyze, test, pub.dev score) and an architecture guide (`doc/architecture.md`). The code follows `flutter_lints` and one formatting width.
-- Word: `WordDocumentController.zoom` with `zoomIn`/`zoomOut` (text reflows in the continuous layout; pages scale and pan sideways in print layout), the page in view (`pageCount`, `currentPage`, `progress`), `goToPage`, and `pages` with a `WordPageThumbnail` widget for page previews.
-- PowerPoint: `SlideDeckController.zoom` with `zoomIn`/`zoomOut`; slides highlight text matching the search.
-- Text: more space between lines and wider margins; the current search match's line is highlighted apart from the other matches.
-- Sheets: `SheetGrid(showZoomControls: false)` hides the grid's own zoom buttons for apps with their own.
+
+### Changed
+
+- Text: more space between lines and wider margins; the line the search is on highlights its matches apart from the others.
 - PDF: the search status reads "2 of 4" (was "2 of 4 result(s)").
 
 ## 0.1.1

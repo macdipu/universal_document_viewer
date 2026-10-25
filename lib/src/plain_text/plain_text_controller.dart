@@ -5,15 +5,15 @@ import 'package:flutter/widgets.dart';
 import '../common/reader_contract.dart';
 import '../common/text_decoding.dart';
 
-/// State for [TextDocumentView]: a plain-text file's lines, search across
+/// State for [PlainTextView]: a plain-text file's lines, search across
 /// them, and the scroll position.
 ///
 /// The position is reported through [onPositionChanged] as
 /// `{scroll_offset, line}` on every scroll (`line`, the top visible line,
 /// once the view has measured its lines); saving it (and debouncing) is
 /// the app's business.
-class TextDocumentController extends ChangeNotifier {
-  TextDocumentController({ReadingPosition? initialPosition, this.onPositionChanged})
+class PlainTextController extends ChangeNotifier {
+  PlainTextController({ReadingPosition? initialPosition, this.onPositionChanged})
     : initialScrollOffset = switch (initialPosition?[PositionKeys.scrollOffset]) {
         final num offset when offset > 0 => offset.toDouble(),
         _ => 0,

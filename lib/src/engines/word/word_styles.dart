@@ -242,10 +242,10 @@ class ParaProps {
   double? lineSpacing;
   LineSpacingRule? lineSpacingRule;
   int? fill;
-  BorderLine? borderTop;
-  BorderLine? borderBottom;
-  BorderLine? borderLeft;
-  BorderLine? borderRight;
+  WordBorderLine? borderTop;
+  WordBorderLine? borderBottom;
+  WordBorderLine? borderLeft;
+  WordBorderLine? borderRight;
   bool? pageBreakBefore;
   bool? keepWithNext;
   bool? rightToLeft;
@@ -392,12 +392,12 @@ int? readShading(XmlElement element, WordTheme theme) {
 }
 
 /// A `w:top`/`w:bottom`... border; `none`/`nil` mean no line.
-BorderLine? readBorder(XmlElement? element, WordTheme theme) {
+WordBorderLine? readBorder(XmlElement? element, WordTheme theme) {
   if (element == null) return null;
   final style = wAttr(element, 'val');
-  if (style == null || style == 'none' || style == 'nil') return const BorderLine(width: 0);
+  if (style == null || style == 'none' || style == 'nil') return const WordBorderLine(width: 0);
   final eighths = double.tryParse(wAttr(element, 'sz') ?? '') ?? 4;
-  return BorderLine(width: eighths / 8, color: readColor(element, theme));
+  return WordBorderLine(width: eighths / 8, color: readColor(element, theme));
 }
 
 /// Theme tint (towards white) or shade (towards black) in HSL lightness.
@@ -452,9 +452,9 @@ class TableStyle {
 
   final run = RunProps();
   final paragraph = ParaProps();
-  CellBorders borders = CellBorders.none;
-  BorderLine? insideHorizontal;
-  BorderLine? insideVertical;
+  WordCellBorders borders = WordCellBorders.none;
+  WordBorderLine? insideHorizontal;
+  WordBorderLine? insideVertical;
   final conditional = <String, ({RunProps run, int? fill})>{};
 }
 
@@ -557,7 +557,7 @@ class WordStyles {
         table.paragraph.overrideWith(ParaProps()..read(wChild(style, 'pPr'), theme));
         final borders = wChild(wChild(style, 'tblPr'), 'tblBorders');
         if (borders != null) {
-          table.borders = CellBorders(
+          table.borders = WordCellBorders(
             top: readBorder(wChild(borders, 'top'), theme) ?? table.borders.top,
             bottom: readBorder(wChild(borders, 'bottom'), theme) ?? table.borders.bottom,
             left: readBorder(wChild(borders, 'left') ?? wChild(borders, 'start'), theme) ?? table.borders.left,

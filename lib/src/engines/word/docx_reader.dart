@@ -569,7 +569,7 @@ class _DocxParser {
     var insideH = style.insideHorizontal;
     var insideV = style.insideVertical;
     if (wChild(tblPr, 'tblBorders') case final direct?) {
-      borders = CellBorders(
+      borders = WordCellBorders(
         top: readBorder(wChild(direct, 'top'), theme) ?? borders.top,
         bottom: readBorder(wChild(direct, 'bottom'), theme) ?? borders.bottom,
         left: readBorder(wChild(direct, 'left') ?? wChild(direct, 'start'), theme) ?? borders.left,
@@ -735,19 +735,19 @@ class _DocxParser {
     return _CellContext(style, run, fill);
   }
 
-  CellBorders _cellBorders(
+  WordCellBorders _cellBorders(
     XmlElement? tcBorders, {
-    required CellBorders table,
-    required BorderLine? insideH,
-    required BorderLine? insideV,
+    required WordCellBorders table,
+    required WordBorderLine? insideH,
+    required WordBorderLine? insideV,
     required bool firstRow,
     required bool lastRow,
     required bool firstColumn,
     required bool lastColumn,
   }) {
-    BorderLine? side(String name, String alternate, BorderLine? fallback) =>
+    WordBorderLine? side(String name, String alternate, WordBorderLine? fallback) =>
         readBorder(wChild(tcBorders, name) ?? wChild(tcBorders, alternate), theme) ?? fallback;
-    return CellBorders(
+    return WordCellBorders(
       top: side('top', 'top', firstRow ? table.top : insideH),
       bottom: side('bottom', 'bottom', lastRow ? table.bottom : insideH),
       left: side('left', 'start', firstColumn ? table.left : insideV),
@@ -896,7 +896,7 @@ class _CellDraft {
   final bool covered;
   final int? fill;
   final CellVerticalAlignment verticalAlignment;
-  final CellBorders borders;
+  final WordCellBorders borders;
   int rowSpan = 1;
 
   WordTableCell build() => WordTableCell(

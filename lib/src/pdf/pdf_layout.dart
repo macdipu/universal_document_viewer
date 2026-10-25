@@ -3,7 +3,7 @@ import 'dart:ui';
 
 /// How pages are laid out. A vertical single-page-snap mode isn't offered:
 /// [horizontal] already covers reading one page at a time.
-enum PdfReaderViewMode { continuous, horizontal }
+enum PdfViewMode { continuous, horizontal }
 
 /// Where each page sits in the viewer's content, at zoom 1.
 ///
@@ -19,7 +19,7 @@ class PdfLayout {
     var extent = 0.0;
     for (final size in pageSizes) {
       final aspect = size.width <= 0 || size.height <= 0 ? 612 / 792 : size.width / size.height;
-      if (mode == PdfReaderViewMode.continuous) {
+      if (mode == PdfViewMode.continuous) {
         final width = math.max(1.0, viewport.width - 2 * margin);
         final height = width / aspect;
         pages.add(Rect.fromLTWH(margin, cursor, width, height));
@@ -34,7 +34,7 @@ class PdfLayout {
         extent = math.max(extent, height + 2 * margin);
       }
     }
-    size = mode == PdfReaderViewMode.continuous
+    size = mode == PdfViewMode.continuous
         ? Size(math.max(extent, viewport.width), math.max(cursor, viewport.height))
         : Size(math.max(cursor, viewport.width), math.max(extent, viewport.height));
   }
@@ -42,7 +42,7 @@ class PdfLayout {
   static const double margin = 8;
 
   final Size viewport;
-  final PdfReaderViewMode mode;
+  final PdfViewMode mode;
 
   /// Each page's rect, in page order.
   final pages = <Rect>[];
@@ -50,7 +50,7 @@ class PdfLayout {
   /// The whole content.
   late final Size size;
 
-  bool get isHorizontal => mode == PdfReaderViewMode.horizontal;
+  bool get isHorizontal => mode == PdfViewMode.horizontal;
 
   /// Pages whose rect meets [visible] (content coordinates), in order.
   Iterable<int> pagesIn(Rect visible) sync* {

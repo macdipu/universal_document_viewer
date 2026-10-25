@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/universal_document_viewer.dart';
-import 'package:universal_document_viewer/sheets.dart';
 import 'package:universal_document_viewer/src/engines/sheets/formula_references.dart';
 import 'package:universal_document_viewer/testing.dart';
 
@@ -146,7 +145,8 @@ void main() {
             body: ListenableBuilder(
               listenable: controller,
               // As the app does: each sheet gets its own grid.
-              builder: (context, _) => SheetGrid(key: ValueKey(controller.activeSheetIndex), controller: controller),
+              builder: (context, _) =>
+                  SpreadsheetView(key: ValueKey(controller.activeSheetIndex), controller: controller),
             ),
           ),
         ),

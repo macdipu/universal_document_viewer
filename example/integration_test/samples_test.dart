@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:universal_document_viewer/universal_document_viewer.dart';
-import 'package:universal_document_viewer/sheets.dart';
 import 'package:universal_document_viewer_example/library.dart';
 import 'package:universal_document_viewer_example/pages/reader_page.dart';
 import 'package:universal_document_viewer_example/pages/sheet_page.dart';

@@ -55,7 +55,7 @@ class ParagraphGeometry {
     end = math.min(format.indentRight * wordScale, maxIndent / 2);
     final lines = [format.borderTop, format.borderBottom, format.borderLeft, format.borderRight];
     decorated = format.fill != null || lines.any((b) => b != null && b.width > 0);
-    double side(BorderLine? line) =>
+    double side(WordBorderLine? line) =>
         line == null || line.width == 0 || line.width * wordScale < 1 ? 0 : line.width * wordScale;
     if (decorated) {
       boxHorizontal = 8 + side(format.borderLeft) + side(format.borderRight);

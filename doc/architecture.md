@@ -28,7 +28,7 @@ This guide is for contributors: how a document gets from bytes to the screen, an
  └───┬─────────────────────────────┘
      │
  ┌───▼─────────────────────────────┐
- │ Views (widgets)                 │  lib/src/<format>/*_view.dart, sheet_grid.dart
+ │ Views (widgets)                 │  lib/src/<format>/*_view.dart       
  │ draw the document, lazily       │  no toolbars, dialogs or app text
  └───┬─────────────────────────────┘
      │

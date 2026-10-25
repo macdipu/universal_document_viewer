@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:universal_document_viewer/sheets.dart';
+import 'package:universal_document_viewer/spreadsheet.dart';
 
 void main() {
   String fmt(String code, num value, {bool date1904 = false}) => NumberFormat(code).format(value, date1904: date1904);

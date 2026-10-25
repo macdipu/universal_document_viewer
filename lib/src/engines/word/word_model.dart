@@ -125,7 +125,7 @@ class WordTableCell {
     this.covered = false,
     this.fill,
     this.verticalAlignment = CellVerticalAlignment.top,
-    this.borders = CellBorders.none,
+    this.borders = WordCellBorders.none,
   });
 
   final List<WordBlock> blocks;
@@ -142,14 +142,14 @@ class WordTableCell {
   /// Background as 0xAARRGGBB, or null.
   final int? fill;
   final CellVerticalAlignment verticalAlignment;
-  final CellBorders borders;
+  final WordCellBorders borders;
 }
 
 enum CellVerticalAlignment { top, center, bottom }
 
 /// A line on one side of a cell or paragraph.
-class BorderLine {
-  const BorderLine({this.width = 0.5, this.color});
+class WordBorderLine {
+  const WordBorderLine({this.width = 0.5, this.color});
 
   /// In points.
   final double width;
@@ -158,15 +158,15 @@ class BorderLine {
   final int? color;
 }
 
-class CellBorders {
-  const CellBorders({this.top, this.bottom, this.left, this.right});
+class WordCellBorders {
+  const WordCellBorders({this.top, this.bottom, this.left, this.right});
 
-  static const none = CellBorders();
+  static const none = WordCellBorders();
 
-  final BorderLine? top;
-  final BorderLine? bottom;
-  final BorderLine? left;
-  final BorderLine? right;
+  final WordBorderLine? top;
+  final WordBorderLine? bottom;
+  final WordBorderLine? left;
+  final WordBorderLine? right;
 }
 
 /// Where one section ends and the next begins.
@@ -348,10 +348,10 @@ class ParagraphFormat {
 
   /// Background as 0xAARRGGBB, or null.
   final int? fill;
-  final BorderLine? borderTop;
-  final BorderLine? borderBottom;
-  final BorderLine? borderLeft;
-  final BorderLine? borderRight;
+  final WordBorderLine? borderTop;
+  final WordBorderLine? borderBottom;
+  final WordBorderLine? borderLeft;
+  final WordBorderLine? borderRight;
   final bool pageBreakBefore;
   final bool keepWithNext;
   final bool rightToLeft;

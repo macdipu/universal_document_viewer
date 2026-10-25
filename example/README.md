@@ -6,8 +6,8 @@ The package's own test app: sample documents in every format universal_document_
 
 - **Home:** the bundled samples and the files you opened, each with a `DocumentThumbnails` preview of the page it resumes on.
 - **DocumentViewer** (tap a row): any format. A password-protected PDF asks for its password (`locked.pdf`: `open`).
-- **Word reader** (row menu on `report.docx`): `WordDocumentController` and `WordDocumentView`, with search and the continuous/print layout switch.
-- **Sheet reader** (row menu on `sales.xlsx` or `contacts.csv`): `SpreadsheetController` and `SheetGrid`, with sheet tabs, search, `showGoToDialog` and "Freeze header row". `sales.xlsx` has borders, conditional formatting (highlights, a data bar, a colour scale), notes and formulas.
+- **Word reader** (row menu on `report.docx`): `WordController` and `WordView`, with search and the continuous/print layout switch.
+- **Sheet reader** (row menu on `sales.xlsx` or `contacts.csv`): `SpreadsheetController` and `SpreadsheetView`, with sheet tabs, search, `showGoToDialog` and "Freeze header row". `sales.xlsx` has borders, conditional formatting (highlights, a data bar, a colour scale), notes and formulas.
 - **Reading positions:** every reader reports where you are, and the app saves the JSON-safe maps to disk. Reopening a document, or its thumbnail, resumes there. "Forget reading positions" in the app bar resets them.
 
 ## Run it

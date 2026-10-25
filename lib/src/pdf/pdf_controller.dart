@@ -7,7 +7,7 @@ import '../engines/pdfium/pdf_engine.dart';
 import '../engines/pdfium/pdf_types.dart';
 import 'pdf_layout.dart';
 
-export 'pdf_layout.dart' show PdfReaderViewMode;
+export 'pdf_layout.dart' show PdfViewMode;
 
 /// Whether any of the document's [pageCount] pages carries text. Stops at
 /// the first non-blank page. `false` only when every page loaded and was
@@ -92,14 +92,14 @@ class PdfSearchController extends ChangeNotifier {
   }
 }
 
-/// State for [PdfDocumentView]: the open document (with the password
+/// State for [PdfView]: the open document (with the password
 /// retry), the page on screen, page count, layout, zoom, and search.
 ///
 /// The position is reported through [onPositionChanged] as `{page_number,
 /// page_count, view_mode}` on every page change and layout switch; saving
 /// it (and debouncing) is the app's business.
-class PdfDocumentController extends ChangeNotifier {
-  PdfDocumentController({ReadingPosition? initialPosition, this.onPositionChanged}) {
+class PdfController extends ChangeNotifier {
+  PdfController({ReadingPosition? initialPosition, this.onPositionChanged}) {
     if (initialPosition != null) restore(initialPosition);
   }
 
@@ -133,8 +133,8 @@ class PdfDocumentController extends ChangeNotifier {
   int _pageCount = 0;
   int get pageCount => _pageCount;
 
-  PdfReaderViewMode _viewMode = PdfReaderViewMode.continuous;
-  PdfReaderViewMode get viewMode => _viewMode;
+  PdfViewMode _viewMode = PdfViewMode.continuous;
+  PdfViewMode get viewMode => _viewMode;
 
   bool _viewModeSettled = false;
 
@@ -223,7 +223,7 @@ class PdfDocumentController extends ChangeNotifier {
   /// layout.
   void restore(ReadingPosition position) {
     if (position[PositionKeys.pageNumber] case final int page when page > 0) _initialPage = page;
-    final mode = PdfReaderViewMode.values.asNameMap()[position[PositionKeys.viewMode]];
+    final mode = PdfViewMode.values.asNameMap()[position[PositionKeys.viewMode]];
     if (mode != null && !_viewModeSettled) {
       _viewMode = mode;
       _viewModeSettled = true;
@@ -233,7 +233,7 @@ class PdfDocumentController extends ChangeNotifier {
 
   /// A default layout (e.g. from app settings) for a document with none
   /// saved; ignored once the layout is settled.
-  void applyDefaultViewMode(PdfReaderViewMode mode) {
+  void applyDefaultViewMode(PdfViewMode mode) {
     if (_viewModeSettled) return;
     _viewMode = mode;
     notifyListeners();
@@ -273,7 +273,7 @@ class PdfDocumentController extends ChangeNotifier {
 
   void toggleViewMode() {
     _viewModeSettled = true;
-    _viewMode = _viewMode == PdfReaderViewMode.continuous ? PdfReaderViewMode.horizontal : PdfReaderViewMode.continuous;
+    _viewMode = _viewMode == PdfViewMode.continuous ? PdfViewMode.horizontal : PdfViewMode.continuous;
     // The new layout opens on the page being read.
     _initialPage = _currentPage;
     notifyListeners();
@@ -368,8 +368,8 @@ abstract interface class _PdfViewHandle {
   void showMatch(PdfTextMatch match);
 }
 
-/// For [PdfDocumentView] only: connects the view on screen.
-extension PdfDocumentControllerView on PdfDocumentController {
+/// For [PdfView] only: connects the view on screen.
+extension PdfControllerView on PdfController {
   void attachView({
     required double Function() zoom,
     required void Function(double zoom) setZoom,

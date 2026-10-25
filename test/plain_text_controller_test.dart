@@ -4,41 +4,40 @@ import 'dart:typed_data';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/universal_document_viewer.dart';
-import 'package:universal_document_viewer/text.dart';
+import 'package:universal_document_viewer/src/plain_text/text_line_metrics.dart';
 
 void main() {
   Uint8List text(String s) => Uint8List.fromList(utf8.encode(s));
 
   test('splits text into lines, decoding UTF-8', () {
-    final doc = TextDocumentController()..load(text('héllo\nworld'));
+    final doc = PlainTextController()..load(text('héllo\nworld'));
     expect(doc.error, isNull);
     expect(doc.lines, ['héllo', 'world']);
   });
 
   test('falls back to Latin-1 for non-UTF-8 bytes', () {
-    final doc = TextDocumentController()..load(Uint8List.fromList([0x63, 0x61, 0x66, 0xE9]));
+    final doc = PlainTextController()..load(Uint8List.fromList([0x63, 0x61, 0x66, 0xE9]));
     expect(doc.lines, ['café']);
   });
 
   test('drops a UTF-8 byte order mark and decodes UTF-16 by its mark', () {
     expect(decodeTextBytes(Uint8List.fromList([0xEF, 0xBB, 0xBF, ...utf8.encode('Name,Age')])), 'Name,Age');
-    final little = TextDocumentController()
-      ..load(Uint8List.fromList([0xFF, 0xFE, 0x68, 0, 0xE9, 0, 0x0A, 0, 0x34, 0x6C]));
+    final little = PlainTextController()..load(Uint8List.fromList([0xFF, 0xFE, 0x68, 0, 0xE9, 0, 0x0A, 0, 0x34, 0x6C]));
     expect(little.error, isNull);
     expect(little.lines, ['hé', '水']);
-    final big = TextDocumentController()..load(Uint8List.fromList([0xFE, 0xFF, 0, 0x68, 0, 0x69]));
+    final big = PlainTextController()..load(Uint8List.fromList([0xFE, 0xFF, 0, 0x68, 0, 0x69]));
     expect(big.error, isNull);
     expect(big.lines, ['hi']);
   });
 
   test('refuses binary content as corrupted', () {
-    final doc = TextDocumentController()..load(Uint8List.fromList([0x50, 0x4B, 0x00, 0x01]));
+    final doc = PlainTextController()..load(Uint8List.fromList([0x50, 0x4B, 0x00, 0x01]));
     expect(doc.error, DocumentLoadError.corrupted);
   });
 
   test('restores and reports the scroll offset', () {
     ReadingPosition? reported;
-    final doc = TextDocumentController(
+    final doc = PlainTextController(
       initialPosition: {PositionKeys.scrollOffset: 120.5},
       onPositionChanged: (p) => reported = p,
     );
@@ -49,7 +48,7 @@ void main() {
 
   test('reports the line at the top once the view measures lines', () {
     ReadingPosition? reported;
-    final doc = TextDocumentController(onPositionChanged: (p) => reported = p)
+    final doc = PlainTextController(onPositionChanged: (p) => reported = p)
       ..lineAtOffsetResolver = (offset) => offset ~/ 20;
     doc.onScrolled(410);
     expect(reported, {PositionKeys.scrollOffset: 410.0, PositionKeys.line: 20});
@@ -79,7 +78,7 @@ void main() {
   });
 
   test('search matches lines in any case and cycles', () {
-    final doc = TextDocumentController()..load(text('Alpha\nbeta\nALPHA again'));
+    final doc = PlainTextController()..load(text('Alpha\nbeta\nALPHA again'));
     doc.search('alpha');
     expect(doc.matches, [0, 2]);
     expect(doc.currentMatch, 0);

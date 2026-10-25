@@ -5,12 +5,11 @@ import 'dart:typed_data';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/universal_document_viewer.dart';
-import 'package:universal_document_viewer/slides.dart';
 import 'package:universal_document_viewer/src/engines/ooxml/opc_package.dart';
 import 'package:universal_document_viewer/src/thumbnails/text_thumbnail_renderer.dart';
 import 'package:universal_document_viewer/src/thumbnails/thumbnail_sources.dart';
 import 'package:universal_document_viewer/testing.dart';
-import 'package:universal_document_viewer/text.dart';
+import 'package:universal_document_viewer/src/plain_text/text_line_metrics.dart';
 
 /// [zip] with the uncompressed size [name]'s local and central directory
 /// headers declare rewritten to [size] - the forged entry a zip bomb uses to

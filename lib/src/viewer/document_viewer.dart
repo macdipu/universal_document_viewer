@@ -7,16 +7,16 @@ import '../common/document_format.dart';
 import '../common/reader_contract.dart';
 import '../common/zip_safety_guard.dart';
 import '../engines/pdfium/pdf_types.dart';
-import '../pdf_reader/pdf_document_controller.dart';
-import '../pdf_reader/pdf_document_view.dart';
-import '../sheets/sheet_grid.dart';
-import '../sheets/spreadsheet_controller.dart';
-import '../slides/slide_deck_controller.dart';
-import '../slides/slide_deck_view.dart';
-import '../text/text_document_controller.dart';
-import '../text/text_document_view.dart';
-import '../word/word_document_controller.dart';
-import '../word/word_document_view.dart';
+import '../pdf/pdf_controller.dart';
+import '../pdf/pdf_view.dart';
+import '../spreadsheet/spreadsheet_view.dart';
+import '../spreadsheet/spreadsheet_controller.dart';
+import '../slides/slides_controller.dart';
+import '../slides/slides_view.dart';
+import '../plain_text/plain_text_controller.dart';
+import '../plain_text/plain_text_view.dart';
+import '../word/word_controller.dart';
+import '../word/word_view.dart';
 
 /// Opens any file universal_document_viewer reads and shows it with the matching
 /// reader: PDF, Word, Excel (with sheet tabs), CSV, PowerPoint (with slide
@@ -95,9 +95,9 @@ class _DocumentViewerState extends State<DocumentViewer> {
           error = DocumentLoadError.unsupported;
         case DocumentFormat.pdf:
           // The PDF engine reads the file itself (and asks for passwords).
-          controller = PdfDocumentController(initialPosition: at, onPositionChanged: report);
+          controller = PdfController(initialPosition: at, onPositionChanged: report);
         case DocumentFormat.word:
-          final word = WordDocumentController(initialPosition: at, onPositionChanged: report);
+          final word = WordController(initialPosition: at, onPositionChanged: report);
           controller = word;
           if (await _readOffice(file) case final bytes?) {
             await word.load(bytes);
@@ -124,7 +124,7 @@ class _DocumentViewerState extends State<DocumentViewer> {
           }
           error = sheet.error;
         case DocumentFormat.powerpoint:
-          final deck = SlideDeckController(initialPosition: at, onPositionChanged: report);
+          final deck = SlidesController(initialPosition: at, onPositionChanged: report);
           controller = deck;
           if (await _readOffice(file) case final bytes?) {
             await deck.load(bytes);
@@ -133,9 +133,9 @@ class _DocumentViewerState extends State<DocumentViewer> {
             error = DocumentLoadError.tooLarge;
           }
         case DocumentFormat.text:
-          final text = TextDocumentController(initialPosition: at, onPositionChanged: report);
+          final text = PlainTextController(initialPosition: at, onPositionChanged: report);
           controller = text;
-          if (await file.length() > TextDocumentController.maxBytes) {
+          if (await file.length() > PlainTextController.maxBytes) {
             error = DocumentLoadError.tooLarge;
           } else {
             text.load(await file.readAsBytes());
@@ -177,7 +177,7 @@ class _DocumentViewerState extends State<DocumentViewer> {
           Center(child: Text(_errorText(error), textAlign: TextAlign.center));
     }
     return switch (_controller) {
-      final PdfDocumentController pdf => PdfDocumentView(
+      final PdfController pdf => PdfView(
         path: widget.path,
         controller: pdf,
         passwordProvider: widget.passwordProvider,
@@ -186,15 +186,15 @@ class _DocumentViewerState extends State<DocumentViewer> {
           return widget.errorBuilder?.call(context, loadError) ?? Center(child: Text(_errorText(loadError)));
         },
       ),
-      final WordDocumentController word => WordDocumentView(controller: word),
+      final WordController word => WordView(controller: word),
       final SpreadsheetController sheet => _SheetWithTabs(controller: sheet),
-      final SlideDeckController deck => Column(
+      final SlidesController deck => Column(
         children: [
-          Expanded(child: SlideDeckView(controller: deck)),
+          Expanded(child: SlidesView(controller: deck)),
           if (deck.slides.isNotEmpty) SlideNavigationBar(controller: deck),
         ],
       ),
-      final TextDocumentController text => TextDocumentView(controller: text),
+      final PlainTextController text => PlainTextView(controller: text),
       _ => Center(child: Text(_errorText(DocumentLoadError.unsupported))),
     };
   }
@@ -215,7 +215,7 @@ class _DocumentViewerState extends State<DocumentViewer> {
   };
 }
 
-/// [SheetGrid] with a tab per sheet when there's more than one.
+/// [SpreadsheetView] with a tab per sheet when there's more than one.
 class _SheetWithTabs extends StatelessWidget {
   const _SheetWithTabs({required this.controller});
 
@@ -228,7 +228,7 @@ class _SheetWithTabs extends StatelessWidget {
       builder: (context, _) => Column(
         children: [
           Expanded(
-            child: SheetGrid(key: ValueKey(controller.activeSheetIndex), controller: controller),
+            child: SpreadsheetView(key: ValueKey(controller.activeSheetIndex), controller: controller),
           ),
           if (controller.sheetNames.length > 1)
             SafeArea(

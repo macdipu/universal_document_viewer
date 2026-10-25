@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:universal_document_viewer/sheets.dart';
+import 'package:universal_document_viewer/spreadsheet.dart';
 import 'package:universal_document_viewer/testing.dart';
 
 /// Borders, notes, filled formulas and conditional formatting: what a

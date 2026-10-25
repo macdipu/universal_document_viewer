@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../common/reader_contract.dart';
 import '../slides/pptx_parser.dart';
-import '../slides/slide_deck_view.dart';
+import '../slides/slides_view.dart';
 import 'offscreen_render.dart';
 import 'thumbnail_renderer.dart';
 import 'thumbnail_sources.dart';

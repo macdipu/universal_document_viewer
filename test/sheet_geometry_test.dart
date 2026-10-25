@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:universal_document_viewer/sheets.dart';
+import 'package:universal_document_viewer/spreadsheet.dart';
+import 'package:universal_document_viewer/src/spreadsheet/sheet_geometry.dart';
 
 void main() {
   const sheet = Worksheet(

@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 
-import 'text_document_controller.dart';
+import 'plain_text_controller.dart';
 import 'text_line_metrics.dart';
 
 /// A plain-text document as scrolling lines, with search matches
-/// highlighted. Restores [TextDocumentController.initialScrollOffset] once
+/// highlighted. Restores [PlainTextController.initialScrollOffset] once
 /// laid out and reports scrolling to the controller.
-class TextDocumentView extends StatefulWidget {
-  const TextDocumentView({super.key, required this.controller, this.fontSize = 14, this.wrap = true});
+class PlainTextView extends StatefulWidget {
+  const PlainTextView({super.key, required this.controller, this.fontSize = 14, this.wrap = true});
 
-  final TextDocumentController controller;
+  final PlainTextController controller;
   final double fontSize;
 
   /// Wrap long lines; when false each line scrolls horizontally.
   final bool wrap;
 
   @override
-  State<TextDocumentView> createState() => _TextDocumentViewState();
+  State<PlainTextView> createState() => _PlainTextViewState();
 }
 
-class _TextDocumentViewState extends State<TextDocumentView> {
+class _PlainTextViewState extends State<PlainTextView> {
   @override
   void initState() {
     super.initState();

@@ -20,7 +20,7 @@ import 'spreadsheet_controller.dart';
 /// marker come from the file. Scrolls through the
 /// controller's `verticalController`/`horizontalController`. Serves Excel
 /// and CSV alike.
-class SheetGrid extends StatefulWidget {
+class SpreadsheetView extends StatefulWidget {
   final SpreadsheetController controller;
   final String emptyMessage;
 
@@ -28,7 +28,7 @@ class SheetGrid extends StatefulWidget {
   /// puts [SpreadsheetController.zoomIn]/`zoomOut` in its own toolbar.
   final bool showZoomControls;
 
-  const SheetGrid({
+  const SpreadsheetView({
     super.key,
     required this.controller,
     this.emptyMessage = 'No data to display',
@@ -36,10 +36,10 @@ class SheetGrid extends StatefulWidget {
   });
 
   @override
-  State<SheetGrid> createState() => _SheetGridState();
+  State<SpreadsheetView> createState() => _SpreadsheetViewState();
 }
 
-class _SheetGridState extends State<SheetGrid> {
+class _SpreadsheetViewState extends State<SpreadsheetView> {
   /// The row or column picked by tapping its header; null when none.
   final _selection = ValueNotifier<GridSelection?>(null);
 
@@ -98,7 +98,7 @@ class _SheetGridState extends State<SheetGrid> {
   }
 
   @override
-  void didUpdateWidget(SheetGrid oldWidget) {
+  void didUpdateWidget(SpreadsheetView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller == widget.controller) return;
     oldWidget.controller

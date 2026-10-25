@@ -43,7 +43,7 @@ The PDF engine binds to PDFium through `dart:ffi`. `hook/build.dart` is a Dart b
 
 ```sh
 flutter test                     # everything
-flutter test test/word_document_view_test.dart
+flutter test test/word_view_test.dart
 ```
 
 Tests build small documents in memory with the helpers in `package:universal_document_viewer/testing.dart` (`buildDocx`, `buildXlsx`, `buildPptx`). Prefer those for a focused case.

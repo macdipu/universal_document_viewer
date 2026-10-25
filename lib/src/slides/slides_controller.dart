@@ -7,15 +7,15 @@ import '../common/reader_contract.dart';
 import '../common/zip_safety_guard.dart';
 import 'pptx_parser.dart';
 
-/// State for [SlideDeckView]: the slides of a `.pptx`, which one is on
+/// State for [SlidesView]: the slides of a `.pptx`, which one is on
 /// screen, and search across them.
 ///
 /// Bytes pass [ZipSafetyGuard] before anything decompresses them, and
 /// parsing runs off the UI isolate. The slide on screen is reported through
 /// [onPositionChanged] as `{slide_index, slide_count}`; saving it (and any
 /// debouncing) is the app's business.
-class SlideDeckController extends ChangeNotifier {
-  SlideDeckController({
+class SlidesController extends ChangeNotifier {
+  SlidesController({
     ReadingPosition? initialPosition,
     this.onPositionChanged,
     Future<PptxPresentation> Function(Uint8List bytes)? parse,
@@ -95,7 +95,7 @@ class SlideDeckController extends ChangeNotifier {
 
   double _zoom = 1;
 
-  /// How large the slides' text is drawn; [SlideDeckView] reflows it.
+  /// How large the slides' text is drawn; [SlidesView] reflows it.
   double get zoom => _zoom;
   bool get canZoomIn => _zoom < maxZoom;
   bool get canZoomOut => _zoom > minZoom;

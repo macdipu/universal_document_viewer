@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/pdf.dart';
-import 'package:universal_document_viewer/src/pdf_reader/pdf_image_cache.dart';
+import 'package:universal_document_viewer/src/pdf/pdf_image_cache.dart';
 
 const _features = 'test/fixtures/pdf/features.pdf';
 
@@ -46,7 +46,7 @@ void main() {
   });
 
   test('opening while an open is under way reuses it', () async {
-    final controller = PdfDocumentController();
+    final controller = PdfController();
     final first = controller.open(_features);
     expect(identical(controller.open(_features), first), isTrue);
     await first;
@@ -59,10 +59,10 @@ void main() {
 
   testWidgets('a resize keeps the zoom and the page being read', (tester) async {
     addTearDown(tester.view.reset);
-    final controller = PdfDocumentController();
+    final controller = PdfController();
     await tester.pumpWidget(
       MaterialApp(
-        home: PdfDocumentView(path: _features, controller: controller),
+        home: PdfView(path: _features, controller: controller),
       ),
     );
     await _until(tester, () => controller.isReady);
@@ -97,17 +97,17 @@ void main() {
   });
 
   testWidgets('a new controller is opened', (tester) async {
-    final first = PdfDocumentController();
-    final second = PdfDocumentController();
+    final first = PdfController();
+    final second = PdfController();
     await tester.pumpWidget(
       MaterialApp(
-        home: PdfDocumentView(path: _features, controller: first),
+        home: PdfView(path: _features, controller: first),
       ),
     );
     await _until(tester, () => first.isReady);
     await tester.pumpWidget(
       MaterialApp(
-        home: PdfDocumentView(path: _features, controller: second),
+        home: PdfView(path: _features, controller: second),
       ),
     );
     await _until(tester, () => second.isReady);
@@ -121,7 +121,7 @@ void main() {
   });
 
   testWidgets('a thumbnail built before the document opens renders once it does', (tester) async {
-    final controller = PdfDocumentController();
+    final controller = PdfController();
     await tester.pumpWidget(
       MaterialApp(
         home: Center(

@@ -2,11 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:universal_document_viewer/universal_document_viewer.dart';
-import 'package:universal_document_viewer/sheets.dart';
 
 import '../library.dart';
 
-/// An Excel workbook or CSV in [SheetGrid], with what a reader app adds
+/// An Excel workbook or CSV in [SpreadsheetView], with what a reader app adds
 /// around it: sheet tabs, search, go to a cell and freezing the header row.
 class SheetPage extends StatefulWidget {
   const SheetPage({super.key, required this.library, required this.path});
@@ -105,7 +104,7 @@ class _SheetPageState extends State<SheetPage> {
             (false, _) => const Center(child: CircularProgressIndicator()),
             (_, final error?) => Center(child: Text('Could not open the file (${error.name}).')),
             // Each sheet gets its own grid, so its scroll offsets start fresh.
-            _ => SheetGrid(key: ValueKey(_controller.activeSheetIndex), controller: _controller),
+            _ => SpreadsheetView(key: ValueKey(_controller.activeSheetIndex), controller: _controller),
           },
           bottomNavigationBar: loaded && _controller.sheetNames.length > 1
               ? NavigationBar(

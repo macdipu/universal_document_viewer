@@ -9,7 +9,7 @@ import 'package:vector_math/vector_math_64.dart' show Quad;
 
 import '../engines/pdfium/pdf_engine.dart' show PdfRenderTask;
 import '../engines/pdfium/pdf_types.dart';
-import 'pdf_document_controller.dart';
+import 'pdf_controller.dart';
 import 'pdf_image_cache.dart';
 import 'pdf_layout.dart';
 
@@ -18,8 +18,8 @@ import 'pdf_layout.dart';
 /// image per page sharpened by tiles when zoomed in, search highlights,
 /// and links (web links open outside the app, `http`/`https`/`mailto`
 /// only; links to pages jump).
-class PdfDocumentView extends StatefulWidget {
-  const PdfDocumentView({
+class PdfView extends StatefulWidget {
+  const PdfView({
     super.key,
     required this.path,
     required this.controller,
@@ -30,7 +30,7 @@ class PdfDocumentView extends StatefulWidget {
   });
 
   final String path;
-  final PdfDocumentController controller;
+  final PdfController controller;
 
   /// Asked for a password for an encrypted PDF, once per attempt, until it
   /// returns null (give up) or the password works.
@@ -44,10 +44,10 @@ class PdfDocumentView extends StatefulWidget {
   final Widget Function(BuildContext context, Object error)? errorBuilder;
 
   @override
-  State<PdfDocumentView> createState() => _PdfDocumentViewState();
+  State<PdfView> createState() => _PdfViewState();
 }
 
-class _PdfDocumentViewState extends State<PdfDocumentView> with SingleTickerProviderStateMixin {
+class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
   final _transform = TransformationController();
   PdfImageCache? _cache;
   PdfLayout? _layout;
@@ -69,7 +69,7 @@ class _PdfDocumentViewState extends State<PdfDocumentView> with SingleTickerProv
     ..addListener(_onSnapTick);
   Matrix4Tween? _snapTween;
 
-  PdfDocumentController get controller => widget.controller;
+  PdfController get controller => widget.controller;
 
   static const _maxZoom = 8.0;
 
@@ -88,7 +88,7 @@ class _PdfDocumentViewState extends State<PdfDocumentView> with SingleTickerProv
   }
 
   @override
-  void didUpdateWidget(PdfDocumentView oldWidget) {
+  void didUpdateWidget(PdfView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != controller) {
       oldWidget.controller
@@ -390,7 +390,7 @@ class _PdfDocumentViewState extends State<PdfDocumentView> with SingleTickerProv
           final viewport = constraints.biggest;
           final key = (viewport, controller.viewMode, document);
           if (key != _layoutKey) {
-            final previous = _layoutKey as (Size, PdfReaderViewMode, Object)?;
+            final previous = _layoutKey as (Size, PdfViewMode, Object)?;
             final restoring = previous == null || previous.$2 != controller.viewMode || previous.$3 != document;
             final reading = restoring ? controller.initialPageNumber - 1 : controller.currentPage - 1;
             // Only the viewport changed (the keyboard or search bar opened,
@@ -605,7 +605,7 @@ class _PagePainter extends CustomPainter {
 class PdfPageThumbnail extends StatefulWidget {
   const PdfPageThumbnail({super.key, required this.controller, required this.pageNumber, this.width = 70});
 
-  final PdfDocumentController controller;
+  final PdfController controller;
 
   /// 1-based.
   final int pageNumber;
