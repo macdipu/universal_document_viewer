@@ -2,9 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/pdf.dart';
 import 'package:universal_document_viewer/src/pdf/pdf_controller.dart' show probePdfTextLayer;
 
-// CR-OPENREADER-UX Phase 1 revision 1: the PDF zero-match label. The
-// controller wiring needs a live PdfTextSearcher (unavailable here, see
-// pdf_reader_controller_test.dart), so these cover the pure helpers it uses.
+// The pure helpers behind a PDF search's status: whether a document has a
+// text layer at all, and the status line.
 
 void main() {
   group('probePdfTextLayer', () {
@@ -52,10 +51,7 @@ void main() {
     test('empty without a query', () => expect(label(query: ''), ''));
     test('searching', () => expect(label(isSearching: true), 'Searching…'));
     test('zero matches in a document with text', () => expect(label(), 'No matches'));
-    test(
-      'zero matches in a scanned PDF (BRD line 1087)',
-      () => expect(label(hasSearchableText: false), 'No searchable text found.'),
-    );
+    test('zero matches in a scanned PDF', () => expect(label(hasSearchableText: false), 'No searchable text found.'));
     test('match position', () => expect(label(matchCount: 4, currentMatch: 1), '2 of 4'));
   });
 }

@@ -16,6 +16,7 @@ import 'thumbnail_sources.dart';
 /// past the first; a file the reader would refuse (too large, or binary)
 /// gets no thumbnail.
 class TextThumbnailRenderer implements ThumbnailRenderer {
+  /// A stateless text thumbnail renderer.
   const TextThumbnailRenderer();
 
   /// A4 at a logical width where 9 px text reads as a printed page's.

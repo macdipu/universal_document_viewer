@@ -56,7 +56,7 @@ class _PlainTextViewState extends State<PlainTextView> {
   TextLineMetrics? _metrics;
 
   /// Keeps the controller's jump-to-match offsets measured against what is
-  /// actually laid out (UX-21); re-measured only when an input changes.
+  /// actually laid out; re-measured only when an input changes.
   void _attachMetrics(BuildContext context, double width, double fontSize, bool wrap) {
     final lines = widget.controller.lines;
     // No bold-text merge: jumps only happen with a search query, when rows

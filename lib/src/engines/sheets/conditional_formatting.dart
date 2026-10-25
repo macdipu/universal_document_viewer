@@ -4,24 +4,39 @@ import 'workbook.dart';
 
 /// A conditional format's look (`<dxf>`, §18.8.17): only what it sets.
 class DifferentialStyle {
+  /// Creates a style; a null property leaves the cell's own one.
   const DifferentialStyle({this.bold, this.italic, this.underline, this.strikethrough, this.textColor, this.fillColor});
 
+  /// Bold on or off; null to leave the cell's.
   final bool? bold;
+
+  /// Italic on or off; null to leave the cell's.
   final bool? italic;
+
+  /// Underline on or off; null to leave the cell's.
   final bool? underline;
+
+  /// Strikethrough on or off; null to leave the cell's.
   final bool? strikethrough;
 
-  /// 0xAARRGGBB.
+  /// Text colour as 0xAARRGGBB; null to leave the cell's.
   final int? textColor;
+
+  /// Background colour as 0xAARRGGBB; null to leave the cell's.
   final int? fillColor;
 }
 
 /// A threshold of a colour scale or data bar (`<cfvo>`, §18.3.1.11):
 /// `min`, `max`, `num`, `percent` or `percentile`, with its value.
 class ConditionalValuePoint {
+  /// Creates a threshold of [type] with an optional [value].
   const ConditionalValuePoint(this.type, [this.value]);
 
+  /// The `<cfvo type>`: `min`, `max`, `num`, `percent` or `percentile`
+  /// (others, such as `formula`, aren't evaluated).
   final String type;
+
+  /// The `<cfvo val>`, a number as text; null for `min` and `max`.
   final String? value;
 }
 
@@ -32,6 +47,7 @@ class ConditionalValuePoint {
 /// average, duplicates, colour scales and data bars. `expression` and
 /// `timePeriod` rules need formulas evaluated and are left out.
 class ConditionalRule {
+  /// Creates a rule; the defaults are SpreadsheetML's attribute defaults.
   const ConditionalRule({
     required this.ranges,
     required this.type,
@@ -53,39 +69,72 @@ class ConditionalRule {
     this.maxLength = 90,
   });
 
+  /// The cells the rule covers (`<conditionalFormatting sqref>`). A
+  /// relative cell reference in [formulas] is relative to the first
+  /// range's top-left cell.
   final List<CellRange> ranges;
+
+  /// The `<cfRule type>`, e.g. `cellIs`, `top10`, `colorScale`; a type
+  /// [ConditionalFormatting.apply] can't evaluate is skipped.
   final String type;
+
+  /// Lower numbers apply first and win a property; ties keep file order.
   final int priority;
+
+  /// Whether a match stops lower-priority rules for that cell.
   final bool stopIfTrue;
+
+  /// The look a match applies (the rule's `dxfId`); null for none, as for
+  /// colour scales and data bars.
   final DifferentialStyle? style;
 
   /// `cellIs`: `greaterThan`, `between`, ...
   final String? operator;
+
+  /// The rule's `<formula>` texts: for `cellIs`, the operands (two for
+  /// `between`/`notBetween`). Only numbers, quoted text, TRUE/FALSE and a
+  /// single cell reference are evaluated.
   final List<String> formulas;
 
   /// `containsText`, `beginsWith`, ...: the text looked for.
   final String? text;
 
-  /// `top10`.
+  /// `top10`: how many values (or what percent of them, with [percent])
+  /// to mark.
   final int rank;
+
+  /// `top10`: whether [rank] is a percentage of the numeric cells.
   final bool percent;
+
+  /// `top10`: whether to mark the lowest values instead of the highest.
   final bool bottom;
 
-  /// `aboveAverage`.
+  /// `aboveAverage`: true to mark values above the average, false below.
   final bool aboveAverage;
+
+  /// `aboveAverage`: whether values equal to the threshold match too.
   final bool equalAverage;
+
+  /// `aboveAverage` (`stdDev`): how many sample standard deviations the
+  /// threshold sits from the average; 0 for the average itself.
   final int standardDeviations;
 
   /// `colorScale` (2 or 3) and `dataBar` (2) thresholds, with the scale's
   /// colours (0xAARRGGBB) or the bar's one.
   final List<ConditionalValuePoint> points;
+
+  /// The colour scale's colours, one per point, or the data bar's colour
+  /// first; 0xAARRGGBB.
   final List<int> colors;
 
   /// A data bar's shortest and longest bar, in percent of the cell.
   final int minLength;
+
+  /// See [minLength].
   final int maxLength;
 }
 
+/// Evaluates [ConditionalRule]s over a sheet's cells.
 abstract final class ConditionalFormatting {
   /// Cells beyond these aren't looked at: a rule over whole columns covers
   /// the sheet's cells, not a million empty rows.

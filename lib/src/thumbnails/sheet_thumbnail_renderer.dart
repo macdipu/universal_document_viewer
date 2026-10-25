@@ -24,7 +24,10 @@ import 'thumbnail_sources.dart';
 /// gets no thumbnail, and only its first lines are read unless the saved
 /// row is below the first.
 class SheetThumbnailRenderer implements ThumbnailRenderer {
+  /// A renderer for `.xlsx` files.
   const SheetThumbnailRenderer.xlsx() : _csv = false;
+
+  /// A renderer for CSV files.
   const SheetThumbnailRenderer.csv() : _csv = true;
 
   final bool _csv;
@@ -62,16 +65,24 @@ class SheetThumbnailRenderer implements ThumbnailRenderer {
 /// Where a sheet thumbnail starts: a sheet among those the reader shows,
 /// and the zero-based row and column at its top left.
 class SheetPosition {
+  /// Creates a position; the default is the first sheet's A1.
   const SheetPosition({this.sheet = 0, this.row = 0, this.column = 0});
 
+  /// Zero-based index among the sheets the reader shows (the visible
+  /// ones, or all when none is visible).
   final int sheet;
+
+  /// Zero-based sheet row at the top.
   final int row;
+
+  /// Zero-based sheet column at the left.
   final int column;
 }
 
 /// The cells of a sheet that fit on the thumbnail card - all that comes
 /// back from the parsing isolate, however big the sheet.
 class SheetCorner {
+  /// Creates a corner from its parts.
   const SheetCorner({
     required this.columns,
     required this.columnWidths,
@@ -80,19 +91,26 @@ class SheetCorner {
     required this.cells,
   });
 
-  /// Sheet indices of the visible columns/rows shown, in order.
+  /// Sheet indices of the visible columns shown, in order.
   final List<int> columns;
+
+  /// Sheet indices of the visible rows shown, in order.
   final List<int> rows;
 
   /// In pixels at Excel's default size (a 8.43-character column is 64 px,
   /// a 15 pt row 20 px).
   final List<double> columnWidths;
+
+  /// Heights of [rows], in pixels as for [columnWidths].
   final List<double> rowHeights;
 
   /// `cells[r][c]` is row `rows[r]`, column `columns[c]`.
   final List<List<SheetCell?>> cells;
 
+  /// Width in pixels of the row-number column at the card's left.
   static const double rowHeaderWidth = 30;
+
+  /// Height in pixels of the column-letter row at the card's top.
   static const double headerHeight = 20;
 
   /// The corner of a sheet at [at], as much of it as fills

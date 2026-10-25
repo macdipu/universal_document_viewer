@@ -11,6 +11,8 @@ import 'workbook.dart';
 /// - Fields that are plain numbers become numbers (so a selection can sum
 ///   them) but keep their written form on screen: `007` stays `007`.
 abstract final class CsvReader {
+  /// Parses [text] into a workbook with one sheet named [sheetName].
+  /// [delimiter] overrides detection.
   static Workbook read(String text, {String sheetName = 'Sheet1', String? delimiter}) {
     if (text.startsWith('﻿')) text = text.substring(1);
     final separator = delimiter ?? detectDelimiter(text);

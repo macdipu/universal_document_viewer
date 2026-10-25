@@ -8,6 +8,7 @@ import 'thumbnail_renderer.dart';
 /// page 1. A password-protected or damaged file fails to open and gets no
 /// thumbnail.
 class PdfThumbnailRenderer implements ThumbnailRenderer {
+  /// A stateless PDF thumbnail renderer.
   const PdfThumbnailRenderer();
 
   @override

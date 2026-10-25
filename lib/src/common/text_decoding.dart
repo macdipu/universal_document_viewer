@@ -2,9 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 /// UTF-8 first; Latin-1 (which accepts every byte) as the fallback for a
-/// non-UTF-8 file. Not full charset auto-detection - shared by the Text and
-/// CSV readers (`FEATURE-OPENREADER-P4/SRS.md` Unresolved Question 3's
-/// deliberately narrow scope).
+/// non-UTF-8 file. Deliberately not full charset detection; shared by the
+/// plain-text and CSV readers.
 ///
 /// A byte order mark is the one hint taken: it is dropped (a UTF-8 BOM
 /// would otherwise sit in the first line, or the first CSV header), and a

@@ -2,13 +2,15 @@ import 'package:flutter/painting.dart';
 
 /// Scroll offsets of a [PlainTextView]'s rows, measured with the same style,
 /// text scaling and width the rows render with, so jump-to-match lands on
-/// the matching line instead of a fixed-height guess (CR-OPENREADER-UX
-/// UX-21). Avoids a positioned-list dependency.
+/// the matching line instead of a fixed-height guess. Avoids a
+/// positioned-list dependency.
 ///
 /// Wrapped rows are measured one by one and summed lazily, so a jump costs
 /// layout only for lines not measured yet. Unwrapped rows are all one line
 /// tall, so their offset is a multiplication.
 class TextLineMetrics {
+  /// Metrics for [lines] laid out with these inputs; nothing is measured
+  /// until asked for.
   TextLineMetrics({
     required this.lines,
     required this.style,
@@ -18,12 +20,19 @@ class TextLineMetrics {
     required this.verticalPadding,
   });
 
+  /// The rows' text, one row per line.
   final List<String> lines;
+
+  /// The style each row renders with.
   final TextStyle style;
+
+  /// The text scaling each row renders with.
   final TextScaler textScaler;
 
   /// Width available to a wrapped row's text (row width minus its padding).
   final double contentWidth;
+
+  /// Whether long lines wrap; when false every row is one line tall.
   final bool wrap;
 
   /// A row's vertical padding (top + bottom).
@@ -54,6 +63,8 @@ class TextLineMetrics {
       contentWidth == this.contentWidth &&
       wrap == this.wrap;
 
+  /// The scroll offset of the top of zero-based [lineIndex]'s row, in
+  /// logical pixels; [lineIndex] is clamped to `0..lines.length`.
   double offsetOf(int lineIndex) {
     final index = lineIndex.clamp(0, lines.length);
     if (!wrap) return index * _singleRowHeight;

@@ -3,7 +3,13 @@ import 'dart:ui';
 
 /// How pages are laid out. A vertical single-page-snap mode isn't offered:
 /// [horizontal] already covers reading one page at a time.
-enum PdfViewMode { continuous, horizontal }
+enum PdfViewMode {
+  /// Pages stacked top to bottom, scrolled vertically.
+  continuous,
+
+  /// Pages side by side, scrolled horizontally, one fitted per screen.
+  horizontal,
+}
 
 /// Where each page sits in the viewer's content, at zoom 1.
 ///
@@ -14,6 +20,8 @@ enum PdfViewMode { continuous, horizontal }
 /// Positions are logical pixels in content coordinates; the viewer scales
 /// and pans this content.
 class PdfLayout {
+  /// Lays out pages of [pageSizes] (any unit; only their aspect ratios are
+  /// used) in [viewport] for [mode].
   PdfLayout({required List<Size> pageSizes, required this.viewport, required this.mode}) {
     var cursor = margin;
     var extent = 0.0;
@@ -39,9 +47,13 @@ class PdfLayout {
         : Size(math.max(cursor, viewport.width), math.max(extent, viewport.height));
   }
 
+  /// Gap around and between pages, in logical pixels.
   static const double margin = 8;
 
+  /// The viewer's visible size, in logical pixels.
   final Size viewport;
+
+  /// The layout the pages are placed in.
   final PdfViewMode mode;
 
   /// Each page's rect, in page order.
@@ -50,6 +62,7 @@ class PdfLayout {
   /// The whole content.
   late final Size size;
 
+  /// Whether pages run left to right ([PdfViewMode.horizontal]).
   bool get isHorizontal => mode == PdfViewMode.horizontal;
 
   /// Pages whose rect meets [visible] (content coordinates), in order.

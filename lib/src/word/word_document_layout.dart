@@ -1,12 +1,29 @@
 import '../engines/word/word_model.dart';
 
-enum WordItemKind { header, body, footer, notes }
+/// Which part of the document a [WordItem] comes from.
+enum WordItemKind {
+  /// The first section's header.
+  header,
+
+  /// The main text.
+  body,
+
+  /// The last section's footer.
+  footer,
+
+  /// Footnotes and endnotes.
+  notes,
+}
 
 /// One entry of the continuous view's scrolling list.
 class WordItem {
+  /// An item showing [block], from the part [kind] says.
   const WordItem(this.block, this.kind);
 
+  /// The block shown.
   final WordBlock block;
+
+  /// Which part of the document the block comes from.
   final WordItemKind kind;
 }
 
@@ -18,6 +35,7 @@ class WordItem {
 /// The paragraph numbers tie search, jumping and in-document links to what
 /// is on screen.
 class WordDocumentLayout {
+  /// Lays out [document] and numbers its paragraphs.
   WordDocumentLayout(this.document) {
     final first = document.sections.first;
     final last = document.sections.last;
@@ -41,8 +59,10 @@ class WordDocumentLayout {
     }
   }
 
+  /// The document laid out.
   final WordDocument document;
 
+  /// The scrolling list's entries, in order.
   final items = <WordItem>[];
 
   /// Every paragraph, in reading order; a paragraph's number is its index.

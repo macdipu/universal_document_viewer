@@ -11,7 +11,10 @@ import 'workbook.dart';
 
 /// The file isn't a readable `.xlsx`.
 class XlsxFormatException implements Exception {
+  /// Creates the exception with a short reason.
   const XlsxFormatException(this.message);
+
+  /// What was wrong, e.g. `Malformed XML`.
   final String message;
 
   @override
@@ -30,6 +33,8 @@ class XlsxFormatException implements Exception {
 /// bytes with `ZipSafetyGuard` first, and can run this in a background
 /// isolate: the [Workbook] it returns is plain data.
 abstract final class XlsxReader {
+  /// Parses the `.xlsx` [bytes]. Throws [XlsxFormatException] when the
+  /// package or its XML can't be read.
   static Workbook read(Uint8List bytes) {
     try {
       return _read(OpcPackage.decode(bytes));

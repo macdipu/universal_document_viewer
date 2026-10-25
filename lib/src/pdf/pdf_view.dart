@@ -600,8 +600,10 @@ class _PagePainter extends CustomPainter {
 /// A whole page as a small image (e.g. a thumbnail strip), rendered at
 /// low priority.
 class PdfPageThumbnail extends StatefulWidget {
+  /// A thumbnail of [pageNumber], [width] logical pixels wide.
   const PdfPageThumbnail({super.key, required this.controller, required this.pageNumber, this.width = 70});
 
+  /// The controller whose open document the page comes from.
   final PdfController controller;
 
   /// 1-based.

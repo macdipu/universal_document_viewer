@@ -12,30 +12,45 @@ sealed class PptxBlock {
 
 /// A text paragraph; [level] is the bullet indent (0 = top level).
 class PptxParagraph extends PptxBlock {
+  /// A paragraph of [text] at bullet [level].
   const PptxParagraph(this.text, {this.level = 0});
 
+  /// The paragraph's runs joined, with line breaks as `\n`; never blank.
   final String text;
+
+  /// Indent level, 0-8 (DrawingML's `lvl`).
   final int level;
 }
 
 /// A table, as rows of cell text.
 class PptxTable extends PptxBlock {
+  /// A table of [rows].
   const PptxTable(this.rows);
 
+  /// Each row's cells, left to right, as trimmed text.
   final List<List<String>> rows;
 }
 
 /// A picture placed on the slide.
 class PptxImage extends PptxBlock {
+  /// A picture from its encoded [bytes].
   const PptxImage(this.bytes);
 
+  /// The picture file as stored in the package (PNG, JPEG, GIF, BMP or
+  /// WebP), undecoded. Placements of the same picture share one buffer.
   final Uint8List bytes;
 }
 
+/// One slide's content.
 class PptxSlide {
+  /// A slide with an optional [title] and its [blocks].
   const PptxSlide({this.title, this.blocks = const []});
 
+  /// Text of the slide's first title placeholder (`title` or `ctrTitle`),
+  /// its paragraphs joined by spaces; null when it has none.
   final String? title;
+
+  /// The rest of the slide's content, in shape-tree order.
   final List<PptxBlock> blocks;
 
   /// Everything searchable on the slide.
@@ -49,21 +64,29 @@ class PptxSlide {
   ].join('\n');
 }
 
+/// A parsed deck.
 class PptxPresentation {
+  /// A deck of [slides]; the size defaults to 16:9 (12192000 x 6858000
+  /// EMUs).
   const PptxPresentation(this.slides, {this.slideWidth = 12192000, this.slideHeight = 6858000});
 
+  /// The slides, in presentation order.
   final List<PptxSlide> slides;
 
   /// The slide size (`p:sldSz`) in EMUs; PowerPoint's 16:9 default when
   /// the file doesn't say.
   final int slideWidth;
+
+  /// The slide height in EMUs; see [slideWidth].
   final int slideHeight;
 }
 
 /// Not a readable PowerPoint (.pptx) package.
 class PptxFormatException implements Exception {
+  /// A format failure described by [message].
   const PptxFormatException(this.message);
 
+  /// What was wrong, for logs rather than for users.
   final String message;
 
   @override
@@ -71,7 +94,7 @@ class PptxFormatException implements Exception {
 }
 
 /// Reads a `.pptx` (Office Open XML) into slides of text, tables and
-/// pictures (CR-OPENREADER-PPTX). It is a reading view, not a layout engine:
+/// pictures. It is a reading view, not a layout engine:
 /// positions, themes and animations are not reproduced.
 class PptxParser {
   const PptxParser._();
@@ -93,6 +116,8 @@ class PptxParser {
   /// Pictures past either cap are left out; the slides' text is not.
   static const int maxPictureBytes = 200 * 1024 * 1024;
 
+  /// Reads every slide of [bytes]. Throws [PptxFormatException] when they
+  /// aren't a readable `.pptx`.
   static PptxPresentation parse(Uint8List bytes) => _decode(bytes, null).deck;
 
   /// Just slide [wanted] (slide 1 when the deck has no such slide) and its

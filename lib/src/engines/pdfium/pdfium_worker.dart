@@ -41,12 +41,26 @@ void runPdfiumWorker(SendPort replies, void Function() init) {
 
 /// Operation names shared with the main-isolate side.
 abstract final class PdfiumOp {
+  /// Opens a document from a path or transferred bytes; replies with its id
+  /// and page sizes.
   static const open = 'open';
+
+  /// Closes a document, dropping its queued requests first.
   static const close = 'close';
+
+  /// Renders a region of a page to RGBA pixels.
   static const render = 'render';
+
+  /// Reads a page's text and character boxes.
   static const text = 'text';
+
+  /// Finds a query's matches on a page.
   static const search = 'search';
+
+  /// Lists a page's links.
   static const links = 'links';
+
+  /// Drops a queued request by id.
   static const cancel = 'cancel';
 }
 

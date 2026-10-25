@@ -3,10 +3,16 @@ import 'package:flutter/foundation.dart';
 /// One search hit: characters [start]-[end] of paragraph [paragraph]
 /// (a paragraph's index in reading order, see `WordDocumentLayout`).
 class WordMatch {
+  /// A hit from [start] to [end] in paragraph [paragraph].
   const WordMatch({required this.paragraph, required this.start, required this.end});
 
+  /// The paragraph's number in reading order.
   final int paragraph;
+
+  /// Offset of the first matching character in the paragraph's text.
   final int start;
+
+  /// Offset just past the last matching character (exclusive).
   final int end;
 }
 
@@ -23,16 +29,24 @@ class WordSearchController extends ChangeNotifier {
   List<String> _folded = const [];
 
   String _query = '';
+
+  /// The current query; empty when not searching.
   String get query => _query;
 
   List<WordMatch> _matches = const [];
+
+  /// Every hit for [query], in reading order.
   List<WordMatch> get matches => _matches;
+
+  /// How many hits [query] has.
   int get matchCount => _matches.length;
 
   int _current = -1;
 
   /// Index into [matches], or -1 when there are none.
   int get currentMatchIndex => _current;
+
+  /// The selected hit, or null when there are none.
   WordMatch? get currentMatch => _current < 0 ? null : _matches[_current];
 
   Map<int, List<int>> _byParagraph = const {};
@@ -43,12 +57,19 @@ class WordSearchController extends ChangeNotifier {
     _apply('');
   }
 
+  /// Finds every occurrence of [query], ignoring case, and selects the first.
   void search(String query) => _apply(query);
+
+  /// Ends the search: no query and no hits.
   void clear() => _apply('');
 
+  /// Selects the next hit, wrapping to the first after the last.
   void next() => _step(1);
+
+  /// Selects the previous hit, wrapping to the last before the first.
   void previous() => _step(-1);
 
+  /// The hits in paragraph number [paragraph], marking the selected one.
   List<WordHighlight> highlightsOf(int paragraph) {
     final indices = _byParagraph[paragraph];
     if (indices == null) return const [];

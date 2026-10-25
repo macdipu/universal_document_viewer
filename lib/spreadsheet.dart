@@ -10,6 +10,7 @@
 library;
 
 export 'src/common/document_controller.dart';
+export 'src/common/document_format.dart';
 export 'src/common/document_viewer_strings.dart';
 export 'src/common/document_viewer_theme.dart';
 export 'src/common/reader_contract.dart';

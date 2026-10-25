@@ -49,6 +49,8 @@ Every format now has a `<Format>Controller` and a `<Format>View`, and each libra
 | `SlideNavigationBar`, `showGoToDialog`, the sheet's zoom buttons (`showZoomControls`) | removed from the format views: build them from the controller, or use `DocumentViewer`'s toolbar. The example app has a go-to-cell dialog to copy. |
 | `WordSearchController`, `PdfSearchController` (`controller.searchController`) | internal: use `searchState` |
 
+`PositionKeys.zoom` is gone: no reader wrote or read it.
+
 These are no longer exported (they were implementation details): `WordScope`, `WordBlockView`, `WordDocumentLayout`, `WordPage`, `WordPagination`, `SheetGeometry`, `TextLineMetrics`, `showCellDetail`, `SelectionSummary`, `GridSelection`, and `pdf_layout.dart` apart from `PdfViewMode`.
 
 ### Added

@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
-/// Builds a minimal `.pptx` for tests (CR-OPENREADER-PPTX): just the parts
+/// Builds a minimal `.pptx` for tests: just the parts
 /// `PptxParser` reads - presentation.xml + its rels, the slides + their
 /// rels, and media. [slides] are slide-tree bodies (`p:spTree` children), in
 /// presentation order; they're stored in *reverse* file-name order so a test
@@ -53,6 +53,8 @@ Uint8List buildPptx(
   return Uint8List.fromList(ZipEncoder().encodeBytes(archive));
 }
 
+/// A title-placeholder shape (`p:sp` with `type="title"`) holding [text]; [text]
+/// is inserted as-is, not XML-escaped.
 String titleShape(String text) =>
     '<p:sp><p:nvSpPr><p:cNvPr id="2" name="Title"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>'
     '<p:txBody><a:p><a:r><a:t>$text</a:t></a:r></a:p></p:txBody></p:sp>';
@@ -62,6 +64,8 @@ String bodyShape(List<(String, int)> paragraphs) =>
     '<p:sp><p:nvSpPr><p:cNvPr id="3" name="Body"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>'
     '<p:txBody>${[for (final (text, level) in paragraphs) '<a:p><a:pPr lvl="$level"/><a:r><a:t>$text</a:t></a:r></a:p>'].join()}</p:txBody></p:sp>';
 
+/// A graphic frame holding an `a:tbl` of [rows] of cell text (not
+/// XML-escaped).
 String tableFrame(List<List<String>> rows) =>
     '<p:graphicFrame><a:graphic><a:graphicData><a:tbl>'
     '${[
@@ -69,4 +73,5 @@ String tableFrame(List<List<String>> rows) =>
     ].join()}'
     '</a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
 
+/// A `p:pic` whose picture is the slide relationship [relId].
 String picture(String relId) => '<p:pic><p:blipFill><a:blip r:embed="$relId"/></p:blipFill></p:pic>';

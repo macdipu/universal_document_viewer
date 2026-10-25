@@ -11,6 +11,8 @@ import '../common/reader_contract.dart';
 /// another format) falls back to the first page. It may throw on a damaged
 /// file: [DocumentThumbnails] turns any failure into null for its callers.
 abstract interface class ThumbnailRenderer {
+  /// Draws the file at [path] [width] pixels wide, on the page [position]
+  /// points to (else the first); null when there's nothing to show.
   Future<ui.Image?> render(String path, {required int width, ReadingPosition? position});
 }
 

@@ -2,38 +2,40 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
-/// BRD §12.5 zip-bomb/path-traversal guard for DOCX/XLSX ZIP containers
-/// (ODF-P5-03), run before handing bytes to the Word and spreadsheet engines.
-///
-/// `ZipDecoder.decodeBytes` only parses the central directory - confirmed by
-/// reading `archive` 4.3.0's source, not assumed from its README - so
-/// [check] never decompresses entry content and stays cheap even for a
-/// maliciously crafted archive.
-///
-/// It vets the sizes the archive *declares*. That an entry can't inflate
-/// past its declared size is enforced where it's read: by `archive` itself
-/// since 4.5.0 (hence the `^4.5.0` constraint) and, independently, by the
-/// kit's `OpcPackage`.
+import 'reader_contract.dart';
+
+/// What [ZipSafetyGuard.check] found.
 enum ZipSafetyResult {
   /// Safe to decompress and parse.
   safe,
 
   /// Structurally a ZIP, but its declared entry count or total uncompressed
-  /// size exceeds the ceiling - reuses BRD §13's "too large" message.
+  /// size exceeds the ceiling: [DocumentLoadError.tooLarge].
   tooLarge,
 
-  /// Not a well-formed ZIP, or an entry name attempts path traversal -
-  /// reuses BRD §13's generic "damaged or incomplete" message. A real
-  /// password-protected `.docx`/`.xlsx` also lands here: Office wraps the
-  /// whole package in an OLE2 compound file, not a ZIP, so it fails to
-  /// parse as one (ODF-P5-04).
+  /// Not a well-formed ZIP, or an entry name attempts path traversal:
+  /// [DocumentLoadError.corrupted]. A password-protected `.docx`/`.xlsx`
+  /// also lands here: Office wraps the whole package in an OLE2 compound
+  /// file, not a ZIP, so it fails to parse as one.
   corrupted,
 }
 
+/// Guards against zip bombs and path traversal in Office (OOXML) files:
+/// run before handing bytes to the Word, spreadsheet and slide engines.
+///
+/// [check] reads only the ZIP's central directory (`archive`'s
+/// `ZipDecoder.decodeBytes` doesn't decompress entries), so it stays cheap
+/// even for a maliciously crafted archive. It vets the sizes the archive
+/// *declares*. That an entry can't inflate past its declared size is
+/// enforced where it's read: by `archive` itself since 4.5.0 (hence the
+/// `^4.5.0` constraint) and, independently, by the package's ZIP reader.
+///
+/// The ceilings are conservative defaults, not standards.
 class ZipSafetyGuard {
-  /// First-pass, adjustable ceilings, not BRD-specified numbers - same
-  /// posture as `CsvReaderController.maxBytes`/`TextReaderController.maxBytes`.
+  /// The most entries an archive may declare.
   static const int maxEntryCount = 10000;
+
+  /// The most bytes all entries together may declare uncompressed (500 MiB).
   static const int maxUncompressedBytes = 500 * 1024 * 1024;
 
   /// Largest Office file read at all. Readers check the file's length
@@ -41,6 +43,8 @@ class ZipSafetyGuard {
   /// bytes already read.
   static const int maxFileBytes = 200 * 1024 * 1024;
 
+  /// Classifies [bytes] from the ZIP's central directory only, without
+  /// decompressing any entry.
   static ZipSafetyResult check(Uint8List bytes) {
     if (bytes.length > maxFileBytes) return ZipSafetyResult.tooLarge;
     final decoder = ZipDecoder();

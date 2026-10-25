@@ -21,9 +21,14 @@ typedef PdfTileKey = ({int page, int level, int column, int row});
 /// currently wants); requests no longer
 /// wanted are cancelled while still queued.
 class PdfImageCache extends ChangeNotifier {
+  /// A cache for [document], holding at most about [maxBytes] of images.
   PdfImageCache(this.document, {this.maxBytes = 96 << 20});
 
+  /// The document the images are rendered from.
   final PdfiumDocument document;
+
+  /// Byte budget for decoded images (RGBA, 4 bytes per pixel); 96 MiB by
+  /// default.
   final int maxBytes;
 
   /// Tile edge in device pixels.
@@ -46,12 +51,14 @@ class PdfImageCache extends ChangeNotifier {
   var _bytes = 0;
   bool _disposed = false;
 
+  /// The base image of 0-based [page], or null if it isn't rendered yet.
   ui.Image? base(int page) {
     final image = _bases[page];
     if (image != null) _touch(page);
     return image;
   }
 
+  /// The tile at [key], or null if it isn't rendered yet.
   ui.Image? tile(PdfTileKey key) {
     final image = _tiles[key];
     if (image != null) _touch(key);

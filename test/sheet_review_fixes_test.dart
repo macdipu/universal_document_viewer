@@ -4,8 +4,7 @@ import 'package:universal_document_viewer/universal_document_viewer.dart';
 import 'package:universal_document_viewer/src/engines/sheets/formula_references.dart';
 import 'package:universal_document_viewer/testing.dart';
 
-/// Regressions for the pre-release review of the spreadsheet code
-/// (CR-OWN-ENGINES, 2026-10-24).
+/// Regressions found in a review of the spreadsheet code before 0.1.
 void main() {
   Worksheet sheetOf(XlsxTestSheet sheet, {List<String> dxfs = const []}) =>
       XlsxReader.read(buildXlsx([sheet], dxfs: dxfs)).sheets.single;

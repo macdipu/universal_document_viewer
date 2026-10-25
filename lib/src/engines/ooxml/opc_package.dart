@@ -7,7 +7,10 @@ import 'package:xml/xml.dart';
 
 /// The bytes aren't a readable Office package.
 class OpcFormatException implements Exception {
+  /// A format failure described by [message].
   const OpcFormatException(this.message);
+
+  /// What was wrong, for logs rather than for users.
   final String message;
 
   @override
@@ -16,8 +19,10 @@ class OpcFormatException implements Exception {
 
 /// A link from one part to another (ECMA-376 Part 2, §9.3).
 class OpcRelationship {
+  /// A relationship as read from a `.rels` part.
   const OpcRelationship({required this.id, required this.type, required this.target, this.external = false});
 
+  /// The relationship's `Id` (e.g. `rId1`), unique within its source part.
   final String id;
 
   /// The full relationship type URI; compare with [isOfType].
@@ -28,6 +33,8 @@ class OpcRelationship {
   /// written.
   final String target;
 
+  /// Whether the target is outside the package (`TargetMode="External"`),
+  /// e.g. a hyperlink.
   final bool external;
 
   /// Whether [type] ends in `/kind`, e.g. `officeDocument`, `worksheet`,
@@ -70,6 +77,8 @@ class OpcPackage {
 
   static String _key(String partName) => (partName.startsWith('/') ? partName.substring(1) : partName).toLowerCase();
 
+  /// Whether the package has a part named [partName] (any case, with or
+  /// without a leading `/`).
   bool contains(String partName) => _parts.containsKey(_key(partName));
 
   /// The part's inflated bytes; null when it doesn't exist. Throws

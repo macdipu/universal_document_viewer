@@ -11,32 +11,56 @@ import 'word_widgets.dart';
 /// [number] is the whole paragraph's number and [textOffset] where the
 /// piece starts in its text.
 class WordPageEntry {
+  /// An entry showing [block].
   const WordPageEntry(this.block, {this.number, this.textOffset = 0});
 
+  /// The block, or piece of a paragraph, shown.
   final WordBlock block;
+
+  /// The paragraph's number in [WordDocumentLayout] when this is a paragraph
+  /// or a piece of one; null for a table.
   final int? number;
+
+  /// Where this piece starts in the whole paragraph's
+  /// [WordParagraph.plainText]; 0 for a whole block or a first piece.
   final int textOffset;
 }
 
+/// One page of the paged layout: its section's page setup and the blocks
+/// placed on it.
 class WordPage {
+  /// An empty page of [section].
   WordPage({required this.section, required this.sectionIndex, required this.firstOfSection});
 
+  /// The section whose page size, margins, header and footer the page uses.
   final WordSection section;
+
+  /// Index of [section] in [WordDocument.sections].
   final int sectionIndex;
 
   /// The first page of its section, which may have its own header/footer.
   final bool firstOfSection;
+
+  /// The blocks on the page, top to bottom.
   final entries = <WordPageEntry>[];
 
   /// Logical-pixel page size.
   double get width => section.pageWidth * wordScale;
+
+  /// Page height in logical pixels.
   double get height => section.pageHeight * wordScale;
+
+  /// Width between the margins, in logical pixels (at least 1).
   double get bodyWidth => math.max(1, (section.pageWidth - section.marginLeft - section.marginRight) * wordScale);
+
+  /// Height between the margins, in logical pixels (at least 1).
   double get bodyHeight => math.max(1, (section.pageHeight - section.marginTop - section.marginBottom) * wordScale);
 
   /// The header/footer for this page (first-page ones when the section
   /// asks for them).
   List<WordBlock>? get header => _pick(section.headers);
+
+  /// The footer for this page, chosen like [header].
   List<WordBlock>? get footer => _pick(section.footers);
 
   List<WordBlock>? _pick(Map<HeaderFooterKind, List<WordBlock>> parts) =>
@@ -45,26 +69,39 @@ class WordPage {
 
 /// A document split into pages, and which page each paragraph starts on.
 class WordPagination {
+  /// The result of a pagination: [pages] and [pageOfParagraph].
   const WordPagination(this.pages, this.pageOfParagraph);
 
+  /// The pages, in order.
   final List<WordPage> pages;
+
+  /// Paragraph number (see [WordDocumentLayout]) -> index into [pages] of
+  /// the page it starts on.
   final Map<int, int> pageOfParagraph;
 }
 
 /// Measures blocks exactly as the widgets lay them out: paragraphs through
 /// [TextPainter] with the spans [WordParagraphStyler] builds for the view.
 class WordMeasurer {
+  /// A measurer drawing text with [styler], scaled by [textScaler].
   WordMeasurer(this.styler, {this.textScaler = TextScaler.noScaling});
 
+  /// Builds the spans that are measured.
   final WordParagraphStyler styler;
+
+  /// The text scaling to measure with; it must match the view's.
   final TextScaler textScaler;
 
+  /// Height of [block] in logical pixels at [width]; 0 for a section break.
   double blockHeight(WordBlock block, double width) => switch (block) {
     final WordParagraph paragraph => paragraphHeight(paragraph, width),
     final WordTable table => tableHeight(table, width),
     WordSectionBreak() => 0,
   };
 
+  /// Height of [paragraph] in logical pixels at [width], spacing and any
+  /// fill/border box included. [textOffset] is where a split piece starts in
+  /// the whole paragraph's text.
   double paragraphHeight(WordParagraph paragraph, double width, {int textOffset = 0}) {
     final geometry = ParagraphGeometry(paragraph, width);
     final (painter, _) = _paint(paragraph, geometry, textOffset);
@@ -114,6 +151,8 @@ class WordMeasurer {
     }
   }
 
+  /// Height of [table] in logical pixels at [width], with the space above
+  /// and below it.
   double tableHeight(WordTable table, double width) {
     final widths = WordTableView.columnWidthsFor(table, width);
     var height = 2 * WordTableView.tableMarginY;
@@ -205,9 +244,13 @@ class WordMeasurer {
 
 /// Splits a document's body (then its notes) into pages.
 class WordPaginator {
+  /// A paginator for [layout], measuring with [measurer].
   WordPaginator(this.layout, this.measurer);
 
+  /// The document and its paragraph numbers.
   final WordDocumentLayout layout;
+
+  /// Measures blocks for fitting them on pages.
   final WordMeasurer measurer;
 
   final _pages = <WordPage>[];
@@ -215,6 +258,8 @@ class WordPaginator {
   late WordPage _page;
   var _used = 0.0;
 
+  /// Splits the document into pages. Call once per paginator: the pages
+  /// built are kept and added to.
   WordPagination paginate() {
     final sections = layout.document.sections;
     _startPage(sections.first, 0, firstOfSection: true);

@@ -11,10 +11,13 @@ import 'dart:math' as math;
 /// times and elapsed time. Locale-specific built-in formats use their
 /// en-US look.
 class NumberFormat {
+  /// Wraps a format [code] as written in the file.
   const NumberFormat(this.code);
 
+  /// The format code, e.g. `#,##0.00` (a `<numFmt formatCode>`).
   final String code;
 
+  /// Excel's default format (`numFmtId` 0).
   static const general = NumberFormat('General');
 
   /// The format for a built-in `numFmtId` (§18.8.30), or null when the id
@@ -24,6 +27,7 @@ class NumberFormat {
     return code == null ? null : NumberFormat(code);
   }
 
+  /// Whether this is the General format (or an empty code).
   bool get isGeneral => code.isEmpty || code.toLowerCase() == 'general';
 
   /// Whether this formats numbers as dates or times.

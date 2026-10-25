@@ -62,7 +62,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   }
 
   /// Keeps the same cells in view across a zoom change: offsets scale by
-  /// the zoom ratio once the resized grid has laid out (UX-32).
+  /// the zoom ratio once the resized grid has laid out.
   void _onControllerChanged() {
     if (widget.controller.zoom != _zoom) _onZoomChanged(widget.controller.zoom);
   }
@@ -318,7 +318,7 @@ class _Merge {
   final int sheetColumn;
 }
 
-/// Full value of a cell, which the grid truncates (UX-32), with Copy and,
+/// Full value of a cell, which the grid truncates, with Copy and,
 /// for a linked cell, Open link. A formula cell also shows its [formula]
 /// (as Excel's formula bar does, with its own Copy), and a noted cell its
 /// [comment]. Web links open outside the app (`http`,
@@ -509,12 +509,19 @@ class _HeaderCell extends StatelessWidget {
 
 /// A whole row or column of the grid, picked from its header.
 class GridSelection {
+  /// Selects the sheet row [index].
   const GridSelection.row(this.index) : isRow = true;
+
+  /// Selects the sheet column [index].
   const GridSelection.column(this.index) : isRow = false;
 
+  /// Whether a row is selected; false for a column.
   final bool isRow;
+
+  /// Zero-based sheet index of the selected row or column.
   final int index;
 
+  /// Whether the zero-based cell at [row], [column] is in the selection.
   bool contains(int row, int column) => isRow ? row == index : column == index;
 
   @override
@@ -527,8 +534,11 @@ class GridSelection {
 /// What the selection bar shows: like a spreadsheet's status bar, Sum and
 /// Average cover the number cells only.
 class SelectionSummary {
+  /// Creates a summary from already gathered parts.
   const SelectionSummary({required this.label, required this.values, required this.numbers});
 
+  /// Summarises the cells of [rows] under [selection]; a row selection
+  /// covers [columnCount] columns. [strings] supplies the label.
   factory SelectionSummary.of(
     List<List<SheetCell?>> rows,
     int columnCount,
@@ -548,14 +558,23 @@ class SelectionSummary {
     );
   }
 
+  /// What is selected, e.g. "Row 3" or "Column B" in [DocumentViewerStrings]'
+  /// wording.
   final String label;
 
   /// Every cell's shown text, in order, blanks included (what Copy copies).
   final List<String> values;
+
+  /// The number cells' values (see [SheetCell.number]), in order.
   final List<num> numbers;
 
+  /// How many cells show any text.
   int get count => values.where((v) => v.isNotEmpty).length;
+
+  /// Sum of [numbers]; 0 when there are none.
   num get sum => numbers.fold<num>(0, (a, b) => a + b);
+
+  /// Mean of [numbers]; null when there are none.
   double? get average => numbers.isEmpty ? null : sum / numbers.length;
 
   /// Trailing blanks dropped, so a column doesn't copy hundreds of empty lines.
@@ -665,7 +684,7 @@ class _DataCell extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final style = data?.style ?? CellStyle.plain;
     final background = style.fillColor == null ? null : Color(style.fillColor!);
-    // Theme colours, not a hard-coded orange (UX-32): the current match
+    // Theme colours, not a hard-coded orange: the current match
     // stands out, other matches are marked lightly.
     final highlights = DocumentViewerTheme.of(context);
     final fill = switch (highlight) {

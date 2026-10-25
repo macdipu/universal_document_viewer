@@ -12,6 +12,8 @@ String? wAttr(XmlElement? element, String name) {
   return null;
 }
 
+/// The first child element of [element] with local name [name], ignoring
+/// the prefix; null if there is none or [element] is null.
 XmlElement? wChild(XmlElement? element, String name) {
   if (element == null) return null;
   for (final child in element.childElements) {
@@ -20,6 +22,8 @@ XmlElement? wChild(XmlElement? element, String name) {
   return null;
 }
 
+/// The child elements of [element] with local name [name], in document
+/// order; empty when [element] is null.
 Iterable<XmlElement> wChildren(XmlElement? element, String name) =>
     element == null ? const [] : element.childElements.where((e) => e.localName == name);
 
@@ -41,8 +45,11 @@ double? twips(String? value) => switch (double.tryParse(value ?? '')) {
 
 /// The theme's fonts and colours (DrawingML, `a:theme`).
 class WordTheme {
+  /// A theme with the given fonts and scheme [colors].
   const WordTheme({this.majorFont, this.minorFont, this.colors = const {}});
 
+  /// Office's default theme, used when a document has none; its colours
+  /// also fill in any a document's theme leaves out.
   static const standard = WordTheme(
     majorFont: 'Calibri Light',
     minorFont: 'Calibri',
@@ -53,12 +60,16 @@ class WordTheme {
     },
   );
 
+  /// The headings font (`a:majorFont`, its `a:latin` typeface).
   final String? majorFont;
+
+  /// The body font (`a:minorFont`, its `a:latin` typeface).
   final String? minorFont;
 
   /// Scheme colour name (`dk1`, `accent1`...) -> 0xAARRGGBB.
   final Map<String, int> colors;
 
+  /// Reads a theme part; [standard] when [doc] is null.
   factory WordTheme.parse(XmlDocument? doc) {
     if (doc == null) return standard;
     XmlElement? find(String name) => doc.descendantElements.where((e) => e.localName == name).firstOrNull;
@@ -100,24 +111,56 @@ class WordTheme {
 /// Run properties as they accumulate down the style hierarchy; null means
 /// "not set at this level".
 class RunProps {
+  /// Bold (`w:b`).
   bool? bold;
+
+  /// Italic (`w:i`).
   bool? italic;
+
+  /// Single strikethrough (`w:strike`).
   bool? strike;
+
+  /// Double strikethrough (`w:dstrike`).
   bool? doubleStrike;
+
+  /// All capitals (`w:caps`).
   bool? allCaps;
+
+  /// Small capitals (`w:smallCaps`).
   bool? smallCaps;
+
+  /// Hidden text (`w:vanish`); the reader leaves hidden runs out.
   bool? hidden;
+
+  /// Underline (`w:u`).
   UnderlineStyle? underline;
+
+  /// Text colour as 0xAARRGGBB (`w:color`).
   int? color;
+
+  /// Highlighter colour as 0xAARRGGBB (`w:highlight`).
   int? highlight;
+
+  /// Run shading as 0xAARRGGBB (`w:shd`).
   int? fill;
+
+  /// Font size in points (`w:sz`, read from half-points).
   double? size;
+
+  /// Font family name (`w:rFonts`, theme fonts resolved).
   String? font;
+
+  /// Superscript or subscript (`w:vertAlign`).
   VerticalTextPosition? verticalPosition;
+
+  /// Extra space between characters in points (`w:spacing`, read from
+  /// twentieths of a point).
   double? letterSpacing;
 
+  /// Empty properties: nothing set.
   RunProps();
 
+  /// An independent copy.
   RunProps copy() => RunProps()..overrideWith(this);
 
   /// Fields set in [other] replace this one's.
@@ -213,6 +256,8 @@ class RunProps {
     }
   }
 
+  /// The final [RunFormat], with defaults for anything still unset (plain
+  /// 11-point text).
   RunFormat build() => RunFormat(
     bold: bold ?? false,
     italic: italic ?? false,
@@ -233,31 +278,74 @@ class RunProps {
 
 /// Paragraph properties as they accumulate; null means "not set here".
 class ParaProps {
+  /// Alignment (`w:jc`).
   ParagraphAlignment? alignment;
+
+  /// Left (start) indent in points (`w:ind`).
   double? indentLeft;
+
+  /// Right (end) indent in points (`w:ind`).
   double? indentRight;
+
+  /// First-line indent in points (`w:ind`); negative for a hanging indent.
   double? firstLineIndent;
+
+  /// Space above in points (`w:spacing w:before`).
   double? spaceBefore;
+
+  /// Space below in points (`w:spacing w:after`).
   double? spaceAfter;
+
+  /// Line spacing (`w:spacing w:line`): a multiple of single spacing for
+  /// [LineSpacingRule.auto], otherwise points.
   double? lineSpacing;
+
+  /// How to read [lineSpacing] (`w:spacing w:lineRule`).
   LineSpacingRule? lineSpacingRule;
+
+  /// Paragraph shading as 0xAARRGGBB (`w:shd`).
   int? fill;
+
+  /// Top border (`w:pBdr`).
   WordBorderLine? borderTop;
+
+  /// Bottom border (`w:pBdr`).
   WordBorderLine? borderBottom;
+
+  /// Left (start) border (`w:pBdr`).
   WordBorderLine? borderLeft;
+
+  /// Right (end) border (`w:pBdr`).
   WordBorderLine? borderRight;
+
+  /// Start on a new page (`w:pageBreakBefore`).
   bool? pageBreakBefore;
+
+  /// Keep on the same page as the next paragraph (`w:keepNext`).
   bool? keepWithNext;
+
+  /// Right-to-left paragraph (`w:bidi`).
   bool? rightToLeft;
+
+  /// The list it belongs to (`w:numPr/w:numId`); 0 means no numbering.
   int? numId;
+
+  /// Its 0-based list level (`w:numPr/w:ilvl`).
   int? numLevel;
+
+  /// Outline level (`w:outlineLvl`): 0 for a level-1 heading.
   int? outlineLevel;
+
+  /// Paragraph style id (`w:pStyle`).
   String? styleId;
 
+  /// Empty properties: nothing set.
   ParaProps();
 
+  /// An independent copy.
   ParaProps copy() => ParaProps()..overrideWith(this);
 
+  /// Fields set in [other] replace this one's.
   void overrideWith(ParaProps other) {
     alignment = other.alignment ?? alignment;
     indentLeft = other.indentLeft ?? indentLeft;
@@ -341,6 +429,8 @@ class ParaProps {
     }
   }
 
+  /// The final [ParagraphFormat], with defaults for anything still unset.
+  /// [numId], [numLevel], [outlineLevel] and [styleId] aren't part of it.
   ParagraphFormat build() => ParagraphFormat(
     alignment: alignment ?? ParagraphAlignment.left,
     indentLeft: indentLeft ?? 0,
@@ -448,13 +538,26 @@ const _highlightColors = <String, int>{
 /// cell text formatting, and conditional formats for header/total rows,
 /// first/last columns and banding.
 class TableStyle {
+  /// An empty table style: no formatting, borders or conditional formats.
   TableStyle();
 
+  /// Text formatting for the whole table (the style's `w:rPr`).
   final run = RunProps();
+
+  /// Paragraph formatting for the whole table (the style's `w:pPr`).
   final paragraph = ParaProps();
+
+  /// The table's outer borders (`w:tblBorders`).
   WordCellBorders borders = WordCellBorders.none;
+
+  /// The lines between rows (`w:insideH`), or null for none.
   WordBorderLine? insideHorizontal;
+
+  /// The lines between columns (`w:insideV`), or null for none.
   WordBorderLine? insideVertical;
+
+  /// Conditional formats by `w:tblStylePr` type (`firstRow`, `band1Horz`...):
+  /// their text formatting and cell fill (0xAARRGGBB, or null).
   final conditional = <String, ({RunProps run, int? fill})>{};
 }
 
@@ -464,18 +567,22 @@ class TableStyle {
 class WordStyles {
   WordStyles._(this.theme, this._styles, this._defaultParagraphStyle, this.defaultRun, this.defaultParagraph);
 
+  /// The theme that style colours and fonts are resolved against.
   final WordTheme theme;
   final Map<String, XmlElement> _styles;
   final String? _defaultParagraphStyle;
 
   /// `w:docDefaults`.
   final RunProps defaultRun;
+
+  /// `w:docDefaults` paragraph properties.
   final ParaProps defaultParagraph;
 
   final _paragraphCache = <String?, (ParaProps, RunProps)>{};
   final _characterCache = <String, RunProps>{};
   final _tableCache = <String, TableStyle>{};
 
+  /// Reads `styles.xml`; [doc] null gives no styles and empty defaults.
   factory WordStyles.parse(XmlDocument? doc, WordTheme theme) {
     final root = doc?.rootElement;
     final styles = <String, XmlElement>{};
@@ -548,6 +655,8 @@ class WordStyles {
     });
   }
 
+  /// A table style's resolved formatting, borders and conditional formats;
+  /// an empty [TableStyle] for none or unknown ids.
   TableStyle tableStyle(String? id) {
     if (id == null || !_styles.containsKey(id)) return TableStyle();
     return _tableCache.putIfAbsent(id, () {
@@ -626,6 +735,7 @@ class WordNumbering {
   final _counters = <int, List<int?>>{};
   final _overridesApplied = <int>{};
 
+  /// Reads `numbering.xml`; [doc] null gives no lists.
   factory WordNumbering.parse(XmlDocument? doc, WordTheme theme) {
     final root = doc?.rootElement;
     final abstract = <int, Map<int, _Level>>{};

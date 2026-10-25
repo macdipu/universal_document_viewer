@@ -21,6 +21,7 @@ import 'thumbnail_sources.dart';
 /// margins and the section's page size included. Page 1, or with a saved
 /// `paragraph`, the page that paragraph starts on.
 class WordThumbnailRenderer implements ThumbnailRenderer {
+  /// A stateless Word thumbnail renderer.
   const WordThumbnailRenderer();
 
   /// Body blocks kept past the page wanted: far more than a page holds, so

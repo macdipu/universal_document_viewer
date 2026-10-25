@@ -10,7 +10,10 @@ import 'word_styles.dart';
 
 /// The file isn't a readable `.docx`.
 class DocxFormatException implements Exception {
+  /// An exception explaining what is wrong in [message].
   const DocxFormatException(this.message);
+
+  /// What is wrong with the file.
   final String message;
 
   @override
@@ -29,6 +32,10 @@ class DocxFormatException implements Exception {
 /// bytes with `ZipSafetyGuard` first, and can run this in a background
 /// isolate: the result is plain data.
 abstract final class DocxReader {
+  /// Parses the `.docx` file in [bytes].
+  ///
+  /// Throws a [DocxFormatException] when the package or its XML can't be
+  /// read.
   static WordDocument read(Uint8List bytes) {
     try {
       return _DocxParser(OpcPackage.decode(bytes)).parse();

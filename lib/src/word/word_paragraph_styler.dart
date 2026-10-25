@@ -15,10 +15,14 @@ const double wordScale = 96 / 72;
 /// each inline widget (in order) and how laid-out text offsets map back to
 /// [WordParagraph.plainText] offsets.
 class ParagraphSpans {
+  /// Spans for [root], with its [placeholders] and offset segments.
   ParagraphSpans(this.root, this.placeholders, this._segments);
 
   /// The paragraph's whole text: style root, marker, indent and content.
   final TextSpan root;
+
+  /// The size of each [WidgetSpan] in [root], in order (images, note marks,
+  /// a first-line indent), for laying it out with a [TextPainter].
   final List<PlaceholderDimensions> placeholders;
 
   /// (laid-out start, plain start, laid-out length, plain length).
@@ -43,6 +47,7 @@ class ParagraphSpans {
 /// Where a paragraph's text goes inside a given width, in logical pixels.
 /// Shared by the paragraph widget and the page measurer.
 class ParagraphGeometry {
+  /// The geometry of [paragraph] in [width] logical pixels.
   ParagraphGeometry(WordParagraph paragraph, double width) {
     final format = paragraph.format;
     var left = format.indentLeft;
@@ -68,16 +73,33 @@ class ParagraphGeometry {
     spaceAfter = format.spaceAfter * wordScale;
   }
 
+  /// Indent before the text (left in left-to-right text), capped at 40% of
+  /// the width.
   double start = 0;
+
+  /// Indent after the text, capped at 20% of the width.
   double end = 0;
+
+  /// Width of the list marker column; 0 when the marker is inline or there
+  /// is none.
   double markerWidth = 0;
+
+  /// Whether the paragraph has a fill or a visible border, drawn as a box.
   bool decorated = false;
 
   /// Fill/border box padding plus border widths, horizontally/vertically.
   double boxHorizontal = 0;
+
+  /// Vertical counterpart of [boxHorizontal].
   double boxVertical = 0;
+
+  /// Width left for the text (at least 1).
   late final double textWidth;
+
+  /// Space above the paragraph.
   late final double spaceBefore;
+
+  /// Space below the paragraph.
   late final double spaceAfter;
 
   /// Height around the text: spacing and the box.
@@ -87,6 +109,8 @@ class ParagraphGeometry {
 /// Turns paragraphs into styled text, for the paragraph widget and for the
 /// page measurer alike, so what is measured is what is drawn.
 class WordParagraphStyler {
+  /// A styler for [scheme] that shows links without a colour of their own in
+  /// [linkColor].
   WordParagraphStyler({
     required this.scheme,
     required this.linkColor,
@@ -99,6 +123,7 @@ class WordParagraphStyler {
   /// Search highlight colours; null for the [scheme]'s defaults.
   final DocumentViewerTheme? matchColors;
 
+  /// Colours for text with no colour of its own, placeholders and defaults.
   final ColorScheme scheme;
 
   /// For the screen-reader label of a note mark.
@@ -109,6 +134,8 @@ class WordParagraphStyler {
 
   /// Set in a paged view: what `PAGE`/`NUMPAGES` fields show.
   final int? pageNumber;
+
+  /// Set in a paged view: what `NUMPAGES` fields show.
   final int? pageCount;
 
   /// Line height for a paragraph, as a multiple of its font size.
@@ -120,9 +147,13 @@ class WordParagraphStyler {
     LineSpacingRule.atLeast => math.max(1.15, format.lineSpacing / firstSize).clamp(1.0, 4.0),
   };
 
+  /// The paragraph's first text size in points: its first text run's, else
+  /// its marker's, else 11.
   static double firstSizeOf(WordParagraph paragraph) =>
       paragraph.inlines.whereType<WordText>().firstOrNull?.format.size ?? paragraph.marker?.format.size ?? 11;
 
+  /// The [TextAlign] for the paragraph's alignment; left and right follow the
+  /// text direction (start and end).
   static TextAlign textAlignOf(ParagraphFormat format) => switch (format.alignment) {
     ParagraphAlignment.left => TextAlign.start,
     ParagraphAlignment.center => TextAlign.center,

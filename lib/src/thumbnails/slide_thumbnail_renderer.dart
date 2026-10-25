@@ -13,6 +13,7 @@ import 'thumbnail_sources.dart';
 /// the reader's own [SlideCard] in the presentation's slide shape (16:9,
 /// 4:3, ...).
 class SlideThumbnailRenderer implements ThumbnailRenderer {
+  /// A stateless slide thumbnail renderer.
   const SlideThumbnailRenderer();
 
   /// The slide's logical width: roomy enough for the card's text sizes to

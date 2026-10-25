@@ -15,6 +15,7 @@ import 'word_search_controller.dart';
 /// them: the layout (paragraph numbers), search highlights, and what tapping
 /// a link or a note mark does.
 class WordScope extends InheritedWidget {
+  /// Provides [layout], [search], the tap handlers and [anchors] to [child].
   const WordScope({
     super.key,
     required this.layout,
@@ -28,15 +29,23 @@ class WordScope extends InheritedWidget {
   /// Points -> logical pixels.
   static const double scale = wordScale;
 
+  /// The document and its paragraph numbers.
   final WordDocumentLayout layout;
+
+  /// Where paragraphs get their search highlights.
   final WordSearchController search;
+
+  /// Called when a link is tapped.
   final void Function(WordLink link) onLink;
+
+  /// Called when a footnote or endnote mark is tapped.
   final void Function(WordNoteReference note) onNote;
 
   /// Paragraph number -> the context of its widget while it's built, so a
   /// jump can scroll it into view.
   final Map<int, BuildContext> anchors;
 
+  /// The nearest [WordScope]; there must be one.
   static WordScope of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<WordScope>()!;
 
   @override
@@ -46,11 +55,17 @@ class WordScope extends InheritedWidget {
 /// Set around a page in the paged view: the page's number (for `PAGE`
 /// fields) and the page count (for `NUMPAGES`).
 class WordPageInfo extends InheritedWidget {
+  /// Page [number] of [count], for [child].
   const WordPageInfo({super.key, required this.number, required this.count, required super.child});
 
+  /// The page's number, 1-based.
   final int number;
+
+  /// How many pages the document has.
   final int count;
 
+  /// The nearest [WordPageInfo], or null outside a page (the continuous
+  /// view).
   static WordPageInfo? maybeOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<WordPageInfo>();
 
   @override
@@ -72,8 +87,10 @@ WordParagraphStyler stylerOf(BuildContext context) {
 
 /// One block: a paragraph, a table, or a section break.
 class WordBlockView extends StatelessWidget {
+  /// A view of [block].
   const WordBlockView(this.block, {super.key});
 
+  /// The block shown.
   final WordBlock block;
 
   @override
@@ -86,14 +103,23 @@ class WordBlockView extends StatelessWidget {
 
 // --- Paragraphs ----------------------------------------------------------------
 
+/// A paragraph with its marker, indents, spacing, fill and borders, search
+/// highlights and tappable links and note marks. It registers itself in
+/// [WordScope.anchors] as the jump target for its paragraph number.
 class WordParagraphView extends StatefulWidget {
   /// [number] and [textOffset] are for a piece of a paragraph split across
   /// pages: the whole paragraph's number, and where this piece starts in
   /// its text.
   const WordParagraphView(this.paragraph, {super.key, this.number, this.textOffset = 0});
 
+  /// The paragraph, or piece of one, shown.
   final WordParagraph paragraph;
+
+  /// The paragraph's number; null to look it up in [WordScope.layout].
   final int? number;
+
+  /// Where this piece starts in the whole paragraph's text; 0 for a whole
+  /// paragraph.
   final int textOffset;
 
   @override
@@ -266,9 +292,13 @@ class _WordParagraphViewState extends State<WordParagraphView> {
 /// An image at its size in the document, shrunk to fit; a placeholder
 /// (with its alt text) when it can't be shown.
 class WordImageView extends StatelessWidget {
+  /// A view of [image], no wider than [maxWidth].
   const WordImageView(this.image, {super.key, required this.maxWidth});
 
+  /// The image shown.
   final WordImage image;
+
+  /// The widest the image may be, in logical pixels.
   final double maxWidth;
 
   @override
@@ -306,8 +336,10 @@ class WordImageView extends StatelessWidget {
 /// spanned and vertically merged cells laid out over the columns and rows
 /// they cover.
 class WordTableView extends StatelessWidget {
+  /// A view of [table].
   const WordTableView(this.table, {super.key});
 
+  /// The table shown.
   final WordTable table;
 
   static const double _minColumnWidth = 48;
@@ -330,6 +362,8 @@ class WordTableView extends StatelessWidget {
 
   /// Horizontal padding inside a cell.
   static const double cellPaddingX = 7;
+
+  /// Vertical padding inside a cell.
   static const double cellPaddingY = 2;
 
   /// Space above and below a table.
@@ -397,6 +431,7 @@ class WordTableView extends StatelessWidget {
     );
   }
 
+  /// The number of grid columns: the grid's, or the widest row's if wider.
   static int columnCountOf(WordTable table) {
     var widest = table.columnWidths.length;
     for (final row in table.rows) {

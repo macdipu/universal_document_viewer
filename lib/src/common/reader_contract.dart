@@ -7,8 +7,8 @@
 /// - **Positions** are opaque key/value maps ([ReadingPosition]). A reader
 ///   takes an `initialPosition` and reports changes through
 ///   `onPositionChanged`; the app stores the map as-is. The keys
-///   ([PositionKeys]) match what OpenReader has always stored, so saved
-///   positions keep working.
+///   ([PositionKeys]) are stable across versions, so saved positions keep
+///   working.
 /// - **Load failures** are typed ([DocumentLoadError]); the wording is the
 ///   app's.
 library;
@@ -18,12 +18,20 @@ typedef ReadingPosition = Map<String, Object?>;
 
 /// Keys used in [ReadingPosition] maps, per reader.
 abstract final class PositionKeys {
-  // PDF
+  /// PDF: the page on screen, from 1 (an `int`).
   static const pageNumber = 'page_number';
+
+  /// PDF: the document's page count when the position was saved (an
+  /// `int`); absent until the document has loaded.
   static const pageCount = 'page_count';
-  static const zoom = 'zoom';
-  static const viewMode = 'view_mode'; // also Word: continuous/paged
-  // Word, Text
+
+  /// PDF and Word: the layout, as the `name` of the reader's view-mode enum
+  /// (`PdfViewMode`: `continuous`/`horizontal`; `WordViewMode`:
+  /// `continuous`/`paged`).
+  static const viewMode = 'view_mode';
+
+  /// Word and Text: the vertical scroll offset, in logical pixels; this is
+  /// what those readers restore.
   static const scrollOffset = 'scroll_offset';
 
   /// Word: the number of the paragraph at the top of the view, in the
@@ -33,18 +41,33 @@ abstract final class PositionKeys {
 
   /// Text: the zero-based line at the top of the view.
   static const line = 'line';
-  // Excel, CSV
+
+  /// Excel, CSV: the active sheet, from 0 (an `int`).
   static const sheetIndex = 'sheet_index';
+
+  /// Excel, CSV: the vertical scroll offset at zoom 1, in logical pixels.
   static const verticalOffset = 'vertical_offset';
+
+  /// Excel, CSV: the horizontal scroll offset at zoom 1, in logical pixels.
   static const horizontalOffset = 'horizontal_offset';
+
+  /// Excel, CSV: the zero-based sheet row at the top of the view (for a
+  /// thumbnail; the offsets are what the reader restores).
   static const row = 'row';
+
+  /// Excel, CSV: the zero-based sheet column at the left of the view (for a
+  /// thumbnail; the offsets are what the reader restores).
   static const column = 'column';
 
   /// Excel, CSV: the reader froze the header row itself (`true`), for a
   /// sheet whose file froze none.
   static const freezeTopRow = 'freeze_top_row';
-  // PowerPoint
+
+  /// PowerPoint: the slide on screen, from 0 (an `int`).
   static const slideIndex = 'slide_index';
+
+  /// PowerPoint: the presentation's slide count when the position was
+  /// saved (an `int`).
   static const slideCount = 'slide_count';
 }
 

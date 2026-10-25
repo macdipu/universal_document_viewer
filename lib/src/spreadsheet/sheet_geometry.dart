@@ -31,6 +31,8 @@ class SheetGeometry {
   /// (15 pt) on screen; other sizes scale from these. Roomier than Excel's
   /// 64 x 20 px, for touch.
   static const double defaultColumnWidth = 110;
+
+  /// See [defaultColumnWidth].
   static const double defaultRowHeight = 36;
 
   /// A column width in characters -> logical pixels. Excel draws `w`
@@ -46,12 +48,16 @@ class SheetGeometry {
   /// To 0.01 px, so a default size comes out exact.
   static double _round(double pixels) => (pixels * 100).roundToDouble() / 100;
 
-  /// Sheet indices of the rows/columns on screen, in order.
+  /// Sheet indices of the rows on screen, in order.
   final List<int> visibleRows;
+
+  /// Sheet indices of the columns on screen, in order.
   final List<int> visibleColumns;
 
-  /// How many of the visible rows/columns are frozen (always on screen).
+  /// How many of the visible rows are frozen (always on screen).
   late final int frozenRowCount;
+
+  /// How many of the visible columns are frozen (always on screen).
   late final int frozenColumnCount;
 
   /// Offset of each visible row/column's start; one extra entry holds the
@@ -67,11 +73,17 @@ class SheetGeometry {
     return sums;
   }
 
+  /// Height in logical pixels of the row at visible index [visibleRow].
   double rowHeight(int visibleRow) => _rowStarts[visibleRow + 1] - _rowStarts[visibleRow];
+
+  /// Width in logical pixels of the column at visible index
+  /// [visibleColumn].
   double columnWidth(int visibleColumn) => _columnStarts[visibleColumn + 1] - _columnStarts[visibleColumn];
 
-  /// Height/width of the frozen rows/columns.
+  /// Total height in logical pixels of the frozen rows.
   double get frozenHeight => _rowStarts[frozenRowCount];
+
+  /// Total width in logical pixels of the frozen columns.
   double get frozenWidth => _columnStarts[frozenColumnCount];
 
   // Scrolling covers only the unfrozen part, so scroll offsets count from
@@ -80,17 +92,23 @@ class SheetGeometry {
   /// Scroll offset that brings [visibleRow] to the top (0 for frozen rows).
   double scrollOffsetOfRow(int visibleRow) => visibleRow < frozenRowCount ? 0 : _rowStarts[visibleRow] - frozenHeight;
 
+  /// Scroll offset that brings [visibleColumn] to the left edge (0 for
+  /// frozen columns).
   double scrollOffsetOfColumn(int visibleColumn) =>
       visibleColumn < frozenColumnCount ? 0 : _columnStarts[visibleColumn] - frozenWidth;
 
   /// The visible row at the top when scrolled to [offset].
   int visibleRowAtScrollOffset(double offset) => _indexAt(_rowStarts, offset + frozenHeight, frozenRowCount);
 
+  /// The visible column at the left edge when scrolled to [offset].
   int visibleColumnAtScrollOffset(double offset) => _indexAt(_columnStarts, offset + frozenWidth, frozenColumnCount);
 
   /// The visible index of sheet row [row], or null when it's hidden or past
   /// the end.
   int? visibleIndexOfRow(int row) => _search(visibleRows, row);
+
+  /// The visible index of sheet column [column], or null when it's hidden
+  /// or past the end.
   int? visibleIndexOfColumn(int column) => _search(visibleColumns, column);
 
   /// The last index whose start is at or before [offset], not before [min].

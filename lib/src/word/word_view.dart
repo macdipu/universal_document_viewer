@@ -31,9 +31,14 @@ import 'word_widgets.dart';
 /// note; links open (web links outside the app, `http`/`https`/`mailto`
 /// only) or jump to their bookmark.
 class WordView extends StatefulWidget {
+  /// A view of [controller]'s document.
   const WordView({super.key, required this.controller, this.padding = const EdgeInsets.all(16)});
 
+  /// The document, view mode, zoom, search and position.
   final WordController controller;
+
+  /// Space around the text in the continuous layout; the paged layout uses
+  /// its own.
   final EdgeInsetsGeometry padding;
 
   @override
@@ -470,9 +475,13 @@ class _WordViewState extends State<WordView> {
 /// - for a strip of page previews. Empty until the document is shown in
 /// [WordViewMode.paged]. Search matches are highlighted as on the page.
 class WordPageThumbnail extends StatelessWidget {
+  /// A preview of page [page] of [controller]'s document.
   const WordPageThumbnail({super.key, required this.controller, required this.page});
 
+  /// The document whose page is shown.
   final WordController controller;
+
+  /// The page shown, 1-based; nothing is shown when it's out of range.
   final int page;
 
   @override
@@ -517,8 +526,10 @@ class WordPageThumbnail extends StatelessWidget {
 /// in the margins above and below. Shown under [paper], a [WordScope] and a
 /// [WordPageInfo]; also drawn offscreen for a document's thumbnail.
 class WordPageView extends StatelessWidget {
+  /// A view of [page].
   const WordPageView(this.page, {super.key});
 
+  /// The page drawn.
   final WordPage page;
 
   /// The paper pages are drawn on: dark text on white, whatever the app

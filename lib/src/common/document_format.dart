@@ -1,10 +1,21 @@
 /// A document type universal_document_viewer can read, and how files map to it.
 enum DocumentFormat {
+  /// PDF (`.pdf`).
   pdf,
+
+  /// Word document (`.docx`).
   word,
+
+  /// Excel workbook (`.xlsx`).
   excel,
+
+  /// PowerPoint presentation (`.pptx`).
   powerpoint,
+
+  /// Plain text or Markdown (`.txt`, `.md`, `.markdown`).
   text,
+
+  /// Comma-separated values (`.csv`).
   csv;
 
   /// Legacy binary `.doc`/`.xls`/`.ppt` are deliberately absent: the Word,

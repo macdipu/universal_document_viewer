@@ -135,10 +135,16 @@ void debugResetPdfWorker([void Function(SendPort replies)? entryPoint]) {
 
 /// A rendered region of a page, as RGBA pixels.
 class PdfRenderedImage {
+  /// An image of [width] x [height] pixels held in [pixels].
   const PdfRenderedImage(this.pixels, this.width, this.height);
 
+  /// Row-major RGBA bytes, 4 per pixel, drawn on white.
   final Uint8List pixels;
+
+  /// Width in pixels.
   final int width;
+
+  /// Height in pixels.
   final int height;
 
   /// Decodes into a [ui.Image] for painting.
@@ -173,10 +179,14 @@ class PdfRenderTask {
     result.ignore();
   }
 
+  /// The rendered image; fails with [PdfCancelledException] if cancelled
+  /// in time, or with [PdfEngineException] on a render error.
   final Future<PdfRenderedImage> result;
   int? _id;
   bool _cancelled = false;
 
+  /// Drops the request if it hasn't started; does nothing if it has, or
+  /// on a second call.
   void cancel() {
     if (_cancelled) return;
     _cancelled = true;
@@ -200,9 +210,12 @@ class PdfiumDocument {
   /// Each page's displayed size in points (rotation applied).
   final List<ui.Size> pageSizes;
 
+  /// The number of pages.
   int get pageCount => pageSizes.length;
 
   bool _closed = false;
+
+  /// Whether the document has been closed; it can't be used after that.
   bool get isClosed => _closed;
 
   /// Opens a PDF file. Throws [PdfOpenException] with

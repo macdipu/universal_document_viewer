@@ -6,6 +6,7 @@ import 'package:archive/archive.dart';
 /// A sheet for [buildXlsx]: cells by address (`'B3'`), and whether the
 /// author hid it (`'hidden'` / `'veryHidden'`).
 class XlsxTestSheet {
+  /// Creates a test sheet named [name] holding [cells].
   const XlsxTestSheet(
     this.name,
     this.cells, {
@@ -16,13 +17,20 @@ class XlsxTestSheet {
     this.afterSheetData = '',
   });
 
+  /// The sheet's tab name.
   final String name;
 
   /// `String` (a shared string), `num`, `bool`, [XlsxTestFormula],
   /// [XlsxTestCell] (a value with formatting) or [XlsxTestXml].
   final Map<String, Object> cells;
+
+  /// The `<sheet state>`: `'hidden'`, `'veryHidden'`, or null for visible.
   final String? state;
+
+  /// Rows to freeze (the frozen `<pane>`'s `ySplit`); 0 for no pane.
   final int frozenRows;
+
+  /// Columns to freeze (the frozen `<pane>`'s `xSplit`).
   final int frozenColumns;
 
   /// Notes by cell (`'B2'`), each with an author.
@@ -35,15 +43,26 @@ class XlsxTestSheet {
 /// A cell written as-is: the XML inside `<c r="..">` and its attributes,
 /// e.g. `XlsxTestXml('<f t="shared" si="0"/><v>4</v>')`.
 class XlsxTestXml {
+  /// Creates a raw cell from its [inner] XML and extra [attributes].
   const XlsxTestXml(this.inner, {this.attributes = ''});
+
+  /// The XML inside `<c>`.
   final String inner;
+
+  /// Extra attributes written into `<c>` as-is, e.g. `t="e"`.
   final String attributes;
 }
 
 /// A formula and the result saved with it (none when [cached] is null).
 class XlsxTestFormula {
+  /// Creates a formula cell with an optional saved result.
   const XlsxTestFormula(this.formula, {this.cached});
+
+  /// The formula without the leading `=`, written as `<f>`.
   final String formula;
+
+  /// The saved result as `<v>`: a `String` (written with `t="str"`) or
+  /// another value written as-is; null for none.
   final Object? cached;
 }
 
@@ -51,6 +70,7 @@ class XlsxTestFormula {
 /// format code, and a border (`'thin'`, `'medium'`...) on [borderSides]
 /// in [borderColor] (none for automatic).
 class XlsxTestCell {
+  /// Creates a formatted cell holding [value].
   const XlsxTestCell(
     this.value, {
     this.bold = false,
@@ -60,12 +80,28 @@ class XlsxTestCell {
     this.borderSides = const ['left', 'right', 'top', 'bottom'],
     this.borderColor,
   });
+
+  /// The cell's value, written as a plain entry of [XlsxTestSheet.cells]
+  /// would be; null for an empty cell that only carries the formatting.
   final Object? value;
+
+  /// Whether the cell's font is bold.
   final bool bold;
+
+  /// Solid fill as an `RRGGBB` hex string (written as `FF` + it); null for
+  /// none.
   final String? fill;
+
+  /// A custom number format code; null for General.
   final String? numberFormat;
+
+  /// The border line style (`'thin'`, `'medium'`, ...); null for none.
   final String? border;
+
+  /// The sides that get [border]: any of `left`, `right`, `top`, `bottom`.
   final List<String> borderSides;
+
+  /// Border colour as an `RRGGBB` hex string; null for automatic.
   final String? borderColor;
 }
 
