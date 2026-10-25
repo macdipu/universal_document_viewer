@@ -1,0 +1,22 @@
+name: Feature request
+description: Something the package should read, show or let you control.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you need, and why?
+      description: The problem in your app, not only the solution. "Users open bank statements with form fields" helps more than "support AcroForms".
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How might it look?
+      description: An API sketch, a screenshot from another app, or a sample file that needs it.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd like to work on this (see CONTRIBUTING.md)

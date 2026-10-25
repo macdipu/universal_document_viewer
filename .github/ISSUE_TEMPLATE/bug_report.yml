@@ -1,0 +1,56 @@
+name: Bug report
+description: A document that opens wrongly, a crash, or anything else that isn't working.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. If a file crashes, hangs or exhausts memory in a parser, please use the
+        [private security form](https://github.com/macdipu/universal_document_viewer/security/advisories/new) instead.
+  - type: dropdown
+    id: format
+    attributes:
+      label: Format
+      multiple: true
+      options: [PDF, Word (.docx), Excel (.xlsx), CSV, PowerPoint (.pptx), Text, DocumentViewer, Thumbnails, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: Screenshots help for anything visual. Compare with how Word, Excel or a PDF reader shows the same file.
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: A file that shows it
+      description: |
+        Attach the smallest document you can share (zip it if GitHub won't take the type), or describe how to make one.
+        Don't attach anything private.
+  - type: textarea
+    id: code
+    attributes:
+      label: How you show it
+      description: The widget or controller code, if it isn't just `DocumentViewer.file(path)`.
+      render: dart
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: 0.2.0 (or a commit)
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and device
+      placeholder: Android 13 on a Redmi phone / macOS 15 / iOS 18 simulator
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: flutter --version
+      render: text

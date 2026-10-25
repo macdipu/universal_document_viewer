@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- For contributors: CONTRIBUTING, a code of conduct, a security policy, issue and pull-request templates, CI (format, analyze, test, pub.dev score) and an architecture guide (`doc/architecture.md`). The code follows `flutter_lints` and one formatting width.
 - Word: `WordDocumentController.zoom` with `zoomIn`/`zoomOut` (text reflows in the continuous layout; pages scale and pan sideways in print layout), the page in view (`pageCount`, `currentPage`, `progress`), `goToPage`, and `pages` with a `WordPageThumbnail` widget for page previews.
 - PowerPoint: `SlideDeckController.zoom` with `zoomIn`/`zoomOut`; slides highlight text matching the search.
 - Text: more space between lines and wider margins; the current search match's line is highlighted apart from the other matches.

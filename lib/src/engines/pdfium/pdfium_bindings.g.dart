@@ -11,12 +11,7 @@ library;
 
 import 'dart:ffi' as ffi;
 
-@ffi.Native<
-  ffi.Pointer<fpdf_dest_t__> Function(
-    ffi.Pointer<fpdf_document_t__>,
-    ffi.Pointer<fpdf_action_t__>,
-  )
->()
+@ffi.Native<ffi.Pointer<fpdf_dest_t__> Function(ffi.Pointer<fpdf_document_t__>, ffi.Pointer<fpdf_action_t__>)>()
 external ffi.Pointer<fpdf_dest_t__> FPDFAction_GetDest(
   ffi.Pointer<fpdf_document_t__> document,
   ffi.Pointer<fpdf_action_t__> action,
@@ -40,15 +35,7 @@ external int FPDFAction_GetURIPath(
   int buflen,
 );
 
-@ffi.Native<
-  ffi.Pointer<fpdf_bitmap_t__> Function(
-    ffi.Int,
-    ffi.Int,
-    ffi.Int,
-    ffi.Pointer<ffi.Void>,
-    ffi.Int,
-  )
->()
+@ffi.Native<ffi.Pointer<fpdf_bitmap_t__> Function(ffi.Int, ffi.Int, ffi.Int, ffi.Pointer<ffi.Void>, ffi.Int)>()
 external ffi.Pointer<fpdf_bitmap_t__> FPDFBitmap_CreateEx(
   int width,
   int height,
@@ -60,16 +47,7 @@ external ffi.Pointer<fpdf_bitmap_t__> FPDFBitmap_CreateEx(
 @ffi.Native<ffi.Void Function(ffi.Pointer<fpdf_bitmap_t__>)>()
 external void FPDFBitmap_Destroy(ffi.Pointer<fpdf_bitmap_t__> bitmap);
 
-@ffi.Native<
-  ffi.Int Function(
-    ffi.Pointer<fpdf_bitmap_t__>,
-    ffi.Int,
-    ffi.Int,
-    ffi.Int,
-    ffi.Int,
-    ffi.UnsignedLong,
-  )
->()
+@ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_bitmap_t__>, ffi.Int, ffi.Int, ffi.Int, ffi.Int, ffi.UnsignedLong)>()
 external int FPDFBitmap_FillRect(
   ffi.Pointer<fpdf_bitmap_t__> bitmap,
   int left,
@@ -79,32 +57,20 @@ external int FPDFBitmap_FillRect(
   int color,
 );
 
-@ffi.Native<
-  ffi.Int Function(ffi.Pointer<fpdf_document_t__>, ffi.Pointer<fpdf_dest_t__>)
->()
-external int FPDFDest_GetDestPageIndex(
-  ffi.Pointer<fpdf_document_t__> document,
-  ffi.Pointer<fpdf_dest_t__> dest,
-);
+@ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_document_t__>, ffi.Pointer<fpdf_dest_t__>)>()
+external int FPDFDest_GetDestPageIndex(ffi.Pointer<fpdf_document_t__> document, ffi.Pointer<fpdf_dest_t__> dest);
 
 @ffi.Native<ffi.Void Function(ffi.Pointer<fpdf_pagelink_t__>)>()
 external void FPDFLink_CloseWebLinks(ffi.Pointer<fpdf_pagelink_t__> link_page);
 
 @ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_pagelink_t__>, ffi.Int)>()
-external int FPDFLink_CountRects(
-  ffi.Pointer<fpdf_pagelink_t__> link_page,
-  int link_index,
-);
+external int FPDFLink_CountRects(ffi.Pointer<fpdf_pagelink_t__> link_page, int link_index);
 
 @ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_pagelink_t__>)>()
 external int FPDFLink_CountWebLinks(ffi.Pointer<fpdf_pagelink_t__> link_page);
 
 @ffi.Native<
-  ffi.Int Function(
-    ffi.Pointer<fpdf_page_t__>,
-    ffi.Pointer<ffi.Int>,
-    ffi.Pointer<ffi.Pointer<fpdf_link_t__>>,
-  )
+  ffi.Int Function(ffi.Pointer<fpdf_page_t__>, ffi.Pointer<ffi.Int>, ffi.Pointer<ffi.Pointer<fpdf_link_t__>>)
 >()
 external int FPDFLink_Enumerate(
   ffi.Pointer<fpdf_page_t__> page,
@@ -113,24 +79,12 @@ external int FPDFLink_Enumerate(
 );
 
 @ffi.Native<ffi.Pointer<fpdf_action_t__> Function(ffi.Pointer<fpdf_link_t__>)>()
-external ffi.Pointer<fpdf_action_t__> FPDFLink_GetAction(
-  ffi.Pointer<fpdf_link_t__> link,
-);
+external ffi.Pointer<fpdf_action_t__> FPDFLink_GetAction(ffi.Pointer<fpdf_link_t__> link);
 
-@ffi.Native<
-  ffi.Int Function(ffi.Pointer<fpdf_link_t__>, ffi.Pointer<FS_RECTF>)
->()
-external int FPDFLink_GetAnnotRect(
-  ffi.Pointer<fpdf_link_t__> link_annot,
-  ffi.Pointer<FS_RECTF> rect,
-);
+@ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_link_t__>, ffi.Pointer<FS_RECTF>)>()
+external int FPDFLink_GetAnnotRect(ffi.Pointer<fpdf_link_t__> link_annot, ffi.Pointer<FS_RECTF> rect);
 
-@ffi.Native<
-  ffi.Pointer<fpdf_dest_t__> Function(
-    ffi.Pointer<fpdf_document_t__>,
-    ffi.Pointer<fpdf_link_t__>,
-  )
->()
+@ffi.Native<ffi.Pointer<fpdf_dest_t__> Function(ffi.Pointer<fpdf_document_t__>, ffi.Pointer<fpdf_link_t__>)>()
 external ffi.Pointer<fpdf_dest_t__> FPDFLink_GetDest(
   ffi.Pointer<fpdf_document_t__> document,
   ffi.Pointer<fpdf_link_t__> link,
@@ -157,14 +111,7 @@ external int FPDFLink_GetRect(
   ffi.Pointer<ffi.Double> bottom,
 );
 
-@ffi.Native<
-  ffi.Int Function(
-    ffi.Pointer<fpdf_pagelink_t__>,
-    ffi.Int,
-    ffi.Pointer<ffi.UnsignedShort>,
-    ffi.Int,
-  )
->()
+@ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_pagelink_t__>, ffi.Int, ffi.Pointer<ffi.UnsignedShort>, ffi.Int)>()
 external int FPDFLink_GetURL(
   ffi.Pointer<fpdf_pagelink_t__> link_page,
   int link_index,
@@ -172,12 +119,8 @@ external int FPDFLink_GetURL(
   int buflen,
 );
 
-@ffi.Native<
-  ffi.Pointer<fpdf_pagelink_t__> Function(ffi.Pointer<fpdf_textpage_t__>)
->()
-external ffi.Pointer<fpdf_pagelink_t__> FPDFLink_LoadWebLinks(
-  ffi.Pointer<fpdf_textpage_t__> text_page,
-);
+@ffi.Native<ffi.Pointer<fpdf_pagelink_t__> Function(ffi.Pointer<fpdf_textpage_t__>)>()
+external ffi.Pointer<fpdf_pagelink_t__> FPDFLink_LoadWebLinks(ffi.Pointer<fpdf_textpage_t__> text_page);
 
 @ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_page_t__>)>()
 external int FPDFPage_GetRotation(ffi.Pointer<fpdf_page_t__> page);
@@ -208,17 +151,10 @@ external int FPDFText_GetCharBox(
 );
 
 @ffi.Native<ffi.UnsignedInt Function(ffi.Pointer<fpdf_textpage_t__>, ffi.Int)>()
-external int FPDFText_GetUnicode(
-  ffi.Pointer<fpdf_textpage_t__> text_page,
-  int index,
-);
+external int FPDFText_GetUnicode(ffi.Pointer<fpdf_textpage_t__> text_page, int index);
 
-@ffi.Native<
-  ffi.Pointer<fpdf_textpage_t__> Function(ffi.Pointer<fpdf_page_t__>)
->()
-external ffi.Pointer<fpdf_textpage_t__> FPDFText_LoadPage(
-  ffi.Pointer<fpdf_page_t__> page,
-);
+@ffi.Native<ffi.Pointer<fpdf_textpage_t__> Function(ffi.Pointer<fpdf_page_t__>)>()
+external ffi.Pointer<fpdf_textpage_t__> FPDFText_LoadPage(ffi.Pointer<fpdf_page_t__> page);
 
 @ffi.Native<ffi.Void Function(ffi.Pointer<fpdf_document_t__>)>()
 external void FPDF_CloseDocument(ffi.Pointer<fpdf_document_t__> document);
@@ -232,13 +168,8 @@ external void FPDF_DestroyLibrary();
 @ffi.Native<ffi.UnsignedLong Function()>()
 external int FPDF_GetLastError();
 
-@ffi.Native<
-  ffi.Int Function(ffi.Pointer<fpdf_page_t__>, ffi.Pointer<FS_RECTF>)
->()
-external int FPDF_GetPageBoundingBox(
-  ffi.Pointer<fpdf_page_t__> page,
-  ffi.Pointer<FS_RECTF> rect,
-);
+@ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_page_t__>, ffi.Pointer<FS_RECTF>)>()
+external int FPDF_GetPageBoundingBox(ffi.Pointer<fpdf_page_t__> page, ffi.Pointer<FS_RECTF> rect);
 
 @ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_document_t__>)>()
 external int FPDF_GetPageCount(ffi.Pointer<fpdf_document_t__> document);
@@ -246,13 +177,7 @@ external int FPDF_GetPageCount(ffi.Pointer<fpdf_document_t__> document);
 @ffi.Native<ffi.Float Function(ffi.Pointer<fpdf_page_t__>)>()
 external double FPDF_GetPageHeightF(ffi.Pointer<fpdf_page_t__> page);
 
-@ffi.Native<
-  ffi.Int Function(
-    ffi.Pointer<fpdf_document_t__>,
-    ffi.Int,
-    ffi.Pointer<FS_SIZEF>,
-  )
->()
+@ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_document_t__>, ffi.Int, ffi.Pointer<FS_SIZEF>)>()
 external int FPDF_GetPageSizeByIndexF(
   ffi.Pointer<fpdf_document_t__> document,
   int page_index,
@@ -265,37 +190,21 @@ external double FPDF_GetPageWidthF(ffi.Pointer<fpdf_page_t__> page);
 @ffi.Native<ffi.Void Function()>()
 external void FPDF_InitLibrary();
 
-@ffi.Native<
-  ffi.Pointer<fpdf_document_t__> Function(
-    ffi.Pointer<ffi.Char>,
-    ffi.Pointer<ffi.Char>,
-  )
->()
+@ffi.Native<ffi.Pointer<fpdf_document_t__> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)>()
 external ffi.Pointer<fpdf_document_t__> FPDF_LoadDocument(
   ffi.Pointer<ffi.Char> file_path,
   ffi.Pointer<ffi.Char> password,
 );
 
-@ffi.Native<
-  ffi.Pointer<fpdf_document_t__> Function(
-    ffi.Pointer<ffi.Void>,
-    ffi.Size,
-    ffi.Pointer<ffi.Char>,
-  )
->()
+@ffi.Native<ffi.Pointer<fpdf_document_t__> Function(ffi.Pointer<ffi.Void>, ffi.Size, ffi.Pointer<ffi.Char>)>()
 external ffi.Pointer<fpdf_document_t__> FPDF_LoadMemDocument64(
   ffi.Pointer<ffi.Void> data_buf,
   int size,
   ffi.Pointer<ffi.Char> password,
 );
 
-@ffi.Native<
-  ffi.Pointer<fpdf_page_t__> Function(ffi.Pointer<fpdf_document_t__>, ffi.Int)
->()
-external ffi.Pointer<fpdf_page_t__> FPDF_LoadPage(
-  ffi.Pointer<fpdf_document_t__> document,
-  int page_index,
-);
+@ffi.Native<ffi.Pointer<fpdf_page_t__> Function(ffi.Pointer<fpdf_document_t__>, ffi.Int)>()
+external ffi.Pointer<fpdf_page_t__> FPDF_LoadPage(ffi.Pointer<fpdf_document_t__> document, int page_index);
 
 @ffi.Native<
   ffi.Void Function(
@@ -375,13 +284,10 @@ final class FS_SIZEF extends ffi.Struct {
   @ffi.Float()
   external double height;
 
-  static ffi.Pointer<FS_SIZEF> $allocate(
-    ffi.Allocator $allocator, {
-    required double width,
-    required double height,
-  }) => $allocator<FS_SIZEF>()
-    ..ref.width = width
-    ..ref.height = height;
+  static ffi.Pointer<FS_SIZEF> $allocate(ffi.Allocator $allocator, {required double width, required double height}) =>
+      $allocator<FS_SIZEF>()
+        ..ref.width = width
+        ..ref.height = height;
 }
 
 const int PDFACTION_EMBEDDEDGOTO = 5;

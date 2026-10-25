@@ -59,6 +59,7 @@ final _macros = RegExp(
 Future<void> main() async {
   final root = Platform.script.resolve('../../');
   final include = root.resolve('tool/pdfium/include/');
+  final bindings = root.resolve('lib/src/engines/pdfium/pdfium_bindings.g.dart');
   await FfiGenerator(
     input: Input(
       entryPoints: [
@@ -67,7 +68,7 @@ Future<void> main() async {
       compilerOptions: ['-I${include.toFilePath()}'],
     ),
     output: Output(
-      dart: DartOutput(path: root.resolve('lib/src/engines/pdfium/pdfium_bindings.g.dart')),
+      dart: DartOutput(path: bindings),
       style: const NativeExternalBindings(assetId: 'package:universal_document_viewer/libpdfium'),
       preamble:
           '// Generated from PDFium\'s public headers (BSD-3-Clause, see tool/pdfium/LICENSE)\n'
@@ -87,4 +88,7 @@ Future<void> main() async {
       ),
     ],
   ).generate();
+  // Formatted like the rest of the package (pub.dev checks every file).
+  final format = await Process.run(Platform.resolvedExecutable, ['format', bindings.toFilePath()]);
+  if (format.exitCode != 0) throw Exception('dart format failed: ${format.stderr}');
 }
