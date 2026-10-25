@@ -20,6 +20,7 @@ Show any file with one widget, or build your own reader UI on one controller API
 - [Install](#install)
 - [Show a document](#show-a-document)
 - [Build your own reader UI](#build-your-own-reader-ui)
+- [Where the formats differ](#where-the-formats-differ)
 - [Each format](#each-format)
 - [Saving the reading position](#saving-the-reading-position)
 - [Errors](#errors)
@@ -145,6 +146,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
 ```
 
 Search counts every occurrence, and the views highlight the current match apart from the others. `DocumentViewerStrings.of(context).searchStatus(controller.searchState.value)` gives "3 of 12", "No matches", or "Searching…" while a PDF is still being searched.
+
+### Where the formats differ
+
+The API is the same everywhere; a few behaviours are worth knowing:
+
+| Format | Notes |
+|---|---|
+| PDF | Search runs in the background: matches arrive page by page, with `searchState.isSearching` set meanwhile, and a scanned PDF reports no searchable text. Zoom goes from page width (1) to 8. An encrypted file needs `passwordProvider`. |
+| Word | In print layout `location` counts pages; reflowed, it's a percentage. The page count is 0 until the view has laid the pages out. Zoom reflows the text when reflowed and scales whole pages in print layout. |
+| Spreadsheets | Search counts matching cells (as Excel's Find does) on the sheet on screen; switching sheets ends it. `goTo(n)` scrolls to row n; `goToCell('B3')` takes a reference. |
+| PowerPoint | A reading view, not the slide's layout. Zoom enlarges the text; pictures keep their size. |
+| Plain text | Zoom scales `PlainTextView.fontSize`. |
+
+`goTo` and `setZoom` can be called as soon as a controller exists: they take effect once the document is loaded and its view has laid it out. `status == DocumentStatus.ready` means the file is parsed, not yet drawn.
 
 ## Each format
 
