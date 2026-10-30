@@ -25,7 +25,14 @@ import 'pdf_layout.dart';
 /// `https` and `mailto` only).
 class PdfView extends StatefulWidget {
   /// Shows [controller]'s document.
-  const PdfView({super.key, required this.controller, this.backgroundColor, this.onTap, this.errorBuilder});
+  const PdfView({
+    super.key,
+    required this.controller,
+    this.backgroundColor,
+    this.onTap,
+    this.errorBuilder,
+    this.showScrollbar = false,
+  });
 
   /// The document to show; load it with [PdfController.loadFile] or
   /// [PdfController.loadBytes].
@@ -40,6 +47,11 @@ class PdfView extends StatefulWidget {
   /// Shown instead of the document when it fails to open. Defaults to a
   /// short message.
   final Widget Function(BuildContext context, DocumentLoadError error)? errorBuilder;
+
+  /// Shows a draggable vertical scrollbar in its own gutter at the right edge.
+  /// Meant for mouse-driven desktops; leave it off where touch scrolling is
+  /// the norm. Only applies to the vertical (continuous) layout.
+  final bool showScrollbar;
 
   @override
   State<PdfView> createState() => _PdfViewState();
@@ -346,6 +358,59 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
     widget.onTap?.call();
   }
 
+  /// Mouse-and-touchpad platforms, where pinch-to-zoom comes from a touchpad
+  /// gesture (handled here) rather than from touch, and where the zoom
+  /// buttons, Ctrl + wheel and double-click also work.
+  bool _mouseDriven(BuildContext context) => switch (Theme.of(context).platform) {
+    TargetPlatform.windows || TargetPlatform.linux || TargetPlatform.macOS => true,
+    _ => false,
+  };
+
+  double _trackpadLastScale = 1;
+  bool _trackpadPinching = false;
+
+  void _onTrackpadStart(PointerPanZoomStartEvent event) {
+    _trackpadLastScale = 1;
+    _trackpadPinching = false;
+  }
+
+  /// Panning is InteractiveViewer's (its scale is off on these platforms); only a
+  /// deliberate pinch, past the noise a plain two-finger scroll carries, zooms.
+  void _onTrackpadUpdate(PointerPanZoomUpdateEvent event) {
+    if (!_mouseDriven(context)) return;
+    if (!_trackpadPinching && (event.scale - 1).abs() < 0.06) return;
+    _trackpadPinching = true;
+    final ratio = event.scale / _trackpadLastScale;
+    _trackpadLastScale = event.scale;
+    final visible = _visibleRect();
+    _setZoom(_scale * ratio, focus: visible.topLeft + event.localPosition / _scale);
+  }
+
+  /// The scrollbar gutter, drawn beside the pages (never over them).
+  Widget _scrollbarGutter() {
+    return SizedBox(
+      width: _PdfScrollbar.gutter,
+      child: ValueListenableBuilder<Matrix4>(
+        valueListenable: _transform,
+        builder: (context, _, _) {
+          final layout = _layout;
+          if (layout == null || layout.isHorizontal) return const SizedBox.shrink();
+          final visible = _visibleRect();
+          return _PdfScrollbar(
+            contentHeight: layout.size.height,
+            visibleTop: visible.top,
+            visibleHeight: visible.height,
+            onScrollTo: (top) {
+              _snap.stop();
+              final now = _visibleRect();
+              _setTransform(_scale, Offset(now.left, top));
+            },
+          );
+        },
+      ),
+    );
+  }
+
   void _onWheel(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
     GestureBinding.instance.pointerSignalResolver.register(event, (event) {
@@ -383,9 +448,13 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
         child: const Center(child: CircularProgressIndicator()),
       );
     }
+    final gutter = widget.showScrollbar;
     return ColoredBox(
       color: background,
-      child: LayoutBuilder(
+      child: Row(
+        children: [
+          Expanded(
+            child: LayoutBuilder(
         builder: (context, constraints) {
           final viewport = constraints.biggest;
           final key = (viewport, controller.viewMode, document);
@@ -428,7 +497,14 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
             });
           }
           final layout = _layout!;
-          return GestureDetector(
+          // A precision touchpad reports a two-finger scroll as a pan-zoom gesture with a
+          // little scale noise; InteractiveViewer reads any scale != 1 as a pinch, so a plain
+          // scroll also zoomed. On mouse-and-touchpad platforms the scale is switched off
+          // there and deliberate pinches are handled in _onTrackpadUpdate instead.
+          return Listener(
+            onPointerPanZoomStart: _onTrackpadStart,
+            onPointerPanZoomUpdate: _onTrackpadUpdate,
+            child: GestureDetector(
             onDoubleTapDown: (details) => _doubleTapAt = details.localPosition,
             onDoubleTap: () {
               final visible = _visibleRect();
@@ -439,6 +515,7 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
               transformationController: _transform,
               minScale: 1,
               maxScale: _maxZoom,
+              scaleEnabled: !_mouseDriven(context),
               boundaryMargin: EdgeInsets.zero,
               // Horizontal pages snap instead of gliding on.
               interactionEndFrictionCoefficient: layout.isHorizontal ? 1 : 0.0000135,
@@ -472,8 +549,12 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
                 );
               },
             ),
-          );
+          ));
         },
+            ),
+          ),
+          if (gutter) _scrollbarGutter(),
+        ],
       ),
     );
   }
@@ -703,6 +784,91 @@ class _PdfPageThumbnailState extends State<PdfPageThumbnail> {
     return ColoredBox(
       color: Colors.white,
       child: image == null ? const SizedBox.expand() : RawImage(image: image, fit: BoxFit.contain),
+    );
+  }
+}
+
+/// A vertical scrollbar for the PDF view: a track with a draggable thumb that
+/// follows the view's position and size. Click the track to jump there.
+class _PdfScrollbar extends StatefulWidget {
+  const _PdfScrollbar({
+    required this.contentHeight,
+    required this.visibleTop,
+    required this.visibleHeight,
+    required this.onScrollTo,
+  });
+
+  static const gutter = 14.0;
+
+  /// Height of all the pages, and the part of it on screen, in content pixels.
+  final double contentHeight;
+  final double visibleTop;
+  final double visibleHeight;
+
+  /// Asks the view to put [top] (a content y) at the top of the screen.
+  final ValueChanged<double> onScrollTo;
+
+  @override
+  State<_PdfScrollbar> createState() => _PdfScrollbarState();
+}
+
+class _PdfScrollbarState extends State<_PdfScrollbar> {
+  static const _minThumb = 36.0;
+  bool _hover = false;
+  bool _dragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final track = constraints.maxHeight;
+        final scrollable = widget.contentHeight - widget.visibleHeight;
+        if (scrollable <= 1 || track <= _minThumb) return const SizedBox.shrink();
+        final thumb = math.max(_minThumb, track * widget.visibleHeight / widget.contentHeight).clamp(_minThumb, track);
+        final range = track - thumb;
+        final fraction = (widget.visibleTop / scrollable).clamp(0.0, 1.0);
+        final thumbTop = range * fraction;
+        final active = _hover || _dragging;
+
+        double contentTopFor(double thumbTopPx) => (thumbTopPx / range).clamp(0.0, 1.0) * scrollable;
+
+        return MouseRegion(
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          cursor: SystemMouseCursors.basic,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            // Click on the track: centre the thumb there.
+            onTapDown: (details) => widget.onScrollTo(contentTopFor(details.localPosition.dy - thumb / 2)),
+            onVerticalDragStart: (_) => setState(() => _dragging = true),
+            onVerticalDragEnd: (_) => setState(() => _dragging = false),
+            onVerticalDragCancel: () => setState(() => _dragging = false),
+            // The thumb follows the pointer 1:1 along the track.
+            onVerticalDragUpdate: (details) =>
+                widget.onScrollTo(widget.visibleTop + details.delta.dy * scrollable / range),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: ColoredBox(color: scheme.onSurface.withValues(alpha: active ? 0.07 : 0.04)),
+                ),
+                Positioned(
+                  top: thumbTop,
+                  left: 3,
+                  right: 3,
+                  height: thumb,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.onSurface.withValues(alpha: _dragging ? 0.6 : (active ? 0.5 : 0.36)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
