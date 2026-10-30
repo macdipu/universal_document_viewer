@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4
+
+Desktop PDF reading.
+
+- **`PdfView(showScrollbar: true)`**: a draggable vertical scrollbar in its own gutter at the right edge, following the view's position and size; click the track to jump. Off by default, meant for mouse-driven desktops. Only applies to the vertical (continuous) layout.
+- **Touchpad scrolling no longer zooms the PDF on Windows, Linux and macOS.** A precision touchpad reports a two-finger scroll as a pan-zoom gesture with a little scale noise, and `InteractiveViewer` reads any scale other than 1 as a pinch, so a plain scroll also zoomed. On those platforms its own scale is now off and a deliberate trackpad pinch (a scale change past 6%) still zooms. Ctrl + wheel, double-click and the controller's zoom are unchanged. Touch pinch on Android and iOS is unchanged; a touch screen on a desktop OS no longer pinches in `PdfView`.
+
 ## Unreleased (0.2.0)
 
 0.2.0 gives every format the same API and makes the package cleaner to use and to contribute to. It breaks 0.1 code; the tables below say what to change.
