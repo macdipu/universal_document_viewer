@@ -86,6 +86,12 @@ void main() {
     );
     expect(((boxed.decoration! as BoxDecoration).border! as Border).top.width, closeTo(1.8, 1e-9));
 
+    // The first tap selects the cell; a second tap on the active cell opens
+    // its details.
+    await tester.tap(find.text('42'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cell B1'), findsNothing);
+    expect(controller.selection.value, const GridSelection.cell(0, 1));
     await tester.tap(find.text('42'));
     await tester.pumpAndSettle();
     expect(find.text('Cell B1'), findsOneWidget);
@@ -96,6 +102,8 @@ void main() {
     Navigator.of(tester.element(find.text('Cell B1'))).pop();
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Boxed'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Boxed'));
     await tester.pumpAndSettle();
     expect(find.text('Formula'), findsNothing, reason: 'a plain cell has no formula line');

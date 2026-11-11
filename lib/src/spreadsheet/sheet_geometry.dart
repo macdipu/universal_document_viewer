@@ -103,6 +103,31 @@ class SheetGeometry {
   /// The visible column at the left edge when scrolled to [offset].
   int visibleColumnAtScrollOffset(double offset) => _indexAt(_columnStarts, offset + frozenWidth, frozenColumnCount);
 
+  /// Where the row at visible index [visibleRow] starts, from the top of
+  /// the first row (frozen rows included), in 1x logical pixels.
+  double rowStart(int visibleRow) => _rowStarts[visibleRow];
+
+  /// Where the column at visible index [visibleColumn] starts, from the
+  /// left of the first column (frozen columns included), in 1x logical
+  /// pixels.
+  double columnStart(int visibleColumn) => _columnStarts[visibleColumn];
+
+  /// Height in logical pixels of every visible row.
+  double get contentHeight => _rowStarts.last;
+
+  /// Width in logical pixels of every visible column.
+  double get contentWidth => _columnStarts.last;
+
+  /// The visible row under [y], a position from the top of the first row
+  /// (frozen rows included) in 1x logical pixels; clamped to the rows that
+  /// exist.
+  int visibleRowAtY(double y) => _indexAt(_rowStarts, y, 0);
+
+  /// The visible column under [x], a position from the left of the first
+  /// column (frozen columns included) in 1x logical pixels; clamped to the
+  /// columns that exist.
+  int visibleColumnAtX(double x) => _indexAt(_columnStarts, x, 0);
+
   /// The visible index of sheet row [row], or null when it's hidden or past
   /// the end.
   int? visibleIndexOfRow(int row) => _search(visibleRows, row);

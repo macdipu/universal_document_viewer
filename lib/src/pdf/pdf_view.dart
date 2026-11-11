@@ -455,102 +455,105 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
         children: [
           Expanded(
             child: LayoutBuilder(
-        builder: (context, constraints) {
-          final viewport = constraints.biggest;
-          final key = (viewport, controller.viewMode, document);
-          if (key != _layoutKey) {
-            final previous = _layoutKey as (Size, PdfViewMode, Object)?;
-            final restoring = previous == null || previous.$2 != controller.viewMode || previous.$3 != document;
-            final reading = restoring ? controller.initialPageNumber - 1 : controller.currentPage - 1;
-            // Only the viewport changed (the keyboard or search bar opened,
-            // the window was resized): in continuous mode the reader stays
-            // where they were, at the same zoom, rather than being sent back
-            // to the top of the page at zoom 1. Pages only change width, so
-            // a spot on a page maps across by proportion.
-            final oldLayout = _layout;
-            final anchor = !restoring && _positioned && oldLayout != null && !oldLayout.isHorizontal
-                ? _anchorIn(oldLayout)
-                : null;
-            final scale = _scale;
-            final fresh = _layout = PdfLayout(
-              pageSizes: document.pageSizes,
-              viewport: viewport,
-              mode: controller.viewMode,
-            );
-            _layoutKey = key;
-            _positioned = false;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              // Only the latest layout's positioning applies.
-              if (!mounted || _positioned || !identical(_layout, fresh)) return;
-              _positioned = true;
-              if (anchor != null && anchor.$1 < fresh.pages.length) {
-                final (index, spot) = anchor;
-                final page = fresh.pages[index];
-                _setTransform(scale, Offset(page.left + spot.dx * page.width, page.top + spot.dy * page.height));
-              } else {
-                _transform.value = Matrix4.identity();
-                _jumpToPage(reading);
-              }
-              _scheduleUpdate();
-              // A go-to or zoom asked for before the pages were placed.
-              controller.applyPending();
-            });
-          }
-          final layout = _layout!;
-          // A precision touchpad reports a two-finger scroll as a pan-zoom gesture with a
-          // little scale noise; InteractiveViewer reads any scale != 1 as a pinch, so a plain
-          // scroll also zoomed. On mouse-and-touchpad platforms the scale is switched off
-          // there and deliberate pinches are handled in _onTrackpadUpdate instead.
-          return Listener(
-            onPointerPanZoomStart: _onTrackpadStart,
-            onPointerPanZoomUpdate: _onTrackpadUpdate,
-            child: GestureDetector(
-            onDoubleTapDown: (details) => _doubleTapAt = details.localPosition,
-            onDoubleTap: () {
-              final visible = _visibleRect();
-              final focus = visible.topLeft + (_doubleTapAt ?? viewport.center(Offset.zero)) / _scale;
-              _setZoom(_scale > 1.1 ? 1 : 2.5, focus: focus);
-            },
-            child: InteractiveViewer.builder(
-              transformationController: _transform,
-              minScale: 1,
-              maxScale: _maxZoom,
-              scaleEnabled: !_mouseDriven(context),
-              boundaryMargin: EdgeInsets.zero,
-              // Horizontal pages snap instead of gliding on.
-              interactionEndFrictionCoefficient: layout.isHorizontal ? 1 : 0.0000135,
-              onInteractionStart: (_) => _snap.stop(),
-              onInteractionEnd: _onInteractionEnd,
-              builder: (context, quad) {
-                final bounds = _quadBounds(quad).inflate(layout.isHorizontal ? viewport.width : viewport.height);
+              builder: (context, constraints) {
+                final viewport = constraints.biggest;
+                final key = (viewport, controller.viewMode, document);
+                if (key != _layoutKey) {
+                  final previous = _layoutKey as (Size, PdfViewMode, Object)?;
+                  final restoring = previous == null || previous.$2 != controller.viewMode || previous.$3 != document;
+                  final reading = restoring ? controller.initialPageNumber - 1 : controller.currentPage - 1;
+                  // Only the viewport changed (the keyboard or search bar opened,
+                  // the window was resized): in continuous mode the reader stays
+                  // where they were, at the same zoom, rather than being sent back
+                  // to the top of the page at zoom 1. Pages only change width, so
+                  // a spot on a page maps across by proportion.
+                  final oldLayout = _layout;
+                  final anchor = !restoring && _positioned && oldLayout != null && !oldLayout.isHorizontal
+                      ? _anchorIn(oldLayout)
+                      : null;
+                  final scale = _scale;
+                  final fresh = _layout = PdfLayout(
+                    pageSizes: document.pageSizes,
+                    viewport: viewport,
+                    mode: controller.viewMode,
+                  );
+                  _layoutKey = key;
+                  _positioned = false;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    // Only the latest layout's positioning applies.
+                    if (!mounted || _positioned || !identical(_layout, fresh)) return;
+                    _positioned = true;
+                    if (anchor != null && anchor.$1 < fresh.pages.length) {
+                      final (index, spot) = anchor;
+                      final page = fresh.pages[index];
+                      _setTransform(scale, Offset(page.left + spot.dx * page.width, page.top + spot.dy * page.height));
+                    } else {
+                      _transform.value = Matrix4.identity();
+                      _jumpToPage(reading);
+                    }
+                    _scheduleUpdate();
+                    // A go-to or zoom asked for before the pages were placed.
+                    controller.applyPending();
+                  });
+                }
+                final layout = _layout!;
+                // A precision touchpad reports a two-finger scroll as a pan-zoom gesture with a
+                // little scale noise; InteractiveViewer reads any scale != 1 as a pinch, so a plain
+                // scroll also zoomed. On mouse-and-touchpad platforms the scale is switched off
+                // there and deliberate pinches are handled in _onTrackpadUpdate instead.
                 return Listener(
-                  onPointerSignal: _onWheel,
-                  child: SizedBox.fromSize(
-                    size: layout.size,
-                    child: Stack(
-                      children: [
-                        for (final page in layout.pagesIn(bounds))
-                          Positioned.fromRect(
-                            rect: layout.pages[page],
-                            child: _PdfPage(
-                              key: ValueKey(page),
-                              page: page,
-                              cache: cache,
-                              search: controller.searchController,
-                              pageSize: document.pageSizes[page],
-                              tiles: _tilesByPage[page] ?? const [],
-                              devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-                              onTap: (local) => _onPageTap(page, local),
+                  onPointerPanZoomStart: _onTrackpadStart,
+                  onPointerPanZoomUpdate: _onTrackpadUpdate,
+                  child: GestureDetector(
+                    onDoubleTapDown: (details) => _doubleTapAt = details.localPosition,
+                    onDoubleTap: () {
+                      final visible = _visibleRect();
+                      final focus = visible.topLeft + (_doubleTapAt ?? viewport.center(Offset.zero)) / _scale;
+                      _setZoom(_scale > 1.1 ? 1 : 2.5, focus: focus);
+                    },
+                    child: InteractiveViewer.builder(
+                      transformationController: _transform,
+                      minScale: 1,
+                      maxScale: _maxZoom,
+                      scaleEnabled: !_mouseDriven(context),
+                      boundaryMargin: EdgeInsets.zero,
+                      // Horizontal pages snap instead of gliding on.
+                      interactionEndFrictionCoefficient: layout.isHorizontal ? 1 : 0.0000135,
+                      onInteractionStart: (_) => _snap.stop(),
+                      onInteractionEnd: _onInteractionEnd,
+                      builder: (context, quad) {
+                        final bounds = _quadBounds(
+                          quad,
+                        ).inflate(layout.isHorizontal ? viewport.width : viewport.height);
+                        return Listener(
+                          onPointerSignal: _onWheel,
+                          child: SizedBox.fromSize(
+                            size: layout.size,
+                            child: Stack(
+                              children: [
+                                for (final page in layout.pagesIn(bounds))
+                                  Positioned.fromRect(
+                                    rect: layout.pages[page],
+                                    child: _PdfPage(
+                                      key: ValueKey(page),
+                                      page: page,
+                                      cache: cache,
+                                      search: controller.searchController,
+                                      pageSize: document.pageSizes[page],
+                                      tiles: _tilesByPage[page] ?? const [],
+                                      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                                      onTap: (local) => _onPageTap(page, local),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                      ],
+                        );
+                      },
                     ),
                   ),
                 );
               },
-            ),
-          ));
-        },
             ),
           ),
           if (gutter) _scrollbarGutter(),

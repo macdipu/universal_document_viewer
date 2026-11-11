@@ -1,6 +1,8 @@
 import 'dart:isolate';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 
@@ -13,6 +15,7 @@ import '../engines/spreadsheet/csv_reader.dart';
 import '../engines/spreadsheet/workbook.dart';
 import '../engines/spreadsheet/xlsx_reader.dart';
 import 'cell_match.dart';
+import 'grid_selection.dart';
 import 'sheet_geometry.dart';
 
 /// Loads an Excel workbook (`.xlsx`) or a CSV file for [SpreadsheetView]:
@@ -136,6 +139,195 @@ class SpreadsheetController extends DocumentController {
   /// [freezeTopRow] changes nothing on it.
   bool get sheetFreezesRows => frozenRows > 0;
 
+  final _selection = ValueNotifier<GridSelection?>(null);
+
+  /// The cells selected on the sheet on screen, or null. Cleared when the
+  /// sheet changes or a file loads. Held in sheet coordinates, so it stays
+  /// put while the grid scrolls or zooms.
+  ValueListenable<GridSelection?> get selection => _selection;
+
+  /// Selects [selection] (null clears it). Cells outside the sheet are
+  /// kept inside it.
+  void select(GridSelection? selection) {
+    if (selection == null || currentRows.isEmpty || columnCount == 0) {
+      _selection.value = null;
+      return;
+    }
+    final lastRow = currentRows.length - 1;
+    final lastColumn = columnCount - 1;
+    int row(int r) => r.clamp(0, lastRow);
+    int column(int c) => c.clamp(0, lastColumn);
+    _selection.value = switch (selection.kind) {
+      GridSelectionKind.cell => GridSelection.cell(row(selection.activeRow), column(selection.activeColumn)),
+      GridSelectionKind.range => GridSelection.range(
+        anchorRow: row(selection.anchorRow),
+        anchorColumn: column(selection.anchorColumn),
+        activeRow: row(selection.activeRow),
+        activeColumn: column(selection.activeColumn),
+      ),
+      GridSelectionKind.row => GridSelection.row(row(selection.index)),
+      GridSelectionKind.column => GridSelection.column(column(selection.index)),
+      GridSelectionKind.all => const GridSelection.all(),
+    };
+  }
+
+  /// Selections bigger than this can't be copied, so a select-all on a huge
+  /// sheet can't fill memory.
+  static const maxCopiedCells = 1000000;
+
+  /// The selected cells as the text a spreadsheet would paste: rows on
+  /// separate lines, cells tab-separated (TSV), the shown text of each
+  /// (formula cells give their result). A cell holding a tab, a line break
+  /// or a quote is quoted, as Excel does, so pasting keeps the grid's
+  /// shape; a single cell is copied as it reads. A whole row, column or
+  /// select-all drops trailing blank rows and columns. Null when nothing
+  /// is selected or the selection is over [maxCopiedCells].
+  String? selectedText() {
+    final selection = _selection.value;
+    if (selection == null) return null;
+    final rows = currentRows;
+    final bounds = selection.bounds(rowCount: rows.length, columnCount: columnCount);
+    var lastRow = bounds.lastRow;
+    var lastColumn = bounds.lastColumn;
+    if ((lastRow - bounds.firstRow + 1) * (lastColumn - bounds.firstColumn + 1) > maxCopiedCells) return null;
+    String textAt(int r, int c) => r < rows.length && c < rows[r].length ? rows[r][c]?.text ?? '' : '';
+    if (selection.kind == GridSelectionKind.cell) return textAt(selection.activeRow, selection.activeColumn);
+    final wholeLines = selection.kind != GridSelectionKind.range;
+    if (wholeLines) {
+      while (lastRow > bounds.firstRow &&
+          [for (var c = bounds.firstColumn; c <= lastColumn; c++) textAt(lastRow, c)].every((t) => t.isEmpty)) {
+        lastRow--;
+      }
+      while (lastColumn > bounds.firstColumn &&
+          [for (var r = bounds.firstRow; r <= lastRow; r++) textAt(r, lastColumn)].every((t) => t.isEmpty)) {
+        lastColumn--;
+      }
+    }
+    String field(String text) => text.contains(RegExp('[\t\r\n"]')) ? '"${text.replaceAll('"', '""')}"' : text;
+    return [
+      for (var r = bounds.firstRow; r <= lastRow; r++)
+        [for (var c = bounds.firstColumn; c <= lastColumn; c++) field(textAt(r, c))].join('\t'),
+    ].join('\n');
+  }
+
+  /// Clears the selection.
+  void clearSelection() => _selection.value = null;
+
+  /// Selects every cell of the sheet's used range.
+  void selectAll() => select(const GridSelection.all());
+
+  /// Moves the active cell by [rows] and [columns] visible rows and columns
+  /// (hidden ones are skipped), keeping the selection inside the sheet.
+  /// With [extend] the anchor stays and the selection grows to a range.
+  /// With no selection, the first visible cell is selected instead.
+  void moveSelection({int rows = 0, int columns = 0, bool extend = false}) {
+    final current = _selection.value;
+    final grid = geometry;
+    if (grid.visibleRows.isEmpty || grid.visibleColumns.isEmpty) return;
+    if (current == null) {
+      select(GridSelection.cell(grid.visibleRows.first, grid.visibleColumns.first));
+    } else {
+      final row = _step(grid.visibleRows, grid.visibleIndexOfRow(current.activeRow), rows);
+      final column = _step(grid.visibleColumns, grid.visibleIndexOfColumn(current.activeColumn), columns);
+      _moveTo(current, row, column, extend);
+    }
+    _revealActive();
+  }
+
+  /// Moves the active cell to [row] and/or [column] (sheet indices; null
+  /// keeps the current one), or to the nearest visible one if hidden.
+  void moveSelectionTo({int? row, int? column, bool extend = false}) {
+    final current = _selection.value;
+    final grid = geometry;
+    if (grid.visibleRows.isEmpty || grid.visibleColumns.isEmpty) return;
+    final fromRow = current?.activeRow ?? grid.visibleRows.first;
+    final fromColumn = current?.activeColumn ?? grid.visibleColumns.first;
+    final targetRow = _nearestVisible(grid.visibleRows, row ?? fromRow);
+    final targetColumn = _nearestVisible(grid.visibleColumns, column ?? fromColumn);
+    if (current == null) {
+      select(GridSelection.cell(targetRow, targetColumn));
+    } else {
+      _moveTo(current, targetRow, targetColumn, extend);
+    }
+    _revealActive();
+  }
+
+  void _moveTo(GridSelection current, int row, int column, bool extend) {
+    select(extend ? current.extendedTo(row, column) : GridSelection.cell(row, column));
+  }
+
+  static int _step(List<int> visible, int? index, int delta) =>
+      visible[((index ?? 0) + delta).clamp(0, visible.length - 1)];
+
+  static int _nearestVisible(List<int> visible, int value) {
+    var low = 0;
+    var high = visible.length - 1;
+    while (low < high) {
+      final mid = (low + high) >> 1;
+      if (visible[mid] < value) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+    return visible[low];
+  }
+
+  /// How many rows fit on the screen, for Page Up and Page Down.
+  int get pageRows {
+    if (!verticalController.hasClients) return 1;
+    final grid = geometry;
+    final window = verticalController.position.viewportDimension - (cellHeight + grid.frozenHeight) * _zoom;
+    return math.max(1, (window / (cellHeight * _zoom)).floor() - 1);
+  }
+
+  void _revealActive() {
+    final current = _selection.value;
+    if (current != null) revealCell(current.activeRow, current.activeColumn);
+  }
+
+  /// Scrolls just far enough to bring the cell at [row], [column] (sheet
+  /// indices) into view, clear of the frozen panes and the headers. Does
+  /// nothing for a hidden cell or one already on screen.
+  void revealCell(int row, int column) {
+    final grid = geometry;
+    final r = grid.visibleIndexOfRow(row);
+    final c = grid.visibleIndexOfColumn(column);
+    if (r != null && r >= grid.frozenRowCount && verticalController.hasClients) {
+      _reveal(
+        verticalController,
+        start: grid.scrollOffsetOfRow(r) * _zoom,
+        size: grid.rowHeight(r) * _zoom,
+        pinned: (cellHeight + grid.frozenHeight) * _zoom,
+      );
+    }
+    if (c != null && c >= grid.frozenColumnCount && horizontalController.hasClients) {
+      _reveal(
+        horizontalController,
+        start: grid.scrollOffsetOfColumn(c) * _zoom,
+        size: grid.columnWidth(c) * _zoom,
+        pinned: (rowHeaderWidth + grid.frozenWidth) * _zoom,
+      );
+    }
+  }
+
+  static void _reveal(
+    ScrollController controller, {
+    required double start,
+    required double size,
+    required double pinned,
+  }) {
+    final position = controller.position;
+    final window = position.viewportDimension - pinned;
+    double? target;
+    if (start < position.pixels) {
+      target = start;
+    } else if (start + size > position.pixels + window) {
+      target = start + size - window;
+    }
+    if (target != null) controller.jumpTo(target.clamp(0.0, position.maxScrollExtent));
+  }
+
   CellMatch? _target;
 
   /// The cell [goToCell] went to, marked until the next search or sheet
@@ -251,6 +443,7 @@ class SpreadsheetController extends DocumentController {
     _activeSheet = _initialSheetIndex < sheets.length ? _initialSheetIndex : 0;
     _columnCount = null;
     _geometry = null;
+    _selection.value = null;
   }
 
   /// The sheet row (from 0) at the top of the grid.
@@ -276,6 +469,7 @@ class SpreadsheetController extends DocumentController {
   /// Shows another sheet; clears the search, which was for the old one.
   void switchSheet(int index) {
     if (index < 0 || index >= _sheets.length) return;
+    final previousSheet = _activeSheet;
     if (index != _activeSheet) {
       // A different sheet gets a new grid, which jumps to the offsets
       // restored at open - reported as a scroll unless they're 0, when
@@ -293,6 +487,8 @@ class SpreadsheetController extends DocumentController {
     _columnCount = null;
     _geometry = null;
     _target = null;
+    // A selection belongs to the sheet it was made on.
+    if (index != previousSheet) _selection.value = null;
     _resetSearch();
     _updateLocation();
     notifyListeners();
@@ -527,6 +723,7 @@ class SpreadsheetController extends DocumentController {
 
   @override
   void dispose() {
+    _selection.dispose();
     verticalController.dispose();
     horizontalController.dispose();
     super.dispose();

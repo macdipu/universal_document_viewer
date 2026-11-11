@@ -153,11 +153,53 @@ class DocumentViewerStrings {
   /// A selection's average.
   String average(String average) => 'Avg $average';
 
+  /// A selection's smallest number.
+  String min(String min) => 'Min $min';
+
+  /// A selection's largest number.
+  String max(String max) => 'Max $max';
+
+  /// How many of a selection's cells are numbers, shown when some aren't.
+  String numbers(int count) => 'Numbers $count';
+
+  /// Button: leave touch range selection and scroll again.
+  String get done => 'Done';
+
+  /// Spoken label of the handle at the selection's top-left corner.
+  String get selectionStartHandle => 'Selection start handle';
+
+  /// Spoken label of the handle at the selection's bottom-right corner.
+  String get selectionEndHandle => 'Selection end handle';
+
+  /// Tooltip: copy a selection's address ("B2:D5").
+  String get copyAddress => 'Copy address';
+
+  /// Confirmation after copying [what] ("B2:D5", "Row 3", "Formula").
+  String copied(String what) => '$what copied';
+
+  /// Shown when the clipboard refused the copy.
+  String get couldNotCopy => 'Could not copy: the clipboard is not available.';
+
+  /// Shown when a selection is too big to copy.
+  String get tooLargeToCopy => 'Too many cells to copy. Select fewer.';
+
   /// Tooltip: copy a selected row or column, named by [what] ("Row 3").
   String copySelection(String what) => 'Copy ${what.toLowerCase()}';
 
-  /// Tooltip: clear the selected row or column.
+  /// Tooltip: clear the selection.
   String get clearSelection => 'Clear selection';
+
+  /// Label of the grid's top-left corner, which selects every cell.
+  String get selectAll => 'Select all';
+
+  /// A range's size: [rows] rows by [columns] columns.
+  String dimensions(int rows, int columns) => '${rows}R × ${columns}C';
+
+  /// Shown instead of a range's totals when it is too big to add up quickly.
+  String get rangeTooLargeToSummarize => 'Too many cells to total';
+
+  /// Spoken when the selection changes: "Selected B2:D5".
+  String selected(String what) => 'Selected $what';
 }
 
 /// Gives the package's widgets below it [strings] instead of English.
