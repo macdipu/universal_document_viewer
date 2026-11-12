@@ -123,6 +123,9 @@ class DocumentViewerStrings {
   /// A row, by its number: "Row 12".
   String row(int number) => 'Row $number';
 
+  /// A right-click menu entry that opens a cell's details.
+  String get cellDetails => 'Details';
+
   /// The title of a cell's details: "Cell B3".
   String cell(String address) => 'Cell $address';
 

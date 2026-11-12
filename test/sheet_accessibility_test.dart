@@ -117,12 +117,12 @@ void main() {
     expect(scroll.offset, instant, reason: 'no animation left to run');
   });
 
-  testWidgets('column headers are at least 44 dp tall; row headers at least 44 wide', (tester) async {
+  testWidgets('touch: column headers are at least 44 dp tall; row headers 40 wide', (tester) async {
     await pump(tester);
     final header = find.ancestor(of: find.text('A'), matching: find.byType(InkWell)).first;
     expect(tester.getSize(header).height, greaterThanOrEqualTo(44));
     final rowHeader = find.ancestor(of: find.text('1'), matching: find.byType(InkWell)).first;
-    expect(tester.getSize(rowHeader).width, greaterThanOrEqualTo(44));
+    expect(tester.getSize(rowHeader).width, greaterThanOrEqualTo(40));
     expect(SpreadsheetController.headerHeight, greaterThanOrEqualTo(44));
   });
 }

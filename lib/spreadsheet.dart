@@ -20,5 +20,6 @@ export 'src/engines/spreadsheet/workbook.dart';
 export 'src/engines/spreadsheet/xlsx_reader.dart';
 export 'src/spreadsheet/cell_match.dart';
 export 'src/spreadsheet/grid_selection.dart';
+export 'src/spreadsheet/sheet_density.dart';
 export 'src/spreadsheet/spreadsheet_controller.dart';
 export 'src/spreadsheet/spreadsheet_view.dart' show SpreadsheetView;

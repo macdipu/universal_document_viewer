@@ -99,6 +99,16 @@ Accessibility:
 - Cells have screen-reader labels ("B2, value 40, formula, has note, selected", `DocumentViewerStrings.cellDescription`); the grid shows a focus ring while the keyboard drives it; jumps do not animate when the system asks for reduced motion.
 - **Behaviour change:** the column-header row is 44 px tall (was 36), for touch.
 
+### Spreadsheets: cell look and density
+
+- **Lighter selection:** selected cells keep their own fill and text under a light tint of the selection colour (14%), with an outline round the range and a border on the active cell, instead of a dark block. `SpreadsheetView(selectionColor: …)` sets the colour (default: the theme's primary). Row and column headers the selection touches get a tint, accent text and a bar on their inner edge.
+- **Density:** `SheetDensity.touch` (36 px rows, 44 px headers, 96 px columns, 40 px row numbers, 8/4 padding) and `SheetDensity.compact` (28 px rows and headers, 100 px columns, 44 px row numbers, 6/2 padding), with `SheetMetrics`. `SpreadsheetController(density: …)` fixes it; left null, a desktop with a mouse is compact and a phone is touch, and a touch screen on a desktop switches to touch when the finger lifts (and back when the mouse moves). The row at the top stays in view when it changes. **Behaviour change:** touch columns are 96 px (were 110), row numbers 40 px wide (were 48), cell padding 8/4 (was 6/2); `SpreadsheetController.cellWidth`, `cellHeight`, `headerHeight`, `rowHeaderWidth` are the touch values.
+- **Ghost grid:** faint gridlines and a header bar continue past a small sheet's data, so it fills the view.
+- **Numbers that do not fit** show `#` marks (as Excel does) instead of a shortened figure; text still ends in an ellipsis.
+- **Scrollbars:** `SpreadsheetView(showScrollbars: true)` (default): draggable ones in a gutter on a desktop, thumbs that fade on a phone.
+- **Desktop pointer:** hover tint on cells; drag a column's right edge to resize it, or double-click it to fit its text (view only: the file is untouched, and widths reset when another file loads: `setColumnWidth`, `autoFitColumn`, `hasColumnWidthOverride`); right-click a cell for Copy, Copy address and Details.
+- Gridlines are one physical pixel (never thinner than a hairline), selection handles are smaller dots (same 48 px touch area), and text never drops below 11 px when zoomed out.
+
 ### Architecture
 
 - Parsers and models all live under `src/engines/` (the PPTX parser moved there; `engines/sheets` is now `engines/spreadsheet`), and the test builders under `src/testing/`. The public libraries and their names are unchanged.

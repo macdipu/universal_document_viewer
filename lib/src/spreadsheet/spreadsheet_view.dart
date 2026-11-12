@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,7 @@ import '../engines/spreadsheet/number_format.dart';
 import '../engines/spreadsheet/workbook.dart';
 import 'cell_border.dart';
 import 'grid_selection.dart';
+import 'sheet_density.dart';
 import 'sheet_geometry.dart';
 import 'spreadsheet_controller.dart';
 
@@ -28,7 +30,21 @@ import 'spreadsheet_controller.dart';
 /// and CSV alike.
 class SpreadsheetView extends StatefulWidget {
   /// Shows [controller]'s sheet on screen.
-  const SpreadsheetView({super.key, required this.controller, this.emptyMessage});
+  const SpreadsheetView({
+    super.key,
+    required this.controller,
+    this.emptyMessage,
+    this.selectionColor,
+    this.showScrollbars = true,
+  });
+
+  /// The colour of the selection (outline, tint, highlighted headers,
+  /// focus ring). Defaults to the theme's primary colour.
+  final Color? selectionColor;
+
+  /// Whether the grid shows scrollbars: draggable ones in their own gutter
+  /// beside the grid on a desktop, thumbs that fade out on a phone.
+  final bool showScrollbars;
 
   /// The workbook to show.
   final SpreadsheetController controller;
@@ -98,6 +114,45 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
 
   SpreadsheetController get _controller => widget.controller;
 
+  /// The right-click menu of a cell: copy and details. A cell outside the
+  /// selection becomes the selection first, as in spreadsheets.
+  Future<void> _showCellMenu(
+    BuildContext context,
+    Offset position,
+    int row,
+    int column,
+    VoidCallback openDetails,
+  ) async {
+    final controller = widget.controller;
+    if (!(controller.selection.value?.contains(row, column) ?? false)) {
+      controller.select(GridSelection.cell(row, column));
+    }
+    _focus.requestFocus();
+    final strings = DocumentViewerStrings.of(context);
+    final selection = controller.selection.value!;
+    final address = selection.address(rowCount: controller.currentRows.length, columnCount: controller.columnCount);
+    final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(position & const Size(1, 1), Offset.zero & overlay.size),
+      items: [
+        PopupMenuItem(value: 'copy', child: Text(strings.copy)),
+        PopupMenuItem(value: 'address', child: Text(strings.copyAddress)),
+        PopupMenuItem(value: 'details', child: Text(strings.cellDetails)),
+      ],
+    );
+    if (!mounted) return;
+    switch (choice) {
+      case 'copy':
+        await _copySelection();
+      case 'address':
+        // ignore: use_build_context_synchronously
+        await _copyText(this.context, address, address);
+      case 'details':
+        openDetails();
+    }
+  }
+
   /// A header tap selects its row or column; tapping it again clears.
   void _toggleSelection(GridSelection selection) {
     _focus.requestFocus();
@@ -130,6 +185,26 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     // handler, after the change, so the first zoom wasn't anchored.
     _zoom = widget.controller.zoom;
     widget.controller.addListener(_onControllerChanged);
+    _adoptDensity();
+  }
+
+  /// A desktop starts compact (a mouse); a phone or tablet stays touch.
+  /// Silent: it runs while the view is being built.
+  void _adoptDensity() =>
+      widget.controller.setAutoDensity(_isDesktop ? SheetDensity.compact : SheetDensity.touch, notify: false);
+
+  static bool get _isDesktop => switch (defaultTargetPlatform) {
+    TargetPlatform.macOS || TargetPlatform.windows || TargetPlatform.linux => true,
+    _ => false,
+  };
+
+  /// A mouse moving over a desktop's grid means compact rows; the first
+  /// touch on a touch-screen desktop means touch rows (switched when the
+  /// finger lifts, so the cells never move under it).
+  void _onPointerHover(PointerHoverEvent event) {
+    if (_isDesktop && event.kind == PointerDeviceKind.mouse) {
+      widget.controller.setAutoDensity(SheetDensity.compact);
+    }
   }
 
   /// Keeps the same cells in view across a zoom change: offsets scale by
@@ -179,6 +254,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
       ..horizontalController.addListener(widget.controller.onScrolled)
       ..verticalController.addListener(widget.controller.onScrolled);
     _zoom = widget.controller.zoom;
+    _adoptDensity();
     _mergesFor = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _restoreInitialOffsets();
@@ -221,29 +297,28 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
         ]),
         builder: (context, _) {
           final selection = widget.controller.selection.value;
+          final accent = widget.selectionColor ?? Theme.of(context).colorScheme.primary;
           return Column(
             children: [
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    _viewport = constraints.biggest;
+                    // The scrollbar gutter is not part of the grid.
+                    _viewport = Size(constraints.maxWidth - _gutter, constraints.maxHeight - _gutter);
                     return DecoratedBox(
                       position: DecorationPosition.foreground,
-                      decoration: BoxDecoration(
-                        border: _showFocusRing
-                            ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
-                            : null,
-                      ),
+                      decoration: BoxDecoration(border: _showFocusRing ? Border.all(color: accent, width: 2) : null),
                       child: Listener(
                         key: _gridKey,
                         onPointerDown: _onPointerDown,
+                        onPointerHover: _onPointerHover,
                         onPointerMove: _onPointerMove,
                         onPointerUp: _onPointerEnd,
                         onPointerCancel: _onPointerEnd,
                         child: Stack(
                           children: [
-                            Positioned.fill(child: _buildTable(context)),
-                            if (_inRangeMode(selection)) ..._handles(context, selection!),
+                            Positioned.fill(child: _gridArea(context, accent)),
+                            if (_inRangeMode(selection)) ..._handles(context, selection!, accent),
                           ],
                         ),
                       ),
@@ -255,6 +330,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
               // never moves the cells under the pointer.
               if (selection != null)
                 _SelectionBar(
+                  accent: accent,
                   summary: _summaryOf(context, rows, columnCount, selection),
                   onClear: widget.controller.clearSelection,
                   onCopy: _copySelection,
@@ -298,8 +374,8 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     final controller = widget.controller;
     final grid = controller.geometry;
     final zoom = controller.zoom;
-    final x = position.dx / zoom - SpreadsheetController.rowHeaderWidth;
-    final y = position.dy / zoom - SpreadsheetController.headerHeight;
+    final x = position.dx / zoom - controller.metrics.rowHeaderWidth;
+    final y = position.dy / zoom - controller.metrics.headerHeight;
     if (x < 0 || y < 0 || grid.visibleRows.isEmpty || grid.visibleColumns.isEmpty) return null;
     final horizontal = controller.horizontalController;
     final vertical = controller.verticalController;
@@ -401,6 +477,9 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   void _onPointerEnd(PointerEvent event) {
     _dragging = false;
     _touches.remove(event.pointer);
+    if (_isDesktop && event.kind == PointerDeviceKind.touch && _touches.isEmpty) {
+      widget.controller.setAutoDensity(SheetDensity.touch);
+    }
     if (_touches.length < 2 && _pinching) {
       setState(() => _pinchStartDistance = null);
     }
@@ -470,8 +549,8 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   /// cell, so a drag to the edge still selects up to it.
   Offset _clampToGrid(Offset position) {
     final zoom = widget.controller.zoom;
-    final left = SpreadsheetController.rowHeaderWidth * zoom + 1;
-    final top = SpreadsheetController.headerHeight * zoom + 1;
+    final left = widget.controller.metrics.rowHeaderWidth * zoom + 1;
+    final top = widget.controller.metrics.headerHeight * zoom + 1;
     return Offset(
       position.dx.clamp(left, math.max(left, _viewport.width - 1)),
       position.dy.clamp(top, math.max(top, _viewport.height - 1)),
@@ -495,8 +574,8 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   /// closer it is to the edge.
   Offset _edgeVelocity(Offset position) {
     final zoom = widget.controller.zoom;
-    final top = SpreadsheetController.headerHeight * zoom;
-    final left = SpreadsheetController.rowHeaderWidth * zoom;
+    final top = widget.controller.metrics.headerHeight * zoom;
+    final left = widget.controller.metrics.rowHeaderWidth * zoom;
     double speed(double distance) => distance >= _autoScrollEdge ? 0 : 4 + 16 * (1 - distance / _autoScrollEdge);
     var dx = 0.0;
     var dy = 0.0;
@@ -537,25 +616,25 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     final h = controller.horizontalController;
     final v = controller.verticalController;
     final x =
-        (SpreadsheetController.rowHeaderWidth + grid.columnStart(c)) * zoom -
+        (controller.metrics.rowHeaderWidth + grid.columnStart(c)) * zoom -
         (c < grid.frozenColumnCount || !h.hasClients ? 0 : h.offset);
     final y =
-        (SpreadsheetController.headerHeight + grid.rowStart(r)) * zoom -
+        (controller.metrics.headerHeight + grid.rowStart(r)) * zoom -
         (r < grid.frozenRowCount || !v.hasClients ? 0 : v.offset);
     return Rect.fromLTWH(x, y, grid.columnWidth(c) * zoom, grid.rowHeight(r) * zoom);
   }
 
   /// The two touch handles at the selection's corners, while they are on
   /// screen.
-  List<Widget> _handles(BuildContext context, GridSelection selection) {
+  List<Widget> _handles(BuildContext context, GridSelection selection, Color accent) {
     final controller = widget.controller;
     final bounds = selection.bounds(rowCount: controller.currentRows.length, columnCount: controller.columnCount);
     final start = _rectOf(bounds.firstRow, bounds.firstColumn)?.topLeft;
     final end = _rectOf(bounds.lastRow, bounds.lastColumn)?.bottomRight;
     final zoom = controller.zoom;
     final visible = Rect.fromLTRB(
-      SpreadsheetController.rowHeaderWidth * zoom - 1,
-      SpreadsheetController.headerHeight * zoom - 1,
+      controller.metrics.rowHeaderWidth * zoom - 1,
+      controller.metrics.headerHeight * zoom - 1,
       _viewport.width + 1,
       _viewport.height + 1,
     );
@@ -564,6 +643,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
       left: at.dx - _SelectionHandle.hitSize / 2,
       top: at.dy - _SelectionHandle.hitSize / 2,
       child: _SelectionHandle(
+        accent: accent,
         key: ValueKey(isStart ? 'selection-handle-start' : 'selection-handle-end'),
         semanticsLabel: isStart ? strings.selectionStartHandle : strings.selectionEndHandle,
         onDragStart: () {
@@ -661,9 +741,83 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     return KeyEventResult.handled;
   }
 
+  /// Width of the scrollbar gutters on a desktop; 0 without scrollbars.
+  double get _gutter => widget.showScrollbars && _isDesktop ? 14 : 0;
+
+  /// The table over a ghost grid (faint lines past the data, so a small
+  /// sheet fills the view), inside scrollbars when they are on.
+  Widget _gridArea(BuildContext context, Color accent) {
+    final controller = widget.controller;
+    final scheme = Theme.of(context).colorScheme;
+    final pixel = 1 / MediaQuery.devicePixelRatioOf(context);
+    final grid = Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _GhostGridPainter(
+                geometry: controller.geometry,
+                metrics: controller.metrics,
+                zoom: controller.zoom,
+                horizontalOffset: controller.horizontalController.hasClients
+                    ? controller.horizontalController.offset
+                    : 0,
+                verticalOffset: controller.verticalController.hasClients ? controller.verticalController.offset : 0,
+                lineColor: scheme.outlineVariant.withValues(alpha: 0.55),
+                headerColor: scheme.surfaceContainerLow,
+                lineWidth: math.max(0.5, pixel),
+              ),
+            ),
+          ),
+        ),
+        Positioned.fill(child: _buildTable(context, accent)),
+      ],
+    );
+    if (!widget.showScrollbars) return grid;
+    final vertical = controller.verticalController;
+    final horizontal = controller.horizontalController;
+    bool onAxis(ScrollNotification n, Axis axis) => n.metrics.axis == axis;
+    if (!_isDesktop) {
+      // Thumbs that show while scrolling, over the grid, and fade out.
+      return Scrollbar(
+        controller: vertical,
+        notificationPredicate: (n) => onAxis(n, Axis.vertical),
+        child: Scrollbar(
+          controller: horizontal,
+          scrollbarOrientation: ScrollbarOrientation.bottom,
+          notificationPredicate: (n) => onAxis(n, Axis.horizontal),
+          child: grid,
+        ),
+      );
+    }
+    return Scrollbar(
+      controller: vertical,
+      thumbVisibility: true,
+      trackVisibility: true,
+      interactive: true,
+      thickness: 10,
+      radius: const Radius.circular(5),
+      notificationPredicate: (n) => onAxis(n, Axis.vertical),
+      child: Scrollbar(
+        controller: horizontal,
+        thumbVisibility: true,
+        trackVisibility: true,
+        interactive: true,
+        thickness: 10,
+        radius: const Radius.circular(5),
+        scrollbarOrientation: ScrollbarOrientation.bottom,
+        notificationPredicate: (n) => onAxis(n, Axis.horizontal),
+        child: Padding(
+          padding: EdgeInsets.only(right: _gutter, bottom: _gutter),
+          child: grid,
+        ),
+      ),
+    );
+  }
+
   /// Table row 0 is the column-letter header and table column 0 the row
   /// numbers; the sheet's visible rows/columns follow.
-  Widget _buildTable(BuildContext context) {
+  Widget _buildTable(BuildContext context, Color accent) {
     final controller = widget.controller;
     final geometry = controller.geometry;
     final zoom = controller.zoom;
@@ -688,12 +842,10 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
       pinnedRowCount: geometry.frozenRowCount + 1,
       pinnedColumnCount: geometry.frozenColumnCount + 1,
       rowBuilder: (i) => TableSpan(
-        extent: FixedTableSpanExtent((i == 0 ? SpreadsheetController.headerHeight : geometry.rowHeight(i - 1)) * zoom),
+        extent: FixedTableSpanExtent((i == 0 ? controller.metrics.headerHeight : geometry.rowHeight(i - 1)) * zoom),
       ),
       columnBuilder: (i) => TableSpan(
-        extent: FixedTableSpanExtent(
-          (i == 0 ? SpreadsheetController.rowHeaderWidth : geometry.columnWidth(i - 1)) * zoom,
-        ),
+        extent: FixedTableSpanExtent((i == 0 ? controller.metrics.rowHeaderWidth : geometry.columnWidth(i - 1)) * zoom),
       ),
       cellBuilder: (context, vicinity) {
         final r = vicinity.row;
@@ -701,6 +853,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
         if (r == 0 && c == 0) {
           return TableViewCell(
             child: _Corner(
+              accent: accent,
               selected: selection?.kind == GridSelectionKind.all,
               semanticsLabel: DocumentViewerStrings.of(context).selectAll,
               onTap: () {
@@ -716,9 +869,35 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
             child: _HeaderCell(
               label: columnLabel(column),
               zoom: zoom,
+              isColumn: true,
+              accent: accent,
               selected: selection == GridSelection.column(column),
+              highlighted:
+                  selectionBounds != null &&
+                  selection?.kind != GridSelectionKind.row &&
+                  column >= selectionBounds.firstColumn &&
+                  column <= selectionBounds.lastColumn,
               semanticsLabel: DocumentViewerStrings.of(context).column(columnLabel(column)),
               onTap: () => _toggleSelection(GridSelection.column(column)),
+              // A mouse can drag a column's right edge to resize it (this
+              // view only), or double-click it to fit the text.
+              trailing: controller.density == SheetDensity.compact
+                  ? Positioned(
+                      top: 0,
+                      bottom: 0,
+                      right: 0,
+                      width: 8,
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.resizeColumn,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onHorizontalDragUpdate: (details) =>
+                              controller.setColumnWidth(column, geometry.columnWidth(c - 1) + details.delta.dx / zoom),
+                          onDoubleTap: () => controller.autoFitColumn(column),
+                        ),
+                      ),
+                    )
+                  : null,
             ),
           );
         }
@@ -728,7 +907,14 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
             child: _HeaderCell(
               label: '${row + 1}',
               zoom: zoom,
+              isColumn: false,
+              accent: accent,
               selected: selection == GridSelection.row(row),
+              highlighted:
+                  selectionBounds != null &&
+                  selection?.kind != GridSelectionKind.column &&
+                  row >= selectionBounds.firstRow &&
+                  row <= selectionBounds.lastRow,
               semanticsLabel: DocumentViewerStrings.of(context).row(row + 1),
               onTap: () => _toggleSelection(GridSelection.row(row)),
             ),
@@ -753,12 +939,29 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
             (selection.isSingleCell || selection.kind == GridSelectionKind.range) &&
             selection.activeRow == row &&
             selection.activeColumn == column;
+        void openDetails() => _showCellDetail(
+          context,
+          address: '${columnLabel(column)}${row + 1}',
+          // A formula saved without its result has no value to show.
+          value: switch (data?.value) {
+            FormulaValue(cached: null) => '',
+            _ => data?.text ?? '',
+          },
+          formula: data?.formulaText,
+          comment: comment,
+          link: link,
+          onOpenInternalLink: controller.openInternalLink,
+        );
         return TableViewCell(
           rowMergeStart: merge?.rowStart,
           rowMergeSpan: merge?.rowSpan,
           columnMergeStart: merge?.columnStart,
           columnMergeSpan: merge?.columnSpan,
           child: _DataCell(
+            accent: accent,
+            paddingX: controller.metrics.paddingX,
+            paddingY: controller.metrics.paddingY,
+            onSecondaryTap: (position) => _showCellMenu(context, position, row, column, openDetails),
             address: '${columnLabel(column)}${row + 1}',
             data: data,
             highlight: highlight,
@@ -775,23 +978,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
                   )
                 : null,
             onLongPress: () => _onCellLongPress(row, column),
-            onTap: () => _onCellTap(
-              row,
-              column,
-              () => _showCellDetail(
-                context,
-                address: '${columnLabel(column)}${row + 1}',
-                // A formula saved without its result has no value to show.
-                value: switch (data?.value) {
-                  FormulaValue(cached: null) => '',
-                  _ => data?.text ?? '',
-                },
-                formula: data?.formulaText,
-                comment: comment,
-                link: link,
-                onOpenInternalLink: controller.openInternalLink,
-              ),
-            ),
+            onTap: () => _onCellTap(row, column, openDetails),
           ),
         );
       },
@@ -849,6 +1036,101 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     _mergesFor = geometry;
     return _merges = merges;
   }
+}
+
+/// Faint grid lines (and a header bar) in the space past the sheet's data,
+/// so a small sheet fills the view. Painted behind the table, whose cells
+/// cover their own area; lines continue the real rows and columns, then
+/// default-sized ones.
+class _GhostGridPainter extends CustomPainter {
+  _GhostGridPainter({
+    required this.geometry,
+    required this.metrics,
+    required this.zoom,
+    required this.horizontalOffset,
+    required this.verticalOffset,
+    required this.lineColor,
+    required this.headerColor,
+    required this.lineWidth,
+  });
+
+  final SheetGeometry geometry;
+  final SheetMetrics metrics;
+  final double zoom;
+  final double horizontalOffset;
+  final double verticalOffset;
+  final Color lineColor;
+  final Color headerColor;
+  final double lineWidth;
+
+  static const _maxLines = 400;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final headerWidth = metrics.rowHeaderWidth * zoom;
+    final headerHeight = metrics.headerHeight * zoom;
+    final right = (metrics.rowHeaderWidth + geometry.contentWidth) * zoom - horizontalOffset;
+    final bottom = (metrics.headerHeight + geometry.contentHeight) * zoom - verticalOffset;
+    final gapRight = right < size.width - 1;
+    final gapBottom = bottom < size.height - 1;
+    if (!gapRight && !gapBottom) return;
+
+    final fill = Paint()..color = headerColor;
+    final line = Paint()
+      ..color = lineColor
+      ..strokeWidth = lineWidth;
+    if (gapRight) canvas.drawRect(Rect.fromLTRB(right, 0, size.width, headerHeight), fill);
+    if (gapBottom) canvas.drawRect(Rect.fromLTRB(0, bottom, headerWidth, size.height), fill);
+
+    // Column edges: the real ones (below the data) then default ones (right of it).
+    final xs = <(double, bool)>[]; // (x, isGhost)
+    if (gapBottom) {
+      for (var i = 0; i < geometry.visibleColumns.length && xs.length < _maxLines; i++) {
+        final x =
+            (metrics.rowHeaderWidth + geometry.columnStart(i + 1)) * zoom -
+            (i < geometry.frozenColumnCount ? 0 : horizontalOffset);
+        if (x > headerWidth && x <= size.width) xs.add((x, false));
+      }
+    }
+    if (gapRight) {
+      final step = metrics.columnWidth * zoom;
+      for (var x = right + step, n = 0; x < size.width + step && n < _maxLines; x += step, n++) {
+        xs.add((x, true));
+      }
+    }
+    final ys = <(double, bool)>[];
+    if (gapRight) {
+      for (var i = 0; i < geometry.visibleRows.length && ys.length < _maxLines; i++) {
+        final y =
+            (metrics.headerHeight + geometry.rowStart(i + 1)) * zoom -
+            (i < geometry.frozenRowCount ? 0 : verticalOffset);
+        if (y > headerHeight && y <= size.height) ys.add((y, false));
+      }
+    }
+    if (gapBottom) {
+      final step = metrics.rowHeight * zoom;
+      for (var y = bottom + step, n = 0; y < size.height + step && n < _maxLines; y += step, n++) {
+        ys.add((y, true));
+      }
+    }
+    for (final (x, ghost) in xs) {
+      canvas.drawLine(Offset(x, ghost ? 0 : math.max(bottom, headerHeight)), Offset(x, size.height), line);
+    }
+    for (final (y, ghost) in ys) {
+      canvas.drawLine(Offset(ghost ? 0 : math.max(right, headerWidth), y), Offset(size.width, y), line);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GhostGridPainter old) =>
+      old.geometry != geometry ||
+      old.metrics != metrics ||
+      old.zoom != zoom ||
+      old.horizontalOffset != horizontalOffset ||
+      old.verticalOffset != verticalOffset ||
+      old.lineColor != lineColor ||
+      old.headerColor != headerColor ||
+      old.lineWidth != lineWidth;
 }
 
 class _Merge {
@@ -997,10 +1279,16 @@ Future<void> _showCellDetail(
   );
 }
 
+/// A header's fill: quiet, with a tint of [accent] while it is part of the
+/// selection.
+Color _headerFill(ColorScheme scheme, Color accent, bool on) =>
+    on ? Color.alphaBlend(accent.withValues(alpha: 0.18), scheme.surfaceContainerLow) : scheme.surfaceContainerLow;
+
 class _Corner extends StatelessWidget {
-  const _Corner({required this.selected, required this.semanticsLabel, required this.onTap});
+  const _Corner({required this.selected, required this.accent, required this.semanticsLabel, required this.onTap});
 
   final bool selected;
+  final Color accent;
   final String semanticsLabel;
   final VoidCallback onTap;
 
@@ -1017,7 +1305,7 @@ class _Corner extends StatelessWidget {
         onTap: onTap,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: selected ? scheme.primary : scheme.surfaceContainer,
+            color: _headerFill(scheme, accent, selected),
             border: Border.all(color: scheme.outlineVariant, width: 0.5),
           ),
         ),
@@ -1026,49 +1314,79 @@ class _Corner extends StatelessWidget {
   }
 }
 
+/// A column letter or row number. [highlighted] marks one the selection
+/// touches: accent text and tint, and a bar on its inner edge (below a
+/// column letter, right of a row number) so it never relies on colour alone.
+/// [trailing] sits over its far edge (the column resize handle).
 class _HeaderCell extends StatelessWidget {
   final String label;
   final double zoom;
   final bool selected;
+  final bool highlighted;
+  final bool isColumn;
+  final Color accent;
   final String semanticsLabel;
   final VoidCallback onTap;
+  final Widget? trailing;
 
   const _HeaderCell({
     required this.label,
     required this.zoom,
     required this.selected,
+    required this.highlighted,
+    required this.isColumn,
+    required this.accent,
     required this.semanticsLabel,
     required this.onTap,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: semanticsLabel,
-      excludeSemantics: true,
-      child: InkWell(
-        canRequestFocus: false,
-        onTap: onTap,
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? scheme.primary : scheme.surfaceContainer,
-            border: Border.all(color: scheme.outlineVariant, width: 0.5),
-          ),
-          child: Text(
-            label,
-            maxLines: 1,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 12 * zoom,
-              color: selected ? scheme.onPrimary : null,
+    final on = highlighted || selected;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Semantics(
+            button: true,
+            selected: selected,
+            label: semanticsLabel,
+            excludeSemantics: true,
+            child: InkWell(
+              canRequestFocus: false,
+              onTap: onTap,
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _headerFill(scheme, accent, on),
+                  border: Border.all(color: scheme.outlineVariant, width: 0.5),
+                ),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 12 * zoom,
+                    color: on ? accent : scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
-      ),
+        if (on)
+          Positioned(
+            left: isColumn ? 0 : null,
+            right: 0,
+            bottom: isColumn ? 0 : 0,
+            top: isColumn ? null : 0,
+            width: isColumn ? null : 2.5,
+            height: isColumn ? 2.5 : null,
+            child: IgnorePointer(child: ColoredBox(color: accent)),
+          ),
+        ?trailing,
+      ],
     );
   }
 }
@@ -1222,7 +1540,9 @@ class _SelectionBar extends StatelessWidget {
   final VoidCallback onClear;
   final VoidCallback onCopy;
 
-  const _SelectionBar({required this.summary, required this.onClear, required this.onCopy});
+  const _SelectionBar({required this.accent, required this.summary, required this.onClear, required this.onCopy});
+
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -1249,7 +1569,10 @@ class _SelectionBar extends StatelessWidget {
       label: '${strings.selected(summary.label)}, $details',
       excludeSemantics: true,
       child: Container(
-        color: Theme.of(context).colorScheme.primaryContainer,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
+          border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.5)),
+        ),
         padding: const EdgeInsets.only(left: 12),
         child: Row(
           children: [
@@ -1259,34 +1582,32 @@ class _SelectionBar extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: summary.label,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: accent),
                     ),
                     TextSpan(text: '  $details'),
                   ],
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onPrimaryContainer),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface),
               ),
             ),
             IconButton(
               tooltip: strings.copySelection(summary.label),
               icon: const Icon(Icons.copy_rounded, size: 20),
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               onPressed: onCopy,
             ),
             IconButton(
               tooltip: strings.copyAddress,
               icon: const Icon(Icons.tag_rounded, size: 20),
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               onPressed: () => _copyText(context, summary.address, summary.address),
             ),
             IconButton(
               tooltip: strings.clearSelection,
               icon: const Icon(Icons.close_rounded, size: 20),
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               onPressed: onClear,
             ),
           ],
@@ -1301,6 +1622,7 @@ class _SelectionBar extends StatelessWidget {
 class _SelectionHandle extends StatelessWidget {
   const _SelectionHandle({
     super.key,
+    required this.accent,
     required this.semanticsLabel,
     required this.onDragStart,
     required this.onDragUpdate,
@@ -1309,8 +1631,9 @@ class _SelectionHandle extends StatelessWidget {
 
   /// The square a finger can grab (at least 44 logical px).
   static const hitSize = 48.0;
-  static const _dotSize = 16.0;
+  static const _dotSize = 12.0;
 
+  final Color accent;
   final String semanticsLabel;
   final VoidCallback onDragStart;
   final ValueChanged<Offset> onDragUpdate;
@@ -1336,7 +1659,7 @@ class _SelectionHandle extends StatelessWidget {
               decoration: BoxDecoration(
                 color: scheme.surface,
                 shape: BoxShape.circle,
-                border: Border.all(color: scheme.primary, width: 3),
+                border: Border.all(color: accent, width: 2.5),
               ),
             ),
           ),
@@ -1395,6 +1718,10 @@ class _SelectionEdges {
 enum _CellHighlight { none, match, current, selected }
 
 class _DataCell extends StatelessWidget {
+  final Color accent;
+  final double paddingX;
+  final double paddingY;
+  final void Function(Offset position)? onSecondaryTap;
   final String address;
   final SheetCell? data;
   final _CellHighlight highlight;
@@ -1407,6 +1734,10 @@ class _DataCell extends StatelessWidget {
   final VoidCallback? onLongPress;
 
   const _DataCell({
+    required this.accent,
+    required this.paddingX,
+    required this.paddingY,
+    this.onSecondaryTap,
     required this.address,
     required this.data,
     required this.highlight,
@@ -1429,24 +1760,27 @@ class _DataCell extends StatelessWidget {
     // Theme colours, not a hard-coded orange: the current match
     // stands out, other matches are marked lightly.
     final highlights = DocumentViewerTheme.of(context);
+    // A selected cell keeps its own fill and text, under a light tint of the
+    // selection colour; the active cell is left untinted (its border marks
+    // it), so it reads as "where the keyboard is" inside a range.
     final fill = switch (highlight) {
       _CellHighlight.current => highlights.currentMatchBackground,
       _CellHighlight.match => highlights.matchBackground!.withValues(alpha: 0.5),
-      _CellHighlight.selected => scheme.primaryContainer,
+      _CellHighlight.selected when isActive => background,
+      _CellHighlight.selected => Color.alphaBlend(accent.withValues(alpha: 0.14), background ?? scheme.surface),
       _CellHighlight.none => background,
     };
     final textColor = switch (highlight) {
       _CellHighlight.current => highlights.currentMatchForeground!,
-      _CellHighlight.selected => scheme.onPrimaryContainer,
       _CellHighlight.match => scheme.onSurface,
-      _CellHighlight.none => _ownTextColor(style, fill, scheme),
+      _CellHighlight.selected || _CellHighlight.none => _ownTextColor(style, fill, scheme),
     };
     final decorations = [
       if (style.underline || isLink) TextDecoration.underline,
       if (style.strikethrough) TextDecoration.lineThrough,
     ];
     final bar = data?.dataBar;
-    final outline = _outline(scheme);
+    final outline = _outline(accent);
     return Semantics(
       button: true,
       selected: highlight == _CellHighlight.selected || isActive,
@@ -1461,37 +1795,47 @@ class _DataCell extends StatelessWidget {
       excludeSemantics: true,
       onTap: onTap,
       onLongPress: onLongPress,
-      child: InkWell(
-        canRequestFocus: false,
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: SheetGeometry.cellPaddingX * zoom,
-            vertical: SheetGeometry.cellPaddingY * zoom,
-          ),
-          alignment: _alignment(style, data?.value),
-          clipBehavior: Clip.hardEdge,
-          decoration: BoxDecoration(
-            color: fill,
-            border: cellBorder(style.borders, gridline: scheme.outlineVariant, automatic: scheme.onSurface, zoom: zoom),
-          ),
-          foregroundDecoration: outline ?? (hasComment ? _CommentMarker(color: scheme.error, size: 7 * zoom) : null),
-          child: _withBar(
-            bar,
-            _alignment(style, data?.value),
-            Text(
-              data?.text ?? '',
-              maxLines: style.wrapText ? null : 1,
-              softWrap: style.wrapText,
-              overflow: style.wrapText ? TextOverflow.clip : TextOverflow.ellipsis,
-              textAlign: _textAlign(style, data?.value),
-              style: TextStyle(
-                color: textColor,
-                fontSize: SheetGeometry.fontPixelsOf(style.fontSize) * zoom,
-                fontWeight: style.bold ? FontWeight.bold : FontWeight.normal,
-                fontStyle: style.italic ? FontStyle.italic : FontStyle.normal,
-                decoration: decorations.isEmpty ? null : TextDecoration.combine(decorations),
+      child: _HoverTint(
+        color: scheme.onSurface.withValues(alpha: 0.05),
+        child: InkWell(
+          canRequestFocus: false,
+          onTap: onTap,
+          onLongPress: onLongPress,
+          onSecondaryTapDown: onSecondaryTap == null ? null : (details) => onSecondaryTap!(details.globalPosition),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: paddingX * zoom, vertical: paddingY * zoom),
+            alignment: _alignment(style, data?.value),
+            clipBehavior: Clip.hardEdge,
+            decoration: BoxDecoration(
+              color: fill,
+              border: cellBorder(
+                style.borders,
+                gridline: scheme.outlineVariant,
+                automatic: scheme.onSurface,
+                zoom: zoom,
+                // One physical pixel, but never thinner than a hairline.
+                gridlineWidth: math.max(0.5, 1 / MediaQuery.devicePixelRatioOf(context)),
+              ),
+            ),
+            foregroundDecoration: outline ?? (hasComment ? _CommentMarker(color: scheme.error, size: 7 * zoom) : null),
+            child: _withBar(
+              bar,
+              _alignment(style, data?.value),
+              _text(
+                style: style,
+                textAlign: _textAlign(style, data?.value),
+                textStyle: TextStyle(
+                  color: textColor,
+                  // Never below 11 px (or the file's own size, if smaller)
+                  // when zoomed out.
+                  fontSize: math.max(
+                    SheetGeometry.fontPixelsOf(style.fontSize) * zoom,
+                    math.min(SheetGeometry.fontPixelsOf(style.fontSize), 11),
+                  ),
+                  fontWeight: style.bold ? FontWeight.bold : FontWeight.normal,
+                  fontStyle: style.italic ? FontStyle.italic : FontStyle.normal,
+                  decoration: decorations.isEmpty ? null : TextDecoration.combine(decorations),
+                ),
               ),
             ),
           ),
@@ -1500,15 +1844,32 @@ class _DataCell extends StatelessWidget {
     );
   }
 
+  /// The cell's text. A number or date that doesn't fit shows `#` marks, as
+  /// Excel does, never a shortened value that could be misread.
+  Widget _text({required CellStyle style, required TextAlign textAlign, required TextStyle textStyle}) {
+    final text = data?.text ?? '';
+    final value = data?.value;
+    final numeric = value is NumberValue || (value is FormulaValue && value.cached is NumberValue);
+    if (numeric && !style.wrapText) return _NumberText(text: text, style: textStyle, textAlign: textAlign);
+    return Text(
+      text,
+      maxLines: style.wrapText ? null : 1,
+      softWrap: style.wrapText,
+      overflow: style.wrapText ? TextOverflow.clip : TextOverflow.ellipsis,
+      textAlign: textAlign,
+      style: textStyle,
+    );
+  }
+
   /// The active cell's full border, or the selection's outline on the sides
   /// of this cell that lie on its edge. Drawn as borders, so selection never
   /// depends on colour alone.
-  Decoration? _outline(ColorScheme scheme) {
+  Decoration? _outline(Color accent) {
     final width = 2.0 * (zoom < 1 ? 1 : zoom);
-    BorderSide side(bool on) => on ? BorderSide(color: scheme.primary, width: width) : BorderSide.none;
+    BorderSide side(bool on) => on ? BorderSide(color: accent, width: width) : BorderSide.none;
     if (isActive) {
       return BoxDecoration(
-        border: Border.all(color: scheme.primary, width: width + 0.5),
+        border: Border.all(color: accent, width: width + 0.5),
       );
     }
     final e = edges;
@@ -1646,4 +2007,65 @@ class _CommentMarkerPainter extends BoxPainter {
       ..close();
     canvas.drawPath(path, Paint()..color = marker.color);
   }
+}
+
+/// Tints its child lightly while a mouse is over it. Touch never hovers.
+class _HoverTint extends StatefulWidget {
+  const _HoverTint({required this.color, required this.child});
+
+  final Color color;
+  final Widget child;
+
+  @override
+  State<_HoverTint> createState() => _HoverTintState();
+}
+
+class _HoverTintState extends State<_HoverTint> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => setState(() => _hovering = true),
+    onExit: (_) => setState(() => _hovering = false),
+    child: DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(color: _hovering ? widget.color : null),
+      child: widget.child,
+    ),
+  );
+}
+
+/// A number or date on one line; when it is wider than the cell, `#` marks
+/// fill the cell instead (Excel's way), so a cut-off figure is never read as
+/// a different one. The full value stays in the name bar and the cell sheet.
+class _NumberText extends StatelessWidget {
+  const _NumberText({required this.text, required this.style, required this.textAlign});
+
+  final String text;
+  final TextStyle style;
+  final TextAlign textAlign;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final available = constraints.maxWidth;
+      var shown = text;
+      if (available.isFinite && text.isNotEmpty) {
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+        )..layout();
+        final fits = painter.width <= available + 0.5;
+        if (!fits) {
+          painter
+            ..text = TextSpan(text: '#', style: style)
+            ..layout();
+          shown = '#' * math.max(1, (available / painter.width).floor());
+        }
+        painter.dispose();
+      }
+      return Text(shown, maxLines: 1, softWrap: false, overflow: TextOverflow.clip, textAlign: textAlign, style: style);
+    },
+  );
 }

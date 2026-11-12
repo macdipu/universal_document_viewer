@@ -36,7 +36,7 @@ void main() {
     // Column A is 20 characters wide, B the default.
     final a = tester.getSize(find.bySemanticsLabel('Column A')).width;
     final b = tester.getSize(find.bySemanticsLabel('Column B')).width;
-    expect(b, SpreadsheetController.cellWidth);
+    expect(b, closeTo(SpreadsheetController.cellWidth, 0.01));
     expect(a, closeTo(SheetGeometry.columnWidthOf(20), 0.5));
   });
 

@@ -16,7 +16,7 @@ void main() {
     expect(SheetGeometry.columnWidthOf(8.43), SheetGeometry.defaultColumnWidth);
     expect(SheetGeometry.rowHeightOf(15), SheetGeometry.defaultRowHeight);
     expect(geometry.rowHeight(2), SheetGeometry.defaultRowHeight * 2);
-    expect(geometry.columnWidth(1), closeTo(110 * 145 / 64.01, 0.01));
+    expect(geometry.columnWidth(1), closeTo(96 * 145 / 64.01, 0.01));
   });
 
   test('hidden rows and columns are left out', () {

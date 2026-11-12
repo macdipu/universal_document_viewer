@@ -5,9 +5,15 @@ import '../engines/spreadsheet/workbook.dart';
 /// A cell's border: the file's lines where it drew them (automatic ones in
 /// [automatic], so they show on a dark theme too), else the thin
 /// [gridline].
-Border cellBorder(CellBorders borders, {required Color gridline, required Color automatic, double zoom = 1}) {
+Border cellBorder(
+  CellBorders borders, {
+  required Color gridline,
+  required Color automatic,
+  double zoom = 1,
+  double gridlineWidth = 0.5,
+}) {
   BorderSide side(BorderLine? line) => line == null
-      ? BorderSide(color: gridline, width: 0.5)
+      ? BorderSide(color: gridline, width: gridlineWidth)
       : BorderSide(
           color: line.color == null ? automatic : Color(line.color!),
           // Each cell draws its own sides, so a line both neighbours

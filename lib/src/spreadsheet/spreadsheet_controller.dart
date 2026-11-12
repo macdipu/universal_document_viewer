@@ -16,6 +16,7 @@ import '../engines/spreadsheet/workbook.dart';
 import '../engines/spreadsheet/xlsx_reader.dart';
 import 'cell_match.dart';
 import 'grid_selection.dart';
+import 'sheet_density.dart';
 import 'sheet_geometry.dart';
 
 /// Loads an Excel workbook (`.xlsx`) or a CSV file for [SpreadsheetView]:
@@ -39,7 +40,12 @@ class SpreadsheetController extends DocumentController {
   /// [format] says what [loadBytes] gets: [DocumentFormat.excel] or
   /// [DocumentFormat.csv]. Left null, a ZIP package is read as a workbook
   /// and anything else as CSV. [loadFile] goes by the file's extension.
-  SpreadsheetController({ReadingPosition? initialPosition, super.onPositionChanged, this.format}) {
+  ///
+  /// [density] fixes how roomy the grid is; left null, [SpreadsheetView]
+  /// picks it from the input device (touch on phones, compact for a mouse
+  /// on a desktop).
+  SpreadsheetController({ReadingPosition? initialPosition, super.onPositionChanged, this.format, SheetDensity? density})
+    : _density = density {
     final position = initialPosition ?? const {};
     if (position[PositionKeys.sheetIndex] case final int index when index >= 0) _initialSheetIndex = index;
     if (position[PositionKeys.verticalOffset] case final num v when v > 0) {
@@ -54,18 +60,117 @@ class SpreadsheetController extends DocumentController {
   /// What [loadBytes] reads the bytes as; null to tell from the bytes.
   final DocumentFormat? format;
 
-  /// The width of a column with no width of its own, at zoom 1.
-  static const double cellWidth = SheetGeometry.defaultColumnWidth;
+  /// The width of a column with no width of its own, at zoom 1, in
+  /// [SheetDensity.touch] (see [metrics] for the density in use).
+  static const double cellWidth = 96;
 
-  /// The height of a row with no height of its own, at zoom 1.
-  static const double cellHeight = SheetGeometry.defaultRowHeight;
+  /// The height of a row with no height of its own, at zoom 1, in
+  /// [SheetDensity.touch].
+  static const double cellHeight = 36;
 
-  /// The height of the column-letter header row, at zoom 1: at least a
-  /// 44 dp touch target.
+  /// The height of the column-letter header row, at zoom 1, in
+  /// [SheetDensity.touch]: a 44 dp touch target.
   static const double headerHeight = 44;
 
-  /// The width of the row-number column, at zoom 1.
-  static const double rowHeaderWidth = 48;
+  /// The width of the row-number column, at zoom 1, in
+  /// [SheetDensity.touch].
+  static const double rowHeaderWidth = 40;
+
+  SheetDensity? _density;
+  SheetDensity _autoDensity = SheetDensity.touch;
+
+  /// The density in use: the one given, else the one [SpreadsheetView]
+  /// chose for the input device.
+  SheetDensity get density => _density ?? _autoDensity;
+
+  /// Fixes the density, or null to let the view choose.
+  set density(SheetDensity? value) => _changeDensity(() => _density = value);
+
+  /// [SpreadsheetView] reports the input device here. Ignored while a
+  /// density was given.
+  @internal
+  void setAutoDensity(SheetDensity value, {bool notify = true}) {
+    if (value == _autoDensity) return;
+    if (notify) {
+      _changeDensity(() => _autoDensity = value);
+    } else {
+      _autoDensity = value;
+      _geometry = null;
+    }
+  }
+
+  /// The sizes of the density in use.
+  SheetMetrics get metrics => SheetMetrics.of(density);
+
+  /// Applies a density change and keeps the row at the top where it was.
+  void _changeDensity(void Function() change) {
+    final before = density;
+    final grid = _geometry;
+    final topRow = grid == null || !verticalController.hasClients || currentRows.isEmpty ? null : _topRow;
+    change();
+    if (density == before) return;
+    _geometry = null;
+    notifyListeners();
+    if (topRow == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (isDisposed || !verticalController.hasClients) return;
+      final visible = geometry.visibleIndexOfRow(topRow);
+      if (visible == null) return;
+      verticalController.jumpTo(
+        (geometry.scrollOffsetOfRow(visible) * _zoom).clamp(0.0, verticalController.position.maxScrollExtent),
+      );
+    });
+  }
+
+  /// Widths (1x pixels) the reader gave columns, by sheet index then
+  /// column; not saved to the file and cleared when another file loads.
+  final _columnWidthOverrides = <int, Map<int, double>>{};
+
+  /// Whether [column] of the sheet on screen has a width the reader set.
+  bool hasColumnWidthOverride(int column) => _columnWidthOverrides[_activeSheet]?.containsKey(column) ?? false;
+
+  /// Sets [column]'s width on screen (1x pixels, 24 to 800), or restores
+  /// the file's with null. View only: the file is never changed.
+  void setColumnWidth(int column, double? width) {
+    final map = _columnWidthOverrides.putIfAbsent(_activeSheet, () => {});
+    if (width == null) {
+      if (map.remove(column) == null) return;
+    } else {
+      final clamped = width.clamp(24.0, 800.0);
+      if (map[column] == clamped) return;
+      map[column] = clamped;
+    }
+    _geometry = null;
+    notifyListeners();
+  }
+
+  /// Fits [column] to its longest text among the first 1,000 rows
+  /// (Excel's double-click on a header border).
+  void autoFitColumn(int column) {
+    final rows = currentRows;
+    final painter = TextPainter(textDirection: TextDirection.ltr, maxLines: 1);
+    var widest = 0.0;
+    try {
+      for (var r = 0; r < rows.length && r < 1000; r++) {
+        if (column >= rows[r].length) continue;
+        final cell = rows[r][column];
+        if (cell == null || cell.text.isEmpty) continue;
+        painter
+          ..text = TextSpan(
+            text: cell.text,
+            style: TextStyle(
+              fontSize: SheetGeometry.fontPixelsOf(cell.style.fontSize),
+              fontWeight: cell.style.bold ? FontWeight.bold : FontWeight.normal,
+            ),
+          )
+          ..layout();
+        if (painter.width > widest) widest = painter.width;
+      }
+    } finally {
+      painter.dispose();
+    }
+    setColumnWidth(column, widest + 2 * metrics.paddingX + 2);
+  }
 
   /// Above this size a CSV is refused rather than parsed in one pass.
   static const int maxCsvBytes = 20 * 1024 * 1024;
@@ -125,11 +230,14 @@ class SpreadsheetController extends DocumentController {
     minFrozenRows: _freezeTopRow ? 1 : 0,
     fittedRowHeights: currentSheet == null
         ? const {}
-        : _fittedRowHeights[_activeSheet] ??= SheetGeometry.fitWrappedRows(currentSheet!),
+        : _fittedRowHeights[(_activeSheet, density)] ??= SheetGeometry.fitWrappedRows(currentSheet!, metrics: metrics),
+    columnWidthOverrides: _columnWidthOverrides[_activeSheet] ?? const {},
+    metrics: metrics,
   );
 
-  /// [SheetGeometry.fitWrappedRows] per sheet index, measured once.
-  final _fittedRowHeights = <int, Map<int, double>>{};
+  /// [SheetGeometry.fitWrappedRows] per sheet index and density, measured
+  /// once.
+  final _fittedRowHeights = <(int, SheetDensity), Map<int, double>>{};
 
   bool _freezeTopRow = false;
 
@@ -287,8 +395,8 @@ class SpreadsheetController extends DocumentController {
   int get pageRows {
     if (!verticalController.hasClients) return 1;
     final grid = geometry;
-    final window = verticalController.position.viewportDimension - (headerHeight + grid.frozenHeight) * _zoom;
-    return math.max(1, (window / (cellHeight * _zoom)).floor() - 1);
+    final window = verticalController.position.viewportDimension - (metrics.headerHeight + grid.frozenHeight) * _zoom;
+    return math.max(1, (window / (metrics.rowHeight * _zoom)).floor() - 1);
   }
 
   void _revealActive() {
@@ -308,7 +416,7 @@ class SpreadsheetController extends DocumentController {
         verticalController,
         start: grid.scrollOffsetOfRow(r) * _zoom,
         size: grid.rowHeight(r) * _zoom,
-        pinned: (headerHeight + grid.frozenHeight) * _zoom,
+        pinned: (metrics.headerHeight + grid.frozenHeight) * _zoom,
       );
     }
     if (c != null && c >= grid.frozenColumnCount && horizontalController.hasClients) {
@@ -316,7 +424,7 @@ class SpreadsheetController extends DocumentController {
         horizontalController,
         start: grid.scrollOffsetOfColumn(c) * _zoom,
         size: grid.columnWidth(c) * _zoom,
-        pinned: (rowHeaderWidth + grid.frozenWidth) * _zoom,
+        pinned: (metrics.rowHeaderWidth + grid.frozenWidth) * _zoom,
       );
     }
   }
@@ -482,6 +590,7 @@ class SpreadsheetController extends DocumentController {
   void _setSheets(List<Worksheet> sheets) {
     _sheets = sheets;
     _fittedRowHeights.clear();
+    _columnWidthOverrides.clear();
     _activeSheet = _initialSheetIndex < sheets.length ? _initialSheetIndex : 0;
     _columnCount = null;
     _geometry = null;
