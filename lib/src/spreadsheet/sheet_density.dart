@@ -20,11 +20,11 @@ class SheetMetrics {
 
   /// Touch: 44 px headers (a comfortable target), 36 px rows.
   static const touch = SheetMetrics._(
-    columnWidth: 96,
+    columnWidth: 104,
     rowHeight: 36,
     headerHeight: 44,
     rowHeaderWidth: 40,
-    paddingX: 8,
+    paddingX: 6,
     paddingY: 4,
   );
 

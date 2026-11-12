@@ -137,6 +137,20 @@ void main() {
       });
     });
 
+    testWidgets('a cancelled pointer marked as touch (a menu opening) does not flip a desktop to touch', (
+      tester,
+    ) async {
+      await onPlatform(TargetPlatform.macOS, () async {
+        final controller = await load(tester);
+        await pump(tester, controller);
+        expect(controller.density, SheetDensity.compact);
+        final cancelled = await tester.startGesture(const Offset(300, 300), kind: PointerDeviceKind.touch);
+        await cancelled.cancel();
+        await tester.pump();
+        expect(controller.density, SheetDensity.compact);
+      });
+    });
+
     testWidgets('changing density keeps the same row at the top', (tester) async {
       final controller = await load(
         tester,
@@ -232,6 +246,20 @@ void main() {
         final scheme = ColorScheme.fromSeed(seedColor: const Color(0xFF0057D9), brightness: brightness);
         expect(ratio(scheme.primary, scheme.surface), greaterThanOrEqualTo(3), reason: '$brightness');
       }
+    });
+  });
+
+  group('touch range mode', () {
+    testWidgets('the status bar drops its buttons while the toolbar below has them', (tester) async {
+      final controller = await load(tester);
+      await pump(tester, controller);
+      await tester.tap(find.text('Rent'));
+      await tester.pump();
+      expect(find.byTooltip('Copy address'), findsOneWidget, reason: 'one status bar, with its buttons');
+      await tester.longPress(find.text('Food'));
+      await tester.pump();
+      expect(find.byTooltip('Copy address'), findsOneWidget, reason: 'now only the toolbar has it');
+      expect(find.text('Done'), findsOneWidget);
     });
   });
 

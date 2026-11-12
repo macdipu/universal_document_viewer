@@ -62,7 +62,7 @@ class SpreadsheetController extends DocumentController {
 
   /// The width of a column with no width of its own, at zoom 1, in
   /// [SheetDensity.touch] (see [metrics] for the density in use).
-  static const double cellWidth = 96;
+  static const double cellWidth = 104;
 
   /// The height of a row with no height of its own, at zoom 1, in
   /// [SheetDensity.touch].

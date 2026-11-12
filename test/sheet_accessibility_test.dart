@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -93,6 +94,37 @@ void main() {
     FocusManager.instance.highlightStrategy = FocusHighlightStrategy.alwaysTouch;
     await tester.pump();
     expect(ring(), isFalse);
+    FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic;
+  });
+
+  testWidgets('a mouse click does not frame the grid; a key press does', (tester) async {
+    await pump(tester);
+    FocusManager.instance.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+    final primary = Theme.of(tester.element(find.byType(SpreadsheetView))).colorScheme.primary;
+    bool ring() => tester.widgetList<DecoratedBox>(find.byType(DecoratedBox)).any((box) {
+      final decoration = box.decoration;
+      return box.position == DecorationPosition.foreground &&
+          decoration is BoxDecoration &&
+          decoration.border is Border &&
+          (decoration.border! as Border).top.width == 2 &&
+          (decoration.border! as Border).top.color == primary;
+    });
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: tester.getCenter(find.text('Rent')));
+    await mouse.down(tester.getCenter(find.text('Rent')));
+    await mouse.up();
+    await tester.pump();
+    expect(ring(), isFalse, reason: 'after a click the cell border is enough');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(ring(), isTrue);
+
+    await mouse.down(tester.getCenter(find.text('Rent')));
+    await mouse.up();
+    await tester.pump();
+    expect(ring(), isFalse, reason: 'a click takes it away again');
     FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic;
   });
 

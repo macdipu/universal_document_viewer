@@ -66,8 +66,20 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
 
   void _onHighlightModeChanged(FocusHighlightMode mode) => _onFocusChanged();
 
+  /// Whether the last input was a key: a desktop is always in "traditional"
+  /// focus mode, so without this the ring would frame the grid after every
+  /// mouse click.
+  bool _keyboardUsed = false;
+
+  void _setKeyboardUsed(bool used) {
+    if (used == _keyboardUsed) return;
+    _keyboardUsed = used;
+    _onFocusChanged();
+  }
+
   void _onFocusChanged() {
-    final ring = _focus.hasFocus && FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+    final ring =
+        _keyboardUsed && _focus.hasFocus && FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
     if (ring != _showFocusRing && mounted) setState(() => _showFocusRing = ring);
   }
 
@@ -331,6 +343,8 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
               if (selection != null)
                 _SelectionBar(
                   accent: accent,
+                  // In touch range mode the toolbar below has Copy and Done.
+                  showActions: !_inRangeMode(selection),
                   summary: _summaryOf(context, rows, columnCount, selection),
                   onClear: widget.controller.clearSelection,
                   onCopy: _copySelection,
@@ -423,6 +437,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
 
   void _onPointerDown(PointerDownEvent event) {
     final controller = widget.controller;
+    _setKeyboardUsed(false);
     _lastPointerKind = event.kind;
     if (event.kind == PointerDeviceKind.touch) {
       _touches[event.pointer] = _local(event);
@@ -477,7 +492,9 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   void _onPointerEnd(PointerEvent event) {
     _dragging = false;
     _touches.remove(event.pointer);
-    if (_isDesktop && event.kind == PointerDeviceKind.touch && _touches.isEmpty) {
+    // Only a finger lifting counts: a cancel (a menu opening over the grid
+    // sends one, wrongly marked as touch) is not a touch.
+    if (_isDesktop && event is PointerUpEvent && event.kind == PointerDeviceKind.touch && _touches.isEmpty) {
       widget.controller.setAutoDensity(SheetDensity.touch);
     }
     if (_touches.length < 2 && _pinching) {
@@ -685,6 +702,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+    _setKeyboardUsed(true);
     final controller = widget.controller;
     final keys = HardwareKeyboard.instance;
     final shift = keys.isShiftPressed;
@@ -750,30 +768,24 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     final controller = widget.controller;
     final scheme = Theme.of(context).colorScheme;
     final pixel = 1 / MediaQuery.devicePixelRatioOf(context);
-    final grid = Stack(
-      children: [
-        Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(
-              painter: _GhostGridPainter(
-                geometry: controller.geometry,
-                metrics: controller.metrics,
-                zoom: controller.zoom,
-                horizontalOffset: controller.horizontalController.hasClients
-                    ? controller.horizontalController.offset
-                    : 0,
-                verticalOffset: controller.verticalController.hasClients ? controller.verticalController.offset : 0,
-                lineColor: scheme.outlineVariant.withValues(alpha: 0.55),
-                headerColor: scheme.surfaceContainerLow,
-                lineWidth: math.max(0.5, pixel),
-              ),
-            ),
+    final ghost = Positioned.fill(
+      child: IgnorePointer(
+        child: CustomPaint(
+          painter: _GhostGridPainter(
+            geometry: controller.geometry,
+            metrics: controller.metrics,
+            zoom: controller.zoom,
+            horizontalOffset: controller.horizontalController.hasClients ? controller.horizontalController.offset : 0,
+            verticalOffset: controller.verticalController.hasClients ? controller.verticalController.offset : 0,
+            lineColor: scheme.outlineVariant.withValues(alpha: 0.7),
+            headerColor: scheme.surfaceContainerLow,
+            lineWidth: math.max(0.5, pixel),
           ),
         ),
-        Positioned.fill(child: _buildTable(context, accent)),
-      ],
+      ),
     );
-    if (!widget.showScrollbars) return grid;
+    final table = Positioned.fill(child: _buildTable(context, accent));
+    if (!widget.showScrollbars) return Stack(children: [ghost, table]);
     final vertical = controller.verticalController;
     final horizontal = controller.horizontalController;
     bool onAxis(ScrollNotification n, Axis axis) => n.metrics.axis == axis;
@@ -786,32 +798,39 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
           controller: horizontal,
           scrollbarOrientation: ScrollbarOrientation.bottom,
           notificationPredicate: (n) => onAxis(n, Axis.horizontal),
-          child: grid,
+          child: Stack(children: [ghost, table]),
         ),
       );
     }
-    return Scrollbar(
-      controller: vertical,
-      thumbVisibility: true,
-      trackVisibility: true,
-      interactive: true,
-      thickness: 10,
-      radius: const Radius.circular(5),
-      notificationPredicate: (n) => onAxis(n, Axis.vertical),
-      child: Scrollbar(
-        controller: horizontal,
-        thumbVisibility: true,
-        trackVisibility: true,
-        interactive: true,
-        thickness: 10,
-        radius: const Radius.circular(5),
-        scrollbarOrientation: ScrollbarOrientation.bottom,
-        notificationPredicate: (n) => onAxis(n, Axis.horizontal),
-        child: Padding(
-          padding: EdgeInsets.only(right: _gutter, bottom: _gutter),
-          child: grid,
+    // The ghost grid runs under the scrollbar gutters too, so a small sheet
+    // has no blank strips at its right and bottom.
+    return Stack(
+      children: [
+        ghost,
+        Scrollbar(
+          controller: vertical,
+          thumbVisibility: true,
+          trackVisibility: true,
+          interactive: true,
+          thickness: 10,
+          radius: const Radius.circular(5),
+          notificationPredicate: (n) => onAxis(n, Axis.vertical),
+          child: Scrollbar(
+            controller: horizontal,
+            thumbVisibility: true,
+            trackVisibility: true,
+            interactive: true,
+            thickness: 10,
+            radius: const Radius.circular(5),
+            scrollbarOrientation: ScrollbarOrientation.bottom,
+            notificationPredicate: (n) => onAxis(n, Axis.horizontal),
+            child: Padding(
+              padding: EdgeInsets.only(right: _gutter, bottom: _gutter),
+              child: Stack(children: [table]),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -1540,9 +1559,16 @@ class _SelectionBar extends StatelessWidget {
   final VoidCallback onClear;
   final VoidCallback onCopy;
 
-  const _SelectionBar({required this.accent, required this.summary, required this.onClear, required this.onCopy});
+  const _SelectionBar({
+    required this.accent,
+    required this.summary,
+    required this.onClear,
+    required this.onCopy,
+    this.showActions = true,
+  });
 
   final Color accent;
+  final bool showActions;
 
   @override
   Widget build(BuildContext context) {
@@ -1592,24 +1618,27 @@ class _SelectionBar extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface),
               ),
             ),
-            IconButton(
-              tooltip: strings.copySelection(summary.label),
-              icon: const Icon(Icons.copy_rounded, size: 20),
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              onPressed: onCopy,
-            ),
-            IconButton(
-              tooltip: strings.copyAddress,
-              icon: const Icon(Icons.tag_rounded, size: 20),
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              onPressed: () => _copyText(context, summary.address, summary.address),
-            ),
-            IconButton(
-              tooltip: strings.clearSelection,
-              icon: const Icon(Icons.close_rounded, size: 20),
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              onPressed: onClear,
-            ),
+            if (showActions) ...[
+              IconButton(
+                tooltip: strings.copySelection(summary.label),
+                icon: const Icon(Icons.copy_rounded, size: 20),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                onPressed: onCopy,
+              ),
+              IconButton(
+                tooltip: strings.copyAddress,
+                icon: const Icon(Icons.tag_rounded, size: 20),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                onPressed: () => _copyText(context, summary.address, summary.address),
+              ),
+              IconButton(
+                tooltip: strings.clearSelection,
+                icon: const Icon(Icons.close_rounded, size: 20),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                onPressed: onClear,
+              ),
+            ] else
+              const SizedBox(width: 12, height: 48),
           ],
         ),
       ),
@@ -1796,9 +1825,11 @@ class _DataCell extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: _HoverTint(
-        color: scheme.onSurface.withValues(alpha: 0.05),
+        color: isActive ? null : accent.withValues(alpha: 0.08),
         child: InkWell(
           canRequestFocus: false,
+          // The grey hover wash is replaced by the accent tint of _HoverTint.
+          hoverColor: Colors.transparent,
           onTap: onTap,
           onLongPress: onLongPress,
           onSecondaryTapDown: onSecondaryTap == null ? null : (details) => onSecondaryTap!(details.globalPosition),
@@ -2013,7 +2044,7 @@ class _CommentMarkerPainter extends BoxPainter {
 class _HoverTint extends StatefulWidget {
   const _HoverTint({required this.color, required this.child});
 
-  final Color color;
+  final Color? color;
   final Widget child;
 
   @override

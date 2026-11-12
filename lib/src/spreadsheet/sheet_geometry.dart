@@ -47,7 +47,7 @@ class SheetGeometry {
   /// A default-width column (8.43 characters) and a default-height row
   /// (15 pt) on screen; other sizes scale from these. Roomier than Excel's
   /// 64 x 20 px, for touch.
-  static const double defaultColumnWidth = 96;
+  static const double defaultColumnWidth = 104;
 
   /// See [defaultColumnWidth].
   static const double defaultRowHeight = 36;
