@@ -1,12 +1,5 @@
 # Changelog
 
-## 0.1.4
-
-Desktop PDF reading.
-
-- **`PdfView(showScrollbar: true)`**: a draggable vertical scrollbar in its own gutter at the right edge, following the view's position and size; click the track to jump. Off by default, meant for mouse-driven desktops. Only applies to the vertical (continuous) layout.
-- **Touchpad scrolling no longer zooms the PDF on Windows, Linux and macOS.** A precision touchpad reports a two-finger scroll as a pan-zoom gesture with a little scale noise, and `InteractiveViewer` reads any scale other than 1 as a pinch, so a plain scroll also zoomed. On those platforms its own scale is now off and a deliberate trackpad pinch (a scale change past 6%) still zooms. Ctrl + wheel, double-click and the controller's zoom are unchanged. Touch pinch on Android and iOS is unchanged; a touch screen on a desktop OS no longer pinches in `PdfView`.
-
 ## 0.2.0
 
 0.2.0 gives every format the same API and makes the package cleaner to use and to contribute to. It breaks 0.1 code; the tables below say what to change.
@@ -124,12 +117,20 @@ Accessibility:
 - `goTo` before the document is loaded or its view has laid it out is no longer lost: it takes effect once the view is ready, for every format (it was dropped for plain text, spreadsheets and Word's continuous layout). A PDF zoom set before its view exists is applied the same way, and `zoom` reports it meanwhile.
 - A `PdfView` built after its controller had opened the document (as `DocumentViewer` does) showed a spinner forever.
 - Giving a `WordView` or `PlainTextView` another controller kept the old document's layout state (Word's mode, zoom and pages; plain text's scroll listener); a `SpreadsheetView` didn't restore the new controller's scroll position.
+- Spreadsheets: a cancelled pointer (a scroll that takes over a touch) no longer flips a desktop to the touch layout, and the focus ring appears only after a key press, not after a click.
 - A damaged `.xlsx` is reported as damaged instead of opening as a CSV of its bytes; binary content in a `.csv` is refused.
 
 ### Changed
 
 - Plain text: more space between lines and wider margins.
 - The search status reads "2 of 4" (was "2 of 4 result(s)").
+
+## 0.1.4
+
+Desktop PDF reading.
+
+- **`PdfView(showScrollbar: true)`**: a draggable vertical scrollbar in its own gutter at the right edge, following the view's position and size; click the track to jump. Off by default, meant for mouse-driven desktops. Only applies to the vertical (continuous) layout.
+- **Touchpad scrolling no longer zooms the PDF on Windows, Linux and macOS.** A precision touchpad reports a two-finger scroll as a pan-zoom gesture with a little scale noise, and `InteractiveViewer` reads any scale other than 1 as a pinch, so a plain scroll also zoomed. On those platforms its own scale is now off and a deliberate trackpad pinch (a scale change past 6%) still zooms. Ctrl + wheel, double-click and the controller's zoom are unchanged. Touch pinch on Android and iOS is unchanged; a touch screen on a desktop OS no longer pinches in `PdfView`.
 
 ## 0.1.1
 
