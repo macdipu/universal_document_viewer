@@ -44,6 +44,17 @@ class SpreadsheetView extends StatefulWidget {
 class _SpreadsheetViewState extends State<SpreadsheetView> {
   final _focus = FocusNode(debugLabel: 'SpreadsheetView grid');
 
+  /// Whether the grid has focus and the user is on the keyboard (not a
+  /// pointer or touch): the grid then gets a visible ring.
+  bool _showFocusRing = false;
+
+  void _onHighlightModeChanged(FocusHighlightMode mode) => _onFocusChanged();
+
+  void _onFocusChanged() {
+    final ring = _focus.hasFocus && FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+    if (ring != _showFocusRing && mounted) setState(() => _showFocusRing = ring);
+  }
+
   /// The selection as it was when the pointer last went down: a tap on the
   /// already active cell opens its details instead of reselecting it.
   GridSelection? _selectionBeforeDown;
@@ -110,6 +121,8 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   @override
   void initState() {
     super.initState();
+    _focus.addListener(_onFocusChanged);
+    FocusManager.instance.addHighlightModeListener(_onHighlightModeChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _restoreInitialOffsets());
     widget.controller.horizontalController.addListener(widget.controller.onScrolled);
     widget.controller.verticalController.addListener(widget.controller.onScrolled);
@@ -178,6 +191,8 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     widget.controller.horizontalController.removeListener(widget.controller.onScrolled);
     widget.controller.verticalController.removeListener(widget.controller.onScrolled);
     _autoScroll?.cancel();
+    FocusManager.instance.removeHighlightModeListener(_onHighlightModeChanged);
+    _focus.removeListener(_onFocusChanged);
     _focus.dispose();
     super.dispose();
   }
@@ -212,17 +227,25 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     _viewport = constraints.biggest;
-                    return Listener(
-                      key: _gridKey,
-                      onPointerDown: _onPointerDown,
-                      onPointerMove: _onPointerMove,
-                      onPointerUp: _onPointerEnd,
-                      onPointerCancel: _onPointerEnd,
-                      child: Stack(
-                        children: [
-                          Positioned.fill(child: _buildTable(context)),
-                          if (_inRangeMode(selection)) ..._handles(context, selection!),
-                        ],
+                    return DecoratedBox(
+                      position: DecorationPosition.foreground,
+                      decoration: BoxDecoration(
+                        border: _showFocusRing
+                            ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
+                            : null,
+                      ),
+                      child: Listener(
+                        key: _gridKey,
+                        onPointerDown: _onPointerDown,
+                        onPointerMove: _onPointerMove,
+                        onPointerUp: _onPointerEnd,
+                        onPointerCancel: _onPointerEnd,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(child: _buildTable(context)),
+                            if (_inRangeMode(selection)) ..._handles(context, selection!),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -276,7 +299,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     final grid = controller.geometry;
     final zoom = controller.zoom;
     final x = position.dx / zoom - SpreadsheetController.rowHeaderWidth;
-    final y = position.dy / zoom - SpreadsheetController.cellHeight;
+    final y = position.dy / zoom - SpreadsheetController.headerHeight;
     if (x < 0 || y < 0 || grid.visibleRows.isEmpty || grid.visibleColumns.isEmpty) return null;
     final horizontal = controller.horizontalController;
     final vertical = controller.verticalController;
@@ -448,7 +471,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   Offset _clampToGrid(Offset position) {
     final zoom = widget.controller.zoom;
     final left = SpreadsheetController.rowHeaderWidth * zoom + 1;
-    final top = SpreadsheetController.cellHeight * zoom + 1;
+    final top = SpreadsheetController.headerHeight * zoom + 1;
     return Offset(
       position.dx.clamp(left, math.max(left, _viewport.width - 1)),
       position.dy.clamp(top, math.max(top, _viewport.height - 1)),
@@ -472,7 +495,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   /// closer it is to the edge.
   Offset _edgeVelocity(Offset position) {
     final zoom = widget.controller.zoom;
-    final top = SpreadsheetController.cellHeight * zoom;
+    final top = SpreadsheetController.headerHeight * zoom;
     final left = SpreadsheetController.rowHeaderWidth * zoom;
     double speed(double distance) => distance >= _autoScrollEdge ? 0 : 4 + 16 * (1 - distance / _autoScrollEdge);
     var dx = 0.0;
@@ -517,7 +540,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
         (SpreadsheetController.rowHeaderWidth + grid.columnStart(c)) * zoom -
         (c < grid.frozenColumnCount || !h.hasClients ? 0 : h.offset);
     final y =
-        (SpreadsheetController.cellHeight + grid.rowStart(r)) * zoom -
+        (SpreadsheetController.headerHeight + grid.rowStart(r)) * zoom -
         (r < grid.frozenRowCount || !v.hasClients ? 0 : v.offset);
     return Rect.fromLTWH(x, y, grid.columnWidth(c) * zoom, grid.rowHeight(r) * zoom);
   }
@@ -532,7 +555,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     final zoom = controller.zoom;
     final visible = Rect.fromLTRB(
       SpreadsheetController.rowHeaderWidth * zoom - 1,
-      SpreadsheetController.cellHeight * zoom - 1,
+      SpreadsheetController.headerHeight * zoom - 1,
       _viewport.width + 1,
       _viewport.height + 1,
     );
@@ -665,7 +688,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
       pinnedRowCount: geometry.frozenRowCount + 1,
       pinnedColumnCount: geometry.frozenColumnCount + 1,
       rowBuilder: (i) => TableSpan(
-        extent: FixedTableSpanExtent((i == 0 ? SpreadsheetController.cellHeight : geometry.rowHeight(i - 1)) * zoom),
+        extent: FixedTableSpanExtent((i == 0 ? SpreadsheetController.headerHeight : geometry.rowHeight(i - 1)) * zoom),
       ),
       columnBuilder: (i) => TableSpan(
         extent: FixedTableSpanExtent(
@@ -736,6 +759,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
           columnMergeStart: merge?.columnStart,
           columnMergeSpan: merge?.columnSpan,
           child: _DataCell(
+            address: '${columnLabel(column)}${row + 1}',
             data: data,
             highlight: highlight,
             zoom: zoom,
@@ -1371,6 +1395,7 @@ class _SelectionEdges {
 enum _CellHighlight { none, match, current, selected }
 
 class _DataCell extends StatelessWidget {
+  final String address;
   final SheetCell? data;
   final _CellHighlight highlight;
   final double zoom;
@@ -1382,6 +1407,7 @@ class _DataCell extends StatelessWidget {
   final VoidCallback? onLongPress;
 
   const _DataCell({
+    required this.address,
     required this.data,
     required this.highlight,
     required this.zoom,
@@ -1394,8 +1420,6 @@ class _DataCell extends StatelessWidget {
   });
 
   /// Office's default font size; the grid draws it at 13 logical px.
-  static const _defaultPoints = 11.0;
-  static const _defaultFontSize = 13.0;
 
   @override
   Widget build(BuildContext context) {
@@ -1423,34 +1447,52 @@ class _DataCell extends StatelessWidget {
     ];
     final bar = data?.dataBar;
     final outline = _outline(scheme);
-    return InkWell(
-      canRequestFocus: false,
+    return Semantics(
+      button: true,
+      selected: highlight == _CellHighlight.selected || isActive,
+      label: DocumentViewerStrings.of(context).cellDescription(
+        address,
+        value: data?.text ?? '',
+        formula: data?.value is FormulaValue,
+        link: isLink,
+        note: hasComment,
+        selected: highlight == _CellHighlight.selected || isActive,
+      ),
+      excludeSemantics: true,
       onTap: onTap,
       onLongPress: onLongPress,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 6 * zoom, vertical: 2 * zoom),
-        alignment: _alignment(style, data?.value),
-        clipBehavior: Clip.hardEdge,
-        decoration: BoxDecoration(
-          color: fill,
-          border: cellBorder(style.borders, gridline: scheme.outlineVariant, automatic: scheme.onSurface, zoom: zoom),
-        ),
-        foregroundDecoration: outline ?? (hasComment ? _CommentMarker(color: scheme.error, size: 7 * zoom) : null),
-        child: _withBar(
-          bar,
-          _alignment(style, data?.value),
-          Text(
-            data?.text ?? '',
-            maxLines: style.wrapText ? null : 1,
-            softWrap: style.wrapText,
-            overflow: style.wrapText ? TextOverflow.clip : TextOverflow.ellipsis,
-            textAlign: _textAlign(style, data?.value),
-            style: TextStyle(
-              color: textColor,
-              fontSize: (style.fontSize ?? _defaultPoints) * _defaultFontSize / _defaultPoints * zoom,
-              fontWeight: style.bold ? FontWeight.bold : FontWeight.normal,
-              fontStyle: style.italic ? FontStyle.italic : FontStyle.normal,
-              decoration: decorations.isEmpty ? null : TextDecoration.combine(decorations),
+      child: InkWell(
+        canRequestFocus: false,
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: SheetGeometry.cellPaddingX * zoom,
+            vertical: SheetGeometry.cellPaddingY * zoom,
+          ),
+          alignment: _alignment(style, data?.value),
+          clipBehavior: Clip.hardEdge,
+          decoration: BoxDecoration(
+            color: fill,
+            border: cellBorder(style.borders, gridline: scheme.outlineVariant, automatic: scheme.onSurface, zoom: zoom),
+          ),
+          foregroundDecoration: outline ?? (hasComment ? _CommentMarker(color: scheme.error, size: 7 * zoom) : null),
+          child: _withBar(
+            bar,
+            _alignment(style, data?.value),
+            Text(
+              data?.text ?? '',
+              maxLines: style.wrapText ? null : 1,
+              softWrap: style.wrapText,
+              overflow: style.wrapText ? TextOverflow.clip : TextOverflow.ellipsis,
+              textAlign: _textAlign(style, data?.value),
+              style: TextStyle(
+                color: textColor,
+                fontSize: SheetGeometry.fontPixelsOf(style.fontSize) * zoom,
+                fontWeight: style.bold ? FontWeight.bold : FontWeight.normal,
+                fontStyle: style.italic ? FontStyle.italic : FontStyle.normal,
+                decoration: decorations.isEmpty ? null : TextDecoration.combine(decorations),
+              ),
             ),
           ),
         ),

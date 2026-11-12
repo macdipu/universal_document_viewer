@@ -192,6 +192,24 @@ class DocumentViewerStrings {
   /// Label of the grid's top-left corner, which selects every cell.
   String get selectAll => 'Select all';
 
+  /// What a screen reader says for a cell: "B2, value 40, formula, has
+  /// note, link, selected". [value] is empty for a blank cell.
+  String cellDescription(
+    String address, {
+    required String value,
+    bool formula = false,
+    bool link = false,
+    bool note = false,
+    bool selected = false,
+  }) => [
+    address,
+    value.isEmpty ? 'empty' : 'value $value',
+    if (formula) 'formula',
+    if (link) 'link',
+    if (note) 'has note',
+    if (selected) 'selected',
+  ].join(', ');
+
   /// A range's size: [rows] rows by [columns] columns.
   String dimensions(int rows, int columns) => '${rows}R × ${columns}C';
 

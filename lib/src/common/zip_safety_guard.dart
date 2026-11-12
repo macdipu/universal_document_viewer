@@ -16,7 +16,8 @@ enum ZipSafetyResult {
   /// Not a well-formed ZIP, or an entry name attempts path traversal:
   /// [DocumentLoadError.corrupted]. A password-protected `.docx`/`.xlsx`
   /// also lands here: Office wraps the whole package in an OLE2 compound
-  /// file, not a ZIP, so it fails to parse as one.
+  /// file, not a ZIP, so it fails to parse as one. Tell that case apart
+  /// with [ZipSafetyGuard.isEncryptedOfficeFile].
   corrupted,
 }
 
@@ -73,6 +74,34 @@ class ZipSafetyGuard {
       if (totalUncompressed > maxUncompressedBytes) return ZipSafetyResult.tooLarge;
     }
     return ZipSafetyResult.safe;
+  }
+
+  /// Whether [bytes] are a password-protected Office file: an OLE2
+  /// compound file (what Office writes instead of a ZIP when a document
+  /// is encrypted) holding an `EncryptedPackage` stream (MS-OFFCRYPTO
+  /// §2.3.4.4). A legacy binary `.xls`/`.doc` is OLE2 too but has no such
+  /// stream, so it is not mistaken for an encrypted one. Meant for bytes
+  /// [check] already called [ZipSafetyResult.corrupted]: it scans them.
+  static bool isEncryptedOfficeFile(Uint8List bytes) {
+    const ole2 = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+    if (bytes.length < 512) return false;
+    for (var i = 0; i < ole2.length; i++) {
+      if (bytes[i] != ole2[i]) return false;
+    }
+    // Directory entry names are UTF-16LE.
+    final name = [
+      for (final unit in 'EncryptedPackage'.codeUnits) ...[unit, 0],
+    ];
+    final last = bytes.length - name.length;
+    outer:
+    for (var i = 512; i <= last; i++) {
+      if (bytes[i] != name[0]) continue;
+      for (var j = 1; j < name.length; j++) {
+        if (bytes[i + j] != name[j]) continue outer;
+      }
+      return true;
+    }
+    return false;
   }
 
   static bool _isUnsafePath(String name) {

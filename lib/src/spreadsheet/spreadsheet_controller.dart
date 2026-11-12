@@ -60,6 +60,10 @@ class SpreadsheetController extends DocumentController {
   /// The height of a row with no height of its own, at zoom 1.
   static const double cellHeight = SheetGeometry.defaultRowHeight;
 
+  /// The height of the column-letter header row, at zoom 1: at least a
+  /// 44 dp touch target.
+  static const double headerHeight = 44;
+
   /// The width of the row-number column, at zoom 1.
   static const double rowHeaderWidth = 48;
 
@@ -119,7 +123,13 @@ class SpreadsheetController extends DocumentController {
     rowCount: currentRows.length,
     columnCount: columnCount,
     minFrozenRows: _freezeTopRow ? 1 : 0,
+    fittedRowHeights: currentSheet == null
+        ? const {}
+        : _fittedRowHeights[_activeSheet] ??= SheetGeometry.fitWrappedRows(currentSheet!),
   );
+
+  /// [SheetGeometry.fitWrappedRows] per sheet index, measured once.
+  final _fittedRowHeights = <int, Map<int, double>>{};
 
   bool _freezeTopRow = false;
 
@@ -277,7 +287,7 @@ class SpreadsheetController extends DocumentController {
   int get pageRows {
     if (!verticalController.hasClients) return 1;
     final grid = geometry;
-    final window = verticalController.position.viewportDimension - (cellHeight + grid.frozenHeight) * _zoom;
+    final window = verticalController.position.viewportDimension - (headerHeight + grid.frozenHeight) * _zoom;
     return math.max(1, (window / (cellHeight * _zoom)).floor() - 1);
   }
 
@@ -298,7 +308,7 @@ class SpreadsheetController extends DocumentController {
         verticalController,
         start: grid.scrollOffsetOfRow(r) * _zoom,
         size: grid.rowHeight(r) * _zoom,
-        pinned: (cellHeight + grid.frozenHeight) * _zoom,
+        pinned: (headerHeight + grid.frozenHeight) * _zoom,
       );
     }
     if (c != null && c >= grid.frozenColumnCount && horizontalController.hasClients) {
@@ -374,6 +384,17 @@ class SpreadsheetController extends DocumentController {
 
   DocumentFormat? get _expected => _fileFormat ?? format;
 
+  /// The file being loaded is `.tsv`: split on tabs, never guess.
+  bool _tabSeparated = false;
+
+  List<String> _hiddenSheetNames = const [];
+
+  /// Sheets the author hid (Excel's Hide), which are not among
+  /// [sheetNames], so a reader can say they exist. "Very hidden" sheets,
+  /// which Excel itself never lists, are left out, as are hidden sheets
+  /// shown because every sheet was hidden.
+  List<String> get hiddenSheetNames => _hiddenSheetNames;
+
   /// A CSV file over [maxCsvBytes] is refused before it is read.
   @override
   int get maxFileBytes => _expected == DocumentFormat.csv ? maxCsvBytes : super.maxFileBytes;
@@ -384,15 +405,19 @@ class SpreadsheetController extends DocumentController {
       final format? when format == DocumentFormat.excel || format == DocumentFormat.csv => format,
       _ => null,
     };
+    _tabSeparated = path.toLowerCase().endsWith('.tsv');
     return super.loadFile(path);
   }
 
-  /// Loads an `.xlsx` workbook or a CSV file (see [format]).
+  /// Loads an `.xlsx`/`.xlsm` workbook or a CSV/TSV file (see [format]).
   ///
-  /// A workbook passes [ZipSafetyGuard] and is parsed off the UI isolate.
-  /// Sheets the author hid stay hidden, as in Excel, unless every sheet is
-  /// hidden, when showing nothing would be worse. CSV must be text; it is
-  /// decoded as UTF-8, falling back to Latin-1.
+  /// A workbook passes [ZipSafetyGuard] and is parsed off the UI isolate;
+  /// macros in an `.xlsm` are never read or run. A password-protected
+  /// workbook fails with [DocumentLoadError.passwordRequired]. Sheets the
+  /// author hid stay hidden, as in Excel, and are listed in
+  /// [hiddenSheetNames], unless every sheet is hidden, when showing nothing
+  /// would be worse. CSV must be text; it is decoded as UTF-8, falling back
+  /// to Latin-1. A `.tsv` file is split on tabs.
   @override
   Future<void> loadBytes(Uint8List bytes) async {
     markLoading();
@@ -408,7 +433,11 @@ class SpreadsheetController extends DocumentController {
             markFailed(DocumentLoadError.tooLarge);
             return;
           case ZipSafetyResult.corrupted:
-            markFailed(DocumentLoadError.corrupted);
+            markFailed(
+              ZipSafetyGuard.isEncryptedOfficeFile(bytes)
+                  ? DocumentLoadError.passwordRequired
+                  : DocumentLoadError.corrupted,
+            );
             return;
           case ZipSafetyResult.safe:
             final workbook = await Isolate.run(() => XlsxReader.read(bytes));
@@ -418,17 +447,29 @@ class SpreadsheetController extends DocumentController {
                 if (sheet.visibility == SheetVisibility.visible) sheet,
             ];
             _setSheets(visible.isEmpty ? workbook.sheets : visible);
+            _hiddenSheetNames = visible.isEmpty
+                ? const []
+                : [
+                    for (final sheet in workbook.sheets)
+                      if (sheet.visibility == SheetVisibility.hidden) sheet.name,
+                  ];
         }
       } else if (bytes.length > maxCsvBytes) {
         markFailed(DocumentLoadError.tooLarge);
         return;
       } else if (looksLikeBinary(bytes)) {
-        markFailed(DocumentLoadError.corrupted);
+        markFailed(
+          ZipSafetyGuard.isEncryptedOfficeFile(bytes)
+              ? DocumentLoadError.passwordRequired
+              : DocumentLoadError.corrupted,
+        );
         return;
       } else {
-        final workbook = await Isolate.run(() => CsvReader.read(decodeTextBytes(bytes)));
+        final delimiter = _tabSeparated ? '\t' : null;
+        final workbook = await Isolate.run(() => CsvReader.read(decodeTextBytes(bytes), delimiter: delimiter));
         if (isDisposed) return;
         _setSheets(workbook.sheets);
+        _hiddenSheetNames = const [];
       }
     } catch (_) {
       markFailed(DocumentLoadError.corrupted);
@@ -440,6 +481,7 @@ class SpreadsheetController extends DocumentController {
 
   void _setSheets(List<Worksheet> sheets) {
     _sheets = sheets;
+    _fittedRowHeights.clear();
     _activeSheet = _initialSheetIndex < sheets.length ? _initialSheetIndex : 0;
     _columnCount = null;
     _geometry = null;
@@ -466,7 +508,8 @@ class SpreadsheetController extends DocumentController {
     verticalController.jumpTo(target);
   }
 
-  /// Shows another sheet; clears the search, which was for the old one.
+  /// Shows another sheet. A search of the old sheet ends; a search of every
+  /// sheet ([SheetSearchOptions.allSheets]) goes on.
   void switchSheet(int index) {
     if (index < 0 || index >= _sheets.length) return;
     final previousSheet = _activeSheet;
@@ -489,7 +532,8 @@ class SpreadsheetController extends DocumentController {
     _target = null;
     // A selection belongs to the sheet it was made on.
     if (index != previousSheet) _selection.value = null;
-    _resetSearch();
+    // A search of this sheet only is over; one of every sheet goes on.
+    if (!_searchOptions.allSheets) _resetSearch();
     _updateLocation();
     notifyListeners();
     // Not [position]: the old sheet's grid is still attached and would
@@ -559,22 +603,40 @@ class SpreadsheetController extends DocumentController {
   /// The text being searched for; empty when there's no search.
   String get searchQuery => _query;
 
+  SheetSearchOptions _searchOptions = const SheetSearchOptions();
+
+  /// How [search] matches. Changing them runs the current search again.
+  SheetSearchOptions get searchOptions => _searchOptions;
+
+  set searchOptions(SheetSearchOptions options) {
+    if (options == _searchOptions) return;
+    _searchOptions = options;
+    if (_query.isNotEmpty) {
+      search(_query);
+    } else {
+      notifyListeners();
+    }
+  }
+
   List<CellMatch> _matches = const [];
 
-  /// The matching cells of the sheet on screen, row by row.
+  /// The matching cells, sheet by sheet and row by row: of the sheet on
+  /// screen, or of every sheet when [SheetSearchOptions.allSheets]. Each
+  /// has its [CellMatch.sheet].
   List<CellMatch> get matches => _matches;
 
-  /// [matches] by row, for the grid's per-cell highlight lookup.
-  Map<int, Set<int>> _matchColumnsByRow = const {};
+  /// [matches] by sheet, then row, for the grid's per-cell highlight.
+  Map<int, Map<int, Set<int>>> _matchIndex = const {};
 
-  /// Whether the cell at [row], [column] matches the search.
-  bool isMatch(int row, int column) => _matchColumnsByRow[row]?.contains(column) ?? false;
+  /// Whether the cell at [row], [column] of the sheet on screen matches.
+  bool isMatch(int row, int column) => _matchIndex[_activeSheet]?[row]?.contains(column) ?? false;
 
-  /// Whether the cell at [row], [column] is the current match.
+  /// Whether the cell at [row], [column] of the sheet on screen is the
+  /// current match.
   bool isCurrentMatch(int row, int column) {
     if (_currentMatch < 0) return false;
     final match = _matches[_currentMatch];
-    return match.row == row && match.column == column;
+    return match.row == row && match.column == column && (match.sheet ?? _activeSheet) == _activeSheet;
   }
 
   int _currentMatch = -1;
@@ -582,52 +644,138 @@ class SpreadsheetController extends DocumentController {
   /// Position within [matches], or -1 when there are none.
   int get currentMatchIndex => _currentMatch;
 
-  /// Finds the cells of the sheet on screen (not the whole workbook) whose
-  /// shown text contains [query], ignoring case, and jumps to the first.
-  /// Hidden rows and columns are skipped, as in Excel.
+  /// Workbooks up to this many cells are searched at once; bigger ones in
+  /// slices of [_searchSliceCells] between frames, after [_searchDelay],
+  /// so typing stays responsive and a newer query cancels an older one.
+  static const _syncSearchCells = 200000;
+  static const _searchSliceCells = 50000;
+  static const _searchDelay = Duration(milliseconds: 200);
+
+  int _searchGeneration = 0;
+  bool _searching = false;
+
+  /// Whether a search of a big workbook is still running.
+  bool get isSearching => _searching;
+
+  /// Finds the cells whose shown text (or formula, see [searchOptions])
+  /// contains [query], ignoring case unless [SheetSearchOptions.matchCase],
+  /// on the sheet on screen or in every sheet, then goes to the first
+  /// match on or after the sheet on screen. Hidden rows, columns and
+  /// sheets are skipped, as in Excel. A big workbook is searched in slices
+  /// ([isSearching] meanwhile); an empty query ends the search.
   @override
   void search(String query) {
+    final generation = ++_searchGeneration;
     _query = query;
     _target = null;
-    final lower = query.toLowerCase();
-    final found = <CellMatch>[];
-    final layout = currentSheet?.layout ?? SheetLayout.standard;
-    if (query.isNotEmpty) {
-      final rows = currentRows;
+    final sheets = query.isEmpty
+        ? const <int>[]
+        : _searchOptions.allSheets
+        ? [for (var i = 0; i < _sheets.length; i++) i]
+        : [if (_sheets.isNotEmpty) _activeSheet];
+    var cells = 0;
+    for (final index in sheets) {
+      for (final row in _sheets[index].rows) {
+        cells += row.length;
+      }
+    }
+    if (cells <= _syncSearchCells) {
+      _searching = false;
+      final found = <CellMatch>[];
+      for (final _ in _scan(sheets, query, found)) {}
+      _finishSearch(found);
+      return;
+    }
+    _searching = true;
+    _matches = const [];
+    _matchIndex = const {};
+    _currentMatch = -1;
+    updateSearch(DocumentSearchState(query: query, matchCount: 0, currentMatch: -1, isSearching: true));
+    notifyListeners();
+    Future<void>(() async {
+      await Future<void>.delayed(_searchDelay);
+      final found = <CellMatch>[];
+      for (final _ in _scan(sheets, query, found)) {
+        if (generation != _searchGeneration || isDisposed) return;
+        await Future<void>.delayed(Duration.zero);
+      }
+      if (generation != _searchGeneration || isDisposed) return;
+      _searching = false;
+      _finishSearch(found);
+    });
+  }
+
+  /// Adds the matches in [sheets] to [found], yielding after every
+  /// [_searchSliceCells] cells.
+  Iterable<void> _scan(List<int> sheets, String query, List<CellMatch> found) sync* {
+    final options = _searchOptions;
+    final needle = options.matchCase ? query : query.toLowerCase();
+    var budget = _searchSliceCells;
+    for (final index in sheets) {
+      final sheet = _sheets[index];
+      final layout = sheet.layout;
+      final rows = sheet.rows;
       for (var r = 0; r < rows.length; r++) {
         if (layout.hiddenRows.contains(r)) continue;
         final row = rows[r];
         for (var c = 0; c < row.length; c++) {
-          if (layout.hiddenColumns.contains(c)) continue;
-          if ((row[c]?.text ?? '').toLowerCase().contains(lower)) found.add(CellMatch(row: r, column: c));
+          final cell = row[c];
+          if (cell == null || layout.hiddenColumns.contains(c)) continue;
+          var text = switch (cell.value) {
+            FormulaValue(:final formula) when options.inFormulas => '=$formula',
+            _ => cell.text,
+          };
+          if (!options.matchCase) text = text.toLowerCase();
+          if (options.wholeCell ? text == needle : text.contains(needle)) {
+            found.add(CellMatch(row: r, column: c, sheet: index));
+          }
+        }
+        budget -= row.length;
+        if (budget <= 0) {
+          budget = _searchSliceCells;
+          yield null;
         }
       }
     }
-    _matches = found;
-    _indexMatches();
-    _currentMatch = found.isEmpty ? -1 : 0;
-    _updateSearch();
-    notifyListeners();
-    if (found.isNotEmpty) jumpToCell(found.first);
   }
 
-  void _updateSearch() =>
-      updateSearch(DocumentSearchState(query: _query, matchCount: _matches.length, currentMatch: _currentMatch));
+  void _finishSearch(List<CellMatch> found) {
+    _matches = found;
+    _indexMatches();
+    final here = found.indexWhere((m) => (m.sheet ?? _activeSheet) >= _activeSheet);
+    _currentMatch = found.isEmpty ? -1 : (here < 0 ? 0 : here);
+    _updateSearch();
+    notifyListeners();
+    if (_currentMatch >= 0) _goToMatch(found[_currentMatch]);
+  }
+
+  void _goToMatch(CellMatch match) => _goToPlace(match.sheet ?? _activeSheet, match);
+
+  void _updateSearch() => updateSearch(
+    DocumentSearchState(
+      query: _query,
+      matchCount: _matches.length,
+      currentMatch: _currentMatch,
+      isSearching: _searching,
+    ),
+  );
 
   void _resetSearch() {
+    _searchGeneration++;
+    _searching = false;
     _query = '';
     _matches = const [];
-    _matchColumnsByRow = const {};
+    _matchIndex = const {};
     _currentMatch = -1;
     _updateSearch();
   }
 
   void _indexMatches() {
-    final byRow = <int, Set<int>>{};
+    final index = <int, Map<int, Set<int>>>{};
     for (final match in _matches) {
-      (byRow[match.row] ??= <int>{}).add(match.column);
+      ((index[match.sheet ?? _activeSheet] ??= {})[match.row] ??= <int>{}).add(match.column);
     }
-    _matchColumnsByRow = byRow;
+    _matchIndex = index;
   }
 
   @override
@@ -642,7 +790,7 @@ class SpreadsheetController extends DocumentController {
     _currentMatch = (_currentMatch + 1) % _matches.length;
     _updateSearch();
     notifyListeners();
-    jumpToCell(_matches[_currentMatch]);
+    _goToMatch(_matches[_currentMatch]);
   }
 
   @override
@@ -651,7 +799,7 @@ class SpreadsheetController extends DocumentController {
     _currentMatch = (_currentMatch - 1 + _matches.length) % _matches.length;
     _updateSearch();
     notifyListeners();
-    jumpToCell(_matches[_currentMatch]);
+    _goToMatch(_matches[_currentMatch]);
   }
 
   /// Follows a link to a place in the workbook: `Sheet2!B3`,
@@ -703,21 +851,34 @@ class SpreadsheetController extends DocumentController {
     }
   }
 
+  /// Whether the system asks for no animation (Reduce Motion, "Remove
+  /// animations"): scrolls then jump.
+  static bool get _reduceMotion => WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+
+  static void _scrollTo(ScrollController controller, double target) {
+    if (_reduceMotion) {
+      controller.jumpTo(target);
+    } else {
+      controller.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeInOut);
+    }
+  }
+
   /// Scrolls [cell] to the top left (frozen rows/columns don't scroll).
+  /// Jumps, without animating, when the system asks for reduced motion.
   void jumpToCell(CellMatch cell) {
     final grid = geometry;
     final row = grid.visibleIndexOfRow(cell.row);
     final column = grid.visibleIndexOfColumn(cell.column);
     if (row != null && verticalController.hasClients) {
       final target = (grid.scrollOffsetOfRow(row) * _zoom).clamp(0.0, verticalController.position.maxScrollExtent);
-      verticalController.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeInOut);
+      _scrollTo(verticalController, target);
     }
     if (column != null && horizontalController.hasClients) {
       final target = (grid.scrollOffsetOfColumn(column) * _zoom).clamp(
         0.0,
         horizontalController.position.maxScrollExtent,
       );
-      horizontalController.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeInOut);
+      _scrollTo(horizontalController, target);
     }
   }
 

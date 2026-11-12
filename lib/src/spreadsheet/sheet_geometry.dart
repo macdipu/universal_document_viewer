@@ -1,3 +1,5 @@
+import 'package:flutter/painting.dart';
+
 import '../engines/spreadsheet/workbook.dart';
 
 /// Where a sheet's rows and columns sit on screen: sizes from the sheet's
@@ -10,17 +12,26 @@ import '../engines/spreadsheet/workbook.dart';
 /// stay cheap on large sheets.
 class SheetGeometry {
   /// [minFrozenRows] freezes at least that many top rows, on top of what
-  /// the file froze (a reader's "freeze header row").
-  SheetGeometry(Worksheet sheet, {required int rowCount, required int columnCount, int minFrozenRows = 0})
-    : visibleRows = [
-        for (var r = 0; r < rowCount; r++)
-          if (!sheet.layout.hiddenRows.contains(r)) r,
-      ],
-      visibleColumns = [
-        for (var c = 0; c < columnCount; c++)
-          if (!sheet.layout.hiddenColumns.contains(c)) c,
-      ] {
-    _rowStarts = _prefixSums([for (final r in visibleRows) rowHeightOf(sheet.layout.rowHeight(r))]);
+  /// the file froze (a reader's "freeze header row"). [fittedRowHeights]
+  /// (1x pixels by sheet row, see [fitWrappedRows]) size rows the file gave
+  /// no height.
+  SheetGeometry(
+    Worksheet sheet, {
+    required int rowCount,
+    required int columnCount,
+    int minFrozenRows = 0,
+    Map<int, double> fittedRowHeights = const {},
+  }) : visibleRows = [
+         for (var r = 0; r < rowCount; r++)
+           if (!sheet.layout.hiddenRows.contains(r)) r,
+       ],
+       visibleColumns = [
+         for (var c = 0; c < columnCount; c++)
+           if (!sheet.layout.hiddenColumns.contains(c)) c,
+       ] {
+    _rowStarts = _prefixSums([
+      for (final r in visibleRows) fittedRowHeights[r] ?? rowHeightOf(sheet.layout.rowHeight(r)),
+    ]);
     _columnStarts = _prefixSums([for (final c in visibleColumns) columnWidthOf(sheet.layout.columnWidth(c))]);
     final frozenRows = sheet.frozenRows > minFrozenRows ? sheet.frozenRows : minFrozenRows;
     frozenRowCount = visibleRows.where((r) => r < frozenRows).length;
@@ -40,6 +51,78 @@ class SheetGeometry {
   static double columnWidthOf(double characters) {
     if (characters <= 0) return 0;
     return _round(defaultColumnWidth * (characters * 7 + 5) / (8.43 * 7 + 5));
+  }
+
+  /// Text size in logical pixels of [points]-point text at zoom 1 (11 pt,
+  /// Excel's default, is 13 px).
+  static double fontPixelsOf(double? points) => (points ?? defaultFontPoints) * 13 / defaultFontPoints;
+
+  /// Excel's default font size in points.
+  static const double defaultFontPoints = 11;
+
+  /// Space around a cell's text, at zoom 1.
+  static const double cellPaddingX = 6;
+
+  /// See [cellPaddingX].
+  static const double cellPaddingY = 2;
+
+  /// At most this many wrapped cells are measured per sheet; rows past
+  /// them keep their stored or default height.
+  static const int maxFittedCells = 2000;
+
+  /// The tallest a fitted row gets: Excel's 409 pt limit.
+  static double get maxFittedRowHeight => rowHeightOf(409);
+
+  /// Heights (1x pixels, by sheet row) that show all the text of wrapped
+  /// cells in rows the file gave no height, as Excel's AutoFit would; rows
+  /// that need no more than their default are left out. Rows with a
+  /// stored height keep it (Excel saved them already fitted, or the author
+  /// set them), as do merged cells (Excel doesn't fit those either).
+  static Map<int, double> fitWrappedRows(Worksheet sheet) {
+    final layout = sheet.layout;
+    final merged = <(int, int)>{
+      for (final merge in sheet.merges)
+        if (merge.lastRow - merge.firstRow < 1000 && merge.lastColumn - merge.firstColumn < 1000)
+          for (var r = merge.firstRow; r <= merge.lastRow; r++)
+            for (var c = merge.firstColumn; c <= merge.lastColumn; c++) (r, c),
+    };
+    final fitted = <int, double>{};
+    final painter = TextPainter(textDirection: TextDirection.ltr);
+    var measured = 0;
+    try {
+      for (var r = 0; r < sheet.rows.length && measured < maxFittedCells; r++) {
+        if (layout.rowHeights.containsKey(r) || layout.hiddenRows.contains(r)) continue;
+        final standard = rowHeightOf(layout.defaultRowHeight);
+        var tallest = standard;
+        final row = sheet.rows[r];
+        for (var c = 0; c < row.length && measured < maxFittedCells; c++) {
+          final cell = row[c];
+          if (cell == null || !cell.style.wrapText || layout.hiddenColumns.contains(c) || merged.contains((r, c))) {
+            continue;
+          }
+          final text = cell.text;
+          if (text.isEmpty) continue;
+          measured++;
+          final style = cell.style;
+          painter
+            ..text = TextSpan(
+              text: text,
+              style: TextStyle(
+                fontSize: fontPixelsOf(style.fontSize),
+                fontWeight: style.bold ? FontWeight.bold : FontWeight.normal,
+                fontStyle: style.italic ? FontStyle.italic : FontStyle.normal,
+              ),
+            )
+            ..layout(maxWidth: (columnWidthOf(layout.columnWidth(c)) - 2 * cellPaddingX).clamp(1, double.infinity));
+          final height = painter.height + 2 * cellPaddingY;
+          if (height > tallest) tallest = height;
+        }
+        if (tallest > standard) fitted[r] = _round(tallest.clamp(standard, maxFittedRowHeight));
+      }
+    } finally {
+      painter.dispose();
+    }
+    return fitted;
   }
 
   /// A row height in points -> logical pixels.

@@ -78,10 +78,11 @@ enum DocumentLoadError {
   tooLarge,
 
   /// Not a well-formed file of its type: truncated, damaged, or (for
-  /// Office files) an encrypted/OLE2-wrapped package.
+  /// Office files) an OLE2-wrapped package that isn't encrypted.
   corrupted,
 
-  /// Encrypted PDF and no (or a wrong) password.
+  /// Encrypted PDF and no (or a wrong) password, or a password-protected
+  /// workbook, which the spreadsheet reader can't decrypt at all.
   passwordRequired,
 
   /// Not a format the kit reads.

@@ -41,6 +41,33 @@ enum SheetVisibility {
   veryHidden,
 }
 
+/// Content a sheet holds that the reader does not draw, so a viewer can
+/// say something is missing instead of leaving it out silently.
+enum UnshownContent {
+  /// Pictures, charts, shapes or text boxes (a `<drawing>`).
+  drawings,
+
+  /// The whole sheet is a chart sheet.
+  chartSheet,
+
+  /// Excel tables (`<tablePart>`): the cells show, the table styling and
+  /// filter buttons don't.
+  tables,
+
+  /// Pivot tables: their saved cells show, they can't be refreshed.
+  pivotTables,
+
+  /// Data validation (drop-down lists, input rules and messages).
+  dataValidation,
+
+  /// Conditional formatting the reader can't evaluate (formula, date
+  /// period and icon-set rules).
+  conditionalFormatting,
+
+  /// Sparklines (the small in-cell charts).
+  sparklines,
+}
+
 /// One sheet of a [Workbook]: its cells, layout, merges, links and notes.
 class Worksheet {
   /// Creates a sheet; everything but [name] and [rows] defaults to empty.
@@ -54,7 +81,11 @@ class Worksheet {
     this.merges = const [],
     this.hyperlinks = const {},
     this.comments = const {},
+    this.unshown = const {},
   });
+
+  /// What the sheet holds that is not drawn.
+  final Set<UnshownContent> unshown;
 
   /// The tab name, from `<sheet name>` (`SheetN` when the file has none).
   final String name;
@@ -68,7 +99,8 @@ class Worksheet {
   /// Merged areas: each shows its top-left cell across the whole range.
   final List<CellRange> merges;
 
-  /// Link targets by cell: a URL, or a place in the workbook (`Sheet2!A1`).
+  /// Link targets by cell: a URL, or a place in the workbook (`#Sheet2!A1`).
+  /// A link over a range is set on every cell of it (up to a limit).
   final Map<CellAddress, String> hyperlinks;
 
   /// Notes (Excel's comments) by cell.

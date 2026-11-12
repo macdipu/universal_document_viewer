@@ -6,7 +6,8 @@ enum DocumentFormat {
   /// Word document (`.docx`).
   word,
 
-  /// Excel workbook (`.xlsx`).
+  /// Excel workbook (`.xlsx`, or macro-enabled `.xlsm`, whose macros are
+  /// never run: the reader doesn't open the VBA part).
   excel,
 
   /// PowerPoint presentation (`.pptx`).
@@ -15,7 +16,7 @@ enum DocumentFormat {
   /// Plain text or Markdown (`.txt`, `.md`, `.markdown`).
   text,
 
-  /// Comma-separated values (`.csv`).
+  /// Comma- or tab-separated values (`.csv`, `.tsv`).
   csv;
 
   /// Legacy binary `.doc`/`.xls`/`.ppt` are deliberately absent: the Word,
@@ -25,23 +26,27 @@ enum DocumentFormat {
     'pdf': DocumentFormat.pdf,
     'docx': DocumentFormat.word,
     'xlsx': DocumentFormat.excel,
+    'xlsm': DocumentFormat.excel,
     'pptx': DocumentFormat.powerpoint,
     'txt': DocumentFormat.text,
     'md': DocumentFormat.text,
     'markdown': DocumentFormat.text,
     'csv': DocumentFormat.csv,
+    'tsv': DocumentFormat.csv,
   };
 
   static const Map<String, String> _extensionByMimeType = {
     'application/pdf': 'pdf',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'application/vnd.ms-excel.sheet.macroenabled.12': 'xlsm',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
     'text/plain': 'txt',
     'text/markdown': 'md',
     'text/x-markdown': 'md',
     'text/csv': 'csv',
     'text/comma-separated-values': 'csv',
+    'text/tab-separated-values': 'tsv',
   };
 
   /// Every extension the kit reads, without the dot.

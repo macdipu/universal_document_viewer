@@ -58,7 +58,7 @@ Every format now has a `<Format>Controller` and a `<Format>View`, and each libra
 
 `PositionKeys.zoom` is gone: no reader wrote or read it.
 
-These are no longer exported (they were implementation details): `WordScope`, `WordBlockView`, `WordDocumentLayout`, `WordPage`, `WordPagination`, `SheetGeometry`, `TextLineMetrics`, `showCellDetail`, `SelectionSummary`, `GridSelection`, and `pdf_layout.dart` apart from `PdfViewMode`.
+These are no longer exported (they were implementation details): `WordScope`, `WordBlockView`, `WordDocumentLayout`, `WordPage`, `WordPagination`, `SheetGeometry`, `TextLineMetrics`, `showCellDetail`, `SelectionSummary`, and `pdf_layout.dart` apart from `PdfViewMode`.
 
 ### Added
 
@@ -70,6 +70,34 @@ These are no longer exported (they were implementation details): `WordScope`, `W
 - Word: zoom (the text reflows in the continuous layout, and pages scale and pan sideways in print layout), page tracking in print layout, and `WordPageThumbnail` for page previews.
 - PowerPoint: zoom.
 - For contributors: CONTRIBUTING, a code of conduct, a security policy, issue and pull-request templates, CI (format, analyze, test, pub.dev score), an architecture guide (`doc/architecture.md`), and contract tests that every format's controller passes. The code follows `flutter_lints` and one formatting width.
+
+### Spreadsheets: selection, search, reading gaps, accessibility
+
+Selection (new, and exported again as `GridSelection`):
+
+- Cells, ranges, whole rows and columns, and select all, with `SpreadsheetController.selection`, `select`, `clearSelection`, `selectAll`, `moveSelection` and `revealCell`. Mouse: click, drag, Shift+click, header and corner clicks. Keyboard: arrows, Shift+arrows, Tab, Enter, Home/End, PgUp/PgDn, Ctrl/Cmd+A, Esc. Touch: tap selects, long press starts a range with two drag handles and edge auto-scroll, pinch zooms, and a swipe still scrolls.
+- **Behaviour change:** a first tap selects the cell; a second tap on the active cell opens the cell sheet (link, formula, note). A tap used to open it at once.
+- Copy (Ctrl/Cmd+C and the bar) as tab-separated text with spreadsheet quoting; copy the address. Clipboard writes are awaited and a refusal is reported instead of "copied".
+- The status bar shows size, Count, Numbers, Sum, Avg, Min and Max. Dates are never added, and results keep a shared number format (10% + 20% is 30%). Ranges over 100,000 cells are not totalled.
+
+Reading:
+
+- `.xlsm` (macros are never read or run) and `.tsv` (split on tabs) are supported formats, with their MIME types.
+- A password-protected workbook fails with `DocumentLoadError.passwordRequired` instead of "damaged" (`ZipSafetyGuard.isEncryptedOfficeFile`). It is detected, not decrypted.
+- `SpreadsheetController.hiddenSheetNames` names the sheets the author hid.
+- `Worksheet.unshown` (`UnshownContent`) reports what a sheet holds that is not drawn: pictures, charts, tables, pivot tables, data validation, formula-based conditional formatting, sparklines, chart sheets.
+- A hyperlink over a range now links every cell of it (up to 100,000 cells per sheet).
+- Rows without a stored height grow to show their wrapped text (up to Excel's 409 pt; the first 2,000 wrapped cells of a sheet are measured).
+
+Search:
+
+- `SpreadsheetController.searchOptions` (`SheetSearchOptions`): match case, entire cell, formulas, all sheets. `CellMatch.sheet` says which sheet a match is on; next and previous move across sheets.
+- Big workbooks (over 200,000 cells in scope) are searched in slices after a 200 ms pause, and a newer query cancels the old one (`isSearching`, `DocumentSearchState.isSearching`).
+
+Accessibility:
+
+- Cells have screen-reader labels ("B2, value 40, formula, has note, selected", `DocumentViewerStrings.cellDescription`); the grid shows a focus ring while the keyboard drives it; jumps do not animate when the system asks for reduced motion.
+- **Behaviour change:** the column-header row is 44 px tall (was 36), for touch.
 
 ### Architecture
 

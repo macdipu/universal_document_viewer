@@ -75,12 +75,18 @@ abstract final class XlsxReader {
         'veryHidden' => SheetVisibility.veryHidden,
         _ => SheetVisibility.visible,
       };
-      final xml = target == null ? null : package.readText(target);
+      final isChartSheet = rels.where((r) => r.id == id && !r.external && r.isOfType('chartsheet')).isNotEmpty;
+      final xml = target == null || isChartSheet ? null : package.readText(target);
       final sheetRels = target == null ? const <OpcRelationship>[] : package.relationshipsOf(target);
       // A chart sheet or a missing part: an empty sheet keeps tabs in step.
       sheets.add(
         xml == null
-            ? Worksheet(name: name, rows: const [], visibility: visibility)
+            ? Worksheet(
+                name: name,
+                rows: const [],
+                visibility: visibility,
+                unshown: isChartSheet ? const {UnshownContent.chartSheet} : const {},
+              )
             : _worksheet(
                 xml,
                 name: name,
@@ -98,6 +104,7 @@ abstract final class XlsxReader {
                   package,
                   sheetRels.where((r) => !r.external && r.isOfType('comments')).firstOrNull?.target,
                 ),
+                hasPivotTables: sheetRels.any((r) => !r.external && r.isOfType('pivotTable')),
               ),
       );
     }
@@ -491,8 +498,11 @@ abstract final class XlsxReader {
     required bool date1904,
     required Map<String, String> links,
     Map<CellAddress, CellComment> comments = const {},
+    bool hasPivotTables = false,
   }) {
     final rows = <int, List<SheetCell?>>{};
+    final unshown = <UnshownContent>{if (hasPivotTables) UnshownContent.pivotTables};
+    var linkedCells = 0;
     var frozenRows = 0;
     var frozenColumns = 0;
     var sawSheetView = false;
@@ -622,7 +632,26 @@ abstract final class XlsxReader {
               final location = attr('location');
               final link = target ?? (location == null ? null : '#$location');
               final range = _range(attr('ref'));
-              if (link != null && range != null) hyperlinks[(row: range.firstRow, column: range.firstColumn)] = link;
+              if (link != null && range != null) {
+                // Every cell of a linked range opens it, as in Excel; a
+                // whole-column link stops at the budget.
+                outer:
+                for (var r = range.firstRow; r <= range.lastRow; r++) {
+                  for (var c = range.firstColumn; c <= range.lastColumn; c++) {
+                    if (linkedCells >= _maxLinkedCells) break outer;
+                    linkedCells++;
+                    hyperlinks.putIfAbsent((row: r, column: c), () => link);
+                  }
+                }
+              }
+            case 'drawing' || 'picture':
+              unshown.add(UnshownContent.drawings);
+            case 'tablePart':
+              unshown.add(UnshownContent.tables);
+            case 'dataValidation':
+              unshown.add(UnshownContent.dataValidation);
+            case 'sparklineGroup':
+              unshown.add(UnshownContent.sparklines);
             case 'c':
               final ref = attr('r');
               columnIndex = ref == null ? columnIndex + 1 : _columnOf(ref);
@@ -661,6 +690,7 @@ abstract final class XlsxReader {
               ruleRanges = [for (final ref in (attr('sqref') ?? '').split(' ')) ?_range(ref)];
             case 'cfRule':
               rule = {for (final a in attributes) a.localName: a.value};
+              if (!_evaluatedRuleTypes.contains(rule['type'])) unshown.add(UnshownContent.conditionalFormatting);
               ruleFormulas.clear();
               rulePoints.clear();
               ruleColors.clear();
@@ -740,8 +770,31 @@ abstract final class XlsxReader {
       ),
       merges: merges,
       hyperlinks: hyperlinks,
+      unshown: unshown,
     );
   }
+
+  /// `cfRule` types [ConditionalFormatting] evaluates.
+  static const _evaluatedRuleTypes = {
+    'cellIs',
+    'containsText',
+    'notContainsText',
+    'beginsWith',
+    'endsWith',
+    'containsBlanks',
+    'notContainsBlanks',
+    'containsErrors',
+    'notContainsErrors',
+    'top10',
+    'aboveAverage',
+    'duplicateValues',
+    'uniqueValues',
+    'colorScale',
+    'dataBar',
+  };
+
+  /// Cells one sheet's links may cover in all.
+  static const _maxLinkedCells = 100000;
 
   /// `B2:C5` (or a single `B2`) -> a zero-based range.
   static CellRange? _range(String? ref) {
