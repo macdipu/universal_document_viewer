@@ -145,8 +145,10 @@ class SpreadsheetController extends DocumentController {
   }
 
   /// Fits [column] to its longest text among the first 1,000 rows
-  /// (Excel's double-click on a header border).
-  void autoFitColumn(int column) {
+  /// (Excel's double-click on a header border). [baseStyle] is the text
+  /// style the cells inherit (the view passes its ambient one, so the app's
+  /// font is what gets measured).
+  void autoFitColumn(int column, {TextStyle? baseStyle}) {
     final rows = currentRows;
     final painter = TextPainter(textDirection: TextDirection.ltr, maxLines: 1);
     var widest = 0.0;
@@ -158,9 +160,10 @@ class SpreadsheetController extends DocumentController {
         painter
           ..text = TextSpan(
             text: cell.text,
-            style: TextStyle(
+            style: (baseStyle ?? const TextStyle()).copyWith(
               fontSize: SheetGeometry.fontPixelsOf(cell.style.fontSize),
               fontWeight: cell.style.bold ? FontWeight.bold : FontWeight.normal,
+              fontStyle: cell.style.italic ? FontStyle.italic : FontStyle.normal,
             ),
           )
           ..layout();
@@ -169,7 +172,8 @@ class SpreadsheetController extends DocumentController {
     } finally {
       painter.dispose();
     }
-    setColumnWidth(column, widest + 2 * metrics.paddingX + 2);
+    // A little extra so the last letter never sits on the ellipsis.
+    setColumnWidth(column, widest + 2 * metrics.paddingX + 6);
   }
 
   /// Above this size a CSV is refused rather than parsed in one pass.

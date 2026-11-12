@@ -103,6 +103,95 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   /// Which corner a handle drag moves: the start (top-left) or the end.
   bool _draggingStartHandle = false;
 
+  /// The sheet column a finger is resizing by touch (the grip of a selected
+  /// column, or a long press on a header's edge): draws the guide line and
+  /// keeps the grid still.
+  int? _resizingColumn;
+  double _resizeStartWidth = 0;
+  double _resizeStartX = 0;
+
+  void _setResizing(int? column) {
+    if (column == _resizingColumn) return;
+    setState(() => _resizingColumn = column);
+  }
+
+  /// A finger went down on [column]'s resize zone (global [position]).
+  void _beginResize(int column, Offset position) {
+    final controller = widget.controller;
+    final visible = controller.geometry.visibleIndexOfColumn(column);
+    if (visible == null) return;
+    final box = _gridKey.currentContext?.findRenderObject() as RenderBox?;
+    _resizeStartX = box == null ? position.dx : box.globalToLocal(position).dx;
+    _resizeStartWidth = controller.geometry.columnWidth(visible);
+    _setResizing(column);
+  }
+
+  void _resizeTo(int column, Offset position) {
+    final box = _gridKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final dx = box.globalToLocal(position).dx - _resizeStartX;
+    widget.controller.setColumnWidth(column, _resizeStartWidth + dx / widget.controller.zoom);
+  }
+
+  /// Fits [column] to its text, measured in the style the cells draw with.
+  void _fitColumn(BuildContext context, int column) =>
+      widget.controller.autoFitColumn(column, baseStyle: DefaultTextStyle.of(context).style);
+
+  /// A selected column picked by touch shows a grip on its right edge.
+  bool _showColumnGrip(GridSelection? selection) =>
+      selection != null &&
+      selection.isColumn &&
+      _lastPointerKind != null &&
+      !_isMouseLike(_lastPointerKind!) &&
+      !_keyboardUsed;
+
+  /// Where the right edge of [column] is on the grid, or null when hidden.
+  double? _columnRight(int column) {
+    final controller = widget.controller;
+    final grid = controller.geometry;
+    final c = grid.visibleIndexOfColumn(column);
+    if (c == null) return null;
+    final h = controller.horizontalController;
+    return (controller.metrics.rowHeaderWidth + grid.columnStart(c + 1)) * controller.zoom -
+        (c < grid.frozenColumnCount || !h.hasClients ? 0 : h.offset);
+  }
+
+  /// The resize grip of the selected [column], and the guide line while one
+  /// is being resized.
+  List<Widget> _columnResizeOverlay(BuildContext context, int column, Color accent) {
+    final controller = widget.controller;
+    final strings = DocumentViewerStrings.of(context);
+    final header = controller.metrics.headerHeight * controller.zoom;
+    final minX = controller.metrics.rowHeaderWidth * controller.zoom;
+    final right = _columnRight(column);
+    final resizing = _resizingColumn == null ? null : _columnRight(_resizingColumn!);
+    return [
+      if (right != null && right >= minX && right <= _viewport.width + 24)
+        Positioned(
+          left: right - _ColumnGrip.hitWidth / 2,
+          top: 0,
+          width: _ColumnGrip.hitWidth,
+          height: header,
+          child: _ColumnGrip(
+            accent: accent,
+            semanticsLabel: strings.resizeColumn,
+            onGrab: (global) => _beginResize(column, global),
+            onDrag: (global) => _resizeTo(column, global),
+            onEnd: () => _setResizing(null),
+            onFit: () => _fitColumn(context, column),
+          ),
+        ),
+      if (resizing != null)
+        Positioned(
+          left: resizing - 1,
+          top: 0,
+          bottom: 0,
+          width: 2,
+          child: IgnorePointer(child: ColoredBox(color: accent.withValues(alpha: 0.85))),
+        ),
+    ];
+  }
+
   /// Where the finger grabbed a handle, relative to the handle's corner, so
   /// the selection does not jump when it is picked up.
   Offset _grabOffset = Offset.zero;
@@ -144,7 +233,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   /// not touch range selection).
   PointerDeviceKind? _lastPointerKind;
 
-  bool get _lockScroll => _pinching || _touchDragging || _handleActive;
+  bool get _lockScroll => _pinching || _touchDragging || _handleActive || _resizingColumn != null;
 
   SpreadsheetController get _controller => widget.controller;
 
@@ -357,6 +446,10 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
                           children: [
                             Positioned.fill(child: _gridArea(context, accent)),
                             if (_showHandles(selection)) ..._handles(context, selection!, accent),
+                            if (_showColumnGrip(selection))
+                              ..._columnResizeOverlay(context, selection!.index, accent)
+                            else if (_resizingColumn != null)
+                              ..._columnResizeOverlay(context, _resizingColumn!, accent),
                           ],
                         ),
                       ),
@@ -372,6 +465,14 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
                   summary: _summaryOf(context, rows, columnCount, selection),
                   onClear: widget.controller.clearSelection,
                   onCopy: _copySelection,
+                  columnWidthActions: selection.isColumn
+                      ? (
+                          fit: () => _fitColumn(context, selection.index),
+                          reset: widget.controller.hasColumnWidthOverride(selection.index)
+                              ? () => widget.controller.setColumnWidth(selection.index, null)
+                              : null,
+                        )
+                      : null,
                 ),
             ],
           );
@@ -938,11 +1039,30 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
                           behavior: HitTestBehavior.opaque,
                           onHorizontalDragUpdate: (details) =>
                               controller.setColumnWidth(column, geometry.columnWidth(c - 1) + details.delta.dx / zoom),
-                          onDoubleTap: () => controller.autoFitColumn(column),
+                          onDoubleTap: () => _fitColumn(context, column),
                         ),
                       ),
                     )
-                  : null,
+                  // By touch: a long press on a header's right edge starts
+                  // resizing at once, and the same finger drags the edge.
+                  : Positioned(
+                      top: 0,
+                      bottom: 0,
+                      right: 0,
+                      width: 28,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onLongPressStart: (details) {
+                          HapticFeedback.selectionClick();
+                          _focus.requestFocus();
+                          controller.select(GridSelection.column(column));
+                          _beginResize(column, details.globalPosition);
+                        },
+                        onLongPressMoveUpdate: (details) => _resizeTo(column, details.globalPosition),
+                        onLongPressEnd: (_) => _setResizing(null),
+                        onLongPressCancel: () => _setResizing(null),
+                      ),
+                    ),
             ),
           );
         }
@@ -1420,6 +1540,9 @@ class _HeaderCell extends StatelessWidget {
             ),
           ),
         ),
+        // Before the bar: children are matched by position, so a selection
+        // that adds the bar must not shift (and rebuild) this zone mid-gesture.
+        ?trailing,
         if (on)
           Positioned(
             left: isColumn ? 0 : null,
@@ -1430,7 +1553,6 @@ class _HeaderCell extends StatelessWidget {
             height: isColumn ? 2.5 : null,
             child: IgnorePointer(child: ColoredBox(color: accent)),
           ),
-        ?trailing,
       ],
     );
   }
@@ -1585,9 +1707,19 @@ class _SelectionBar extends StatelessWidget {
   final VoidCallback onClear;
   final VoidCallback onCopy;
 
-  const _SelectionBar({required this.accent, required this.summary, required this.onClear, required this.onCopy});
+  const _SelectionBar({
+    required this.accent,
+    required this.summary,
+    required this.onClear,
+    required this.onCopy,
+    this.columnWidthActions,
+  });
 
   final Color accent;
+
+  /// For a selected column: fit it to its content, and restore the file's
+  /// width (null when the reader hasn't changed it).
+  final ({VoidCallback fit, VoidCallback? reset})? columnWidthActions;
 
   @override
   Widget build(BuildContext context) {
@@ -1643,6 +1775,16 @@ class _SelectionBar extends StatelessWidget {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
               onPressed: onCopy,
             ),
+            if (columnWidthActions case final actions?)
+              PopupMenuButton<String>(
+                tooltip: strings.columnWidth,
+                icon: Icon(Icons.swap_horiz_rounded, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                onSelected: (value) => value == 'fit' ? actions.fit() : actions.reset?.call(),
+                itemBuilder: (context) => [
+                  PopupMenuItem(value: 'fit', child: Text(strings.fitColumn)),
+                  PopupMenuItem(value: 'reset', enabled: actions.reset != null, child: Text(strings.resetColumn)),
+                ],
+              ),
             IconButton(
               tooltip: strings.copyAddress,
               icon: const Icon(Icons.tag_rounded, size: 20),
@@ -1656,6 +1798,58 @@ class _SelectionBar extends StatelessWidget {
               onPressed: onClear,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The grip on a selected column's right edge: drag to resize the column on
+/// screen, double-tap to fit its text. The pill is small, the touch zone is
+/// 48 px wide (centred on the edge between two headers).
+class _ColumnGrip extends StatelessWidget {
+  const _ColumnGrip({
+    required this.accent,
+    required this.semanticsLabel,
+    required this.onGrab,
+    required this.onDrag,
+    required this.onEnd,
+    required this.onFit,
+  });
+
+  static const hitWidth = 48.0;
+
+  final Color accent;
+  final String semanticsLabel;
+  final ValueChanged<Offset> onGrab;
+  final ValueChanged<Offset> onDrag;
+  final VoidCallback onEnd;
+  final VoidCallback onFit;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      label: semanticsLabel,
+      child: GestureDetector(
+        key: const Key('column-resize-grip'),
+        behavior: HitTestBehavior.opaque,
+        onPanDown: (details) => onGrab(details.globalPosition),
+        onPanStart: (details) => onDrag(details.globalPosition),
+        onPanUpdate: (details) => onDrag(details.globalPosition),
+        onPanEnd: (_) => onEnd(),
+        onPanCancel: onEnd,
+        onDoubleTap: onFit,
+        child: Center(
+          child: Container(
+            width: 8,
+            height: 26,
+            decoration: BoxDecoration(
+              color: accent,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: scheme.surface, width: 1.5),
+            ),
+          ),
         ),
       ),
     );

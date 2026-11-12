@@ -123,6 +123,18 @@ class DocumentViewerStrings {
   /// A row, by its number: "Row 12".
   String row(int number) => 'Row $number';
 
+  /// The grip that resizes a selected column (spoken).
+  String get resizeColumn => 'Resize column';
+
+  /// Tooltip of the status bar's column menu.
+  String get columnWidth => 'Column width';
+
+  /// Menu entry: fit the column to its longest text.
+  String get fitColumn => 'Fit to content';
+
+  /// Menu entry: go back to the width the file gave the column.
+  String get resetColumn => 'Original width';
+
   /// A right-click menu entry that opens a cell's details.
   String get cellDetails => 'Details';
 
