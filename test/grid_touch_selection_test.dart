@@ -2,12 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/spreadsheet.dart';
 
-/// Touch selection on a phone-sized grid (CR-EXCEL-READER-AUDIT S3): long
-/// press, drag, handles, edge auto-scroll, Done, pinch zoom, and swipes that
-/// must keep scrolling.
+/// Touch selection on a phone-sized grid (CR-EXCEL-READER-AUDIT S3, reworked
+/// for CR-SHEET-CELL-UI): handles on any picked cell or range, a long press
+/// that drags on with the same finger, edge auto-scroll, haptic ticks,
+/// pinch zoom, and swipes that must keep scrolling.
 void main() {
   Future<SpreadsheetController> load(WidgetTester tester) async {
     final csv = [
@@ -39,14 +41,11 @@ void main() {
     return gesture;
   }
 
-  testWidgets('a long press selects the cell and shows the touch toolbar; the same finger drags a range', (
-    tester,
-  ) async {
+  testWidgets('a long press selects the cell; the same finger drags a range', (tester) async {
     final controller = await load(tester);
     await pump(tester, controller);
     final gesture = await longPress(tester, find.text('r1c0'));
     expect(sel(controller), const GridSelection.cell(1, 0));
-    expect(find.text('Done'), findsOneWidget);
     await gesture.moveTo(tester.getCenter(find.text('r4c1')));
     await tester.pump();
     await gesture.up();
@@ -56,24 +55,90 @@ void main() {
     expect(controller.verticalController.offset, 0, reason: 'selecting did not scroll');
   });
 
-  testWidgets('in range mode a swipe extends instead of scrolling; Done brings scrolling back', (tester) async {
+  testWidgets('a tap shows handles; a swipe with handles showing still scrolls (no Done to press)', (tester) async {
     final controller = await load(tester);
     await pump(tester, controller);
-    final gesture = await longPress(tester, find.text('r1c0'));
-    await gesture.up();
+    expect(find.byKey(const ValueKey('selection-handle-end')), findsNothing);
+    await tester.tap(find.text('r1c0'));
     await tester.pump();
+    expect(find.byKey(const ValueKey('selection-handle-start')), findsOneWidget);
     expect(find.byKey(const ValueKey('selection-handle-end')), findsOneWidget);
     await tester.drag(find.text('r6c1'), const Offset(0, -200));
     await tester.pump();
-    expect(controller.verticalController.offset, 0);
-    await tester.tap(find.text('Done'));
-    await tester.pump();
+    expect(controller.verticalController.offset, greaterThan(50), reason: 'a swipe scrolls');
+    expect(sel(controller), const GridSelection.cell(1, 0), reason: 'and keeps the selection');
     expect(find.text('Done'), findsNothing);
-    expect(find.byKey(const ValueKey('selection-handle-end')), findsNothing);
-    expect(sel(controller), isNotNull, reason: 'Done keeps the selection');
+  });
+
+  testWidgets('after a long press drag ends, scrolling is back at once', (tester) async {
+    final controller = await load(tester);
+    await pump(tester, controller);
+    final gesture = await longPress(tester, find.text('r1c0'));
+    await gesture.moveTo(tester.getCenter(find.text('r3c1')));
+    await gesture.up();
+    await tester.pump();
     await tester.drag(find.text('r6c1'), const Offset(0, -200));
     await tester.pump();
     expect(controller.verticalController.offset, greaterThan(50));
+  });
+
+  testWidgets('picking up a handle does not move the selection; the corner then follows the finger', (tester) async {
+    final controller = await load(tester);
+    await pump(tester, controller);
+    await tester.tap(find.text('r2c1'));
+    await tester.pump();
+    final end = find.byKey(const ValueKey('selection-handle-end'));
+    // Grab it off-centre (the finger is never exactly on the corner).
+    final grab = tester.getCenter(end) + const Offset(9, 9);
+    final gesture = await tester.startGesture(grab);
+    await gesture.moveBy(const Offset(0, 0.5));
+    await tester.pump();
+    expect(sel(controller), const GridSelection.cell(2, 1), reason: 'no jump to a neighbouring cell');
+    await gesture.moveBy(Offset(tester.getSize(find.text('r2c1')).width + 100, 0));
+    await tester.pump();
+
+    final s = sel(controller)!;
+    expect((s.anchorRow, s.activeRow), (2, 2), reason: 'still the same row');
+    expect(s.activeColumn, greaterThan(1));
+    await gesture.up();
+  });
+
+  testWidgets('scrolling is off while a handle is held, so the grid stays put', (tester) async {
+    final controller = await load(tester);
+    await pump(tester, controller);
+    await tester.tap(find.text('r1c0'));
+    await tester.pump();
+    final end = find.byKey(const ValueKey('selection-handle-end'));
+    final gesture = await tester.startGesture(tester.getCenter(end));
+    await gesture.moveBy(const Offset(0, 120));
+    await tester.pump();
+    expect(controller.verticalController.offset, 0);
+    expect(sel(controller)!.activeRow, greaterThan(1));
+    await gesture.up();
+    await tester.pump();
+    await tester.drag(find.text('r8c1'), const Offset(0, -200));
+    await tester.pump();
+    expect(controller.verticalController.offset, greaterThan(50), reason: 'free again after letting go');
+  });
+
+  testWidgets('each cell the drag crosses gives a light haptic tick', (tester) async {
+    final controller = await load(tester);
+    await pump(tester, controller);
+    var ticks = 0;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'HapticFeedback.vibrate' && call.arguments == 'HapticFeedbackType.selectionClick') ticks++;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    final gesture = await longPress(tester, find.text('r1c0'));
+    final afterLongPress = ticks;
+    expect(afterLongPress, greaterThan(0), reason: 'the long press itself ticks');
+    await gesture.moveTo(tester.getCenter(find.text('r2c0')));
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(find.text('r3c0')));
+    await tester.pump();
+    await gesture.up();
+    expect(ticks, afterLongPress + 2, reason: 'one per new cell');
   });
 
   testWidgets('dragging the handles moves the range corners', (tester) async {

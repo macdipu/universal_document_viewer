@@ -92,17 +92,39 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   bool _pointerSelected = false;
   bool _dragging = false;
 
-  /// Touch range mode: entered by a long press. While on, one finger
-  /// extends the selection instead of scrolling, handles adjust it, and a
-  /// toolbar offers Copy and Done.
-  bool _rangeMode = false;
-
-  /// Whether a finger is extending the selection (after the long press, or
-  /// on a handle).
+  /// Whether a finger is extending the selection after a long press (the
+  /// same finger drags on). Scrolling is off only while it is down.
   bool _touchDragging = false;
+
+  /// Whether a finger is on a selection handle (down, or dragging it).
+  /// Scrolling is off while it is.
+  bool _handleActive = false;
 
   /// Which corner a handle drag moves: the start (top-left) or the end.
   bool _draggingStartHandle = false;
+
+  /// Where the finger grabbed a handle, relative to the handle's corner, so
+  /// the selection does not jump when it is picked up.
+  Offset _grabOffset = Offset.zero;
+
+  void _setTouchDragging(bool value) {
+    if (value == _touchDragging) return;
+    setState(() => _touchDragging = value);
+  }
+
+  void _setHandleActive(bool value) {
+    if (value == _handleActive) return;
+    setState(() => _handleActive = value);
+  }
+
+  /// A cell or range picked by touch shows handles on its corners (drag one
+  /// to grow or shrink it), without a long press first.
+  bool _showHandles(GridSelection? selection) =>
+      selection != null &&
+      (selection.isSingleCell || selection.kind == GridSelectionKind.range) &&
+      _lastPointerKind != null &&
+      !_isMouseLike(_lastPointerKind!) &&
+      !_keyboardUsed;
 
   final _gridKey = GlobalKey();
   Size _viewport = Size.zero;
@@ -122,7 +144,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
   /// not touch range selection).
   PointerDeviceKind? _lastPointerKind;
 
-  bool get _lockScroll => _pinching || _inRangeMode(widget.controller.selection.value);
+  bool get _lockScroll => _pinching || _touchDragging || _handleActive;
 
   SpreadsheetController get _controller => widget.controller;
 
@@ -200,8 +222,11 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     _adoptDensity();
   }
 
-  /// A desktop starts compact (a mouse); a phone or tablet stays touch.
-  /// Silent: it runs while the view is being built.
+  /// A desktop starts compact (it has a mouse); a phone or tablet starts
+  /// touch. After that the input in use decides, on every platform: a mouse
+  /// or trackpad moving over the grid (a tablet with a mouse attached, an
+  /// iPad with a trackpad) means compact; a finger means touch. Silent: it
+  /// runs while the view is being built.
   void _adoptDensity() =>
       widget.controller.setAutoDensity(_isDesktop ? SheetDensity.compact : SheetDensity.touch, notify: false);
 
@@ -210,14 +235,15 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     _ => false,
   };
 
-  /// A mouse moving over a desktop's grid means compact rows; the first
-  /// touch on a touch-screen desktop means touch rows (switched when the
-  /// finger lifts, so the cells never move under it).
+  /// A mouse or trackpad moving over the grid means compact rows (switched
+  /// on hover, before any click); a finger means touch rows (switched when
+  /// it lifts, so the cells never move under it).
   void _onPointerHover(PointerHoverEvent event) {
-    if (_isDesktop && event.kind == PointerDeviceKind.mouse) {
-      widget.controller.setAutoDensity(SheetDensity.compact);
-    }
+    if (_isMouseLike(event.kind)) widget.controller.setAutoDensity(SheetDensity.compact);
   }
+
+  static bool _isMouseLike(PointerDeviceKind kind) =>
+      kind == PointerDeviceKind.mouse || kind == PointerDeviceKind.trackpad;
 
   /// Keeps the same cells in view across a zoom change: offsets scale by
   /// the zoom ratio once the resized grid has laid out.
@@ -330,7 +356,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
                         child: Stack(
                           children: [
                             Positioned.fill(child: _gridArea(context, accent)),
-                            if (_inRangeMode(selection)) ..._handles(context, selection!, accent),
+                            if (_showHandles(selection)) ..._handles(context, selection!, accent),
                           ],
                         ),
                       ),
@@ -343,25 +369,9 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
               if (selection != null)
                 _SelectionBar(
                   accent: accent,
-                  // In touch range mode the toolbar below has Copy and Done.
-                  showActions: !_inRangeMode(selection),
                   summary: _summaryOf(context, rows, columnCount, selection),
                   onClear: widget.controller.clearSelection,
                   onCopy: _copySelection,
-                ),
-              if (_inRangeMode(selection))
-                _TouchSelectionToolbar(
-                  onCopy: _copySelection,
-                  onCopyAddress: () {
-                    final s = widget.controller.selection.value;
-                    if (s == null) return;
-                    final address = s.address(
-                      rowCount: widget.controller.currentRows.length,
-                      columnCount: widget.controller.columnCount,
-                    );
-                    _copyText(context, address, address);
-                  },
-                  onDone: _exitRangeMode,
                 ),
             ],
           );
@@ -494,44 +504,29 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     _touches.remove(event.pointer);
     // Only a finger lifting counts: a cancel (a menu opening over the grid
     // sends one, wrongly marked as touch) is not a touch.
-    if (_isDesktop && event is PointerUpEvent && event.kind == PointerDeviceKind.touch && _touches.isEmpty) {
+    if (event is PointerUpEvent && event.kind == PointerDeviceKind.touch && _touches.isEmpty) {
       widget.controller.setAutoDensity(SheetDensity.touch);
     }
     if (_touches.length < 2 && _pinching) {
       setState(() => _pinchStartDistance = null);
     }
     if (_touches.isEmpty) {
-      _touchDragging = false;
+      _setTouchDragging(false);
       _lastTouch = null;
       _autoScroll?.cancel();
       _autoScroll = null;
     }
   }
 
-  bool _inRangeMode(GridSelection? selection) =>
-      _rangeMode && selection != null && (selection.isSingleCell || selection.kind == GridSelectionKind.range);
-
   /// A long press on a cell: selects it and starts range mode; the same
   /// finger can then drag to extend.
   void _onCellLongPress(int row, int column) {
-    if (_lastPointerKind == PointerDeviceKind.mouse) return;
+    if (_lastPointerKind != null && _isMouseLike(_lastPointerKind!)) return;
     _focus.requestFocus();
     HapticFeedback.selectionClick();
     widget.controller.select(GridSelection.cell(row, column));
     _draggingStartHandle = false;
-    setState(() {
-      _rangeMode = true;
-      _touchDragging = true;
-    });
-  }
-
-  void _exitRangeMode() {
-    _autoScroll?.cancel();
-    _autoScroll = null;
-    setState(() {
-      _rangeMode = false;
-      _touchDragging = false;
-    });
+    _setTouchDragging(true);
   }
 
   /// Moves the dragged corner of the selection to the cell under
@@ -559,7 +554,11 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     } else {
       next = GridSelection.cell(bounds.firstRow, bounds.firstColumn).extendedTo(row, column);
     }
-    if (next != current) controller.select(next);
+    if (next != current) {
+      controller.select(next);
+      // A small tick for every cell the selection grows or shrinks by.
+      HapticFeedback.selectionClick();
+    }
   }
 
   /// Keeps a finger past the last cell (or over a header) on the nearest
@@ -605,7 +604,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
 
   void _autoScrollTick() {
     final position = _lastTouch;
-    if (!mounted || position == null || !_touchDragging) {
+    if (!mounted || position == null || !(_touchDragging || _handleActive)) {
       _autoScroll?.cancel();
       _autoScroll = null;
       return;
@@ -663,19 +662,27 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
         accent: accent,
         key: ValueKey(isStart ? 'selection-handle-start' : 'selection-handle-end'),
         semanticsLabel: isStart ? strings.selectionStartHandle : strings.selectionEndHandle,
-        onDragStart: () {
+        onGrab: (global) {
+          final box = _gridKey.currentContext?.findRenderObject() as RenderBox?;
           _draggingStartHandle = isStart;
-          _touchDragging = true;
+          // Where the finger touched down, relative to the corner: the corner
+          // then moves exactly as the finger does, with no jump on pick-up.
+          _grabOffset = box == null ? Offset.zero : at - box.globalToLocal(global);
+          _setHandleActive(true);
         },
         onDragUpdate: (global) {
           final box = _gridKey.currentContext?.findRenderObject() as RenderBox?;
-          if (box != null) _extendTouch(box.globalToLocal(global));
+          if (box == null) return;
+          // The corner follows the finger; a nudge inward picks the cell
+          // the corner belongs to, not its neighbour across the line.
+          final nudge = isStart ? const Offset(2, 2) : const Offset(-2, -2);
+          _extendTouch(box.globalToLocal(global) + _grabOffset + nudge);
         },
         onDragEnd: () {
-          _touchDragging = false;
           _draggingStartHandle = false;
           _autoScroll?.cancel();
           _autoScroll = null;
+          _setHandleActive(false);
         },
       ),
     );
@@ -715,6 +722,21 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
       controller.selectAll();
       return KeyEventResult.handled;
     }
+    // Zoom from the keyboard, as in a browser: Ctrl/Cmd with +, - or 0.
+    if (command) {
+      if (key == LogicalKeyboardKey.equal || key == LogicalKeyboardKey.add || key == LogicalKeyboardKey.numpadAdd) {
+        controller.zoomIn();
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.minus || key == LogicalKeyboardKey.numpadSubtract) {
+        controller.zoomOut();
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.digit0 || key == LogicalKeyboardKey.numpad0) {
+        controller.setZoom(1);
+        return KeyEventResult.handled;
+      }
+    }
     if (command && key == LogicalKeyboardKey.keyC && selected) {
       _copySelection();
       return KeyEventResult.handled;
@@ -723,7 +745,6 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     // one they stay with the app (close search, move focus on).
     if (key == LogicalKeyboardKey.escape) {
       if (!selected) return KeyEventResult.ignored;
-      if (_rangeMode) _exitRangeMode();
       controller.clearSelection();
       return KeyEventResult.handled;
     }
@@ -759,8 +780,13 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     return KeyEventResult.handled;
   }
 
-  /// Width of the scrollbar gutters on a desktop; 0 without scrollbars.
-  double get _gutter => widget.showScrollbars && _isDesktop ? 14 : 0;
+  /// Whether the grid is in its mouse layout (compact rows): draggable
+  /// scrollbars in their own gutters, column resize handles.
+  bool get _mouseLayout => widget.controller.density == SheetDensity.compact;
+
+  /// Width of the scrollbar gutters in the mouse layout; 0 otherwise or
+  /// without scrollbars.
+  double get _gutter => widget.showScrollbars && _mouseLayout ? 14 : 0;
 
   /// The table over a ghost grid (faint lines past the data, so a small
   /// sheet fills the view), inside scrollbars when they are on.
@@ -789,7 +815,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     final vertical = controller.verticalController;
     final horizontal = controller.horizontalController;
     bool onAxis(ScrollNotification n, Axis axis) => n.metrics.axis == axis;
-    if (!_isDesktop) {
+    if (!_mouseLayout) {
       // Thumbs that show while scrolling, over the grid, and fade out.
       return Scrollbar(
         controller: vertical,
@@ -1559,16 +1585,9 @@ class _SelectionBar extends StatelessWidget {
   final VoidCallback onClear;
   final VoidCallback onCopy;
 
-  const _SelectionBar({
-    required this.accent,
-    required this.summary,
-    required this.onClear,
-    required this.onCopy,
-    this.showActions = true,
-  });
+  const _SelectionBar({required this.accent, required this.summary, required this.onClear, required this.onCopy});
 
   final Color accent;
-  final bool showActions;
 
   @override
   Widget build(BuildContext context) {
@@ -1618,27 +1637,24 @@ class _SelectionBar extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface),
               ),
             ),
-            if (showActions) ...[
-              IconButton(
-                tooltip: strings.copySelection(summary.label),
-                icon: const Icon(Icons.copy_rounded, size: 20),
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                onPressed: onCopy,
-              ),
-              IconButton(
-                tooltip: strings.copyAddress,
-                icon: const Icon(Icons.tag_rounded, size: 20),
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                onPressed: () => _copyText(context, summary.address, summary.address),
-              ),
-              IconButton(
-                tooltip: strings.clearSelection,
-                icon: const Icon(Icons.close_rounded, size: 20),
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                onPressed: onClear,
-              ),
-            ] else
-              const SizedBox(width: 12, height: 48),
+            IconButton(
+              tooltip: strings.copySelection(summary.label),
+              icon: const Icon(Icons.copy_rounded, size: 20),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              onPressed: onCopy,
+            ),
+            IconButton(
+              tooltip: strings.copyAddress,
+              icon: const Icon(Icons.tag_rounded, size: 20),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              onPressed: () => _copyText(context, summary.address, summary.address),
+            ),
+            IconButton(
+              tooltip: strings.clearSelection,
+              icon: const Icon(Icons.close_rounded, size: 20),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              onPressed: onClear,
+            ),
           ],
         ),
       ),
@@ -1653,7 +1669,7 @@ class _SelectionHandle extends StatelessWidget {
     super.key,
     required this.accent,
     required this.semanticsLabel,
-    required this.onDragStart,
+    required this.onGrab,
     required this.onDragUpdate,
     required this.onDragEnd,
   });
@@ -1664,7 +1680,10 @@ class _SelectionHandle extends StatelessWidget {
 
   final Color accent;
   final String semanticsLabel;
-  final VoidCallback onDragStart;
+
+  /// A finger went down on the handle (scrolling stops at once, before the
+  /// drag is recognised).
+  final ValueChanged<Offset> onGrab;
   final ValueChanged<Offset> onDragUpdate;
   final VoidCallback onDragEnd;
 
@@ -1675,7 +1694,9 @@ class _SelectionHandle extends StatelessWidget {
       label: semanticsLabel,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onPanStart: (_) => onDragStart(),
+        onPanDown: (details) => onGrab(details.globalPosition),
+        // The position where the drag was recognised counts as an update.
+        onPanStart: (details) => onDragUpdate(details.globalPosition),
         onPanUpdate: (details) => onDragUpdate(details.globalPosition),
         onPanEnd: (_) => onDragEnd(),
         onPanCancel: onDragEnd,
@@ -1691,42 +1712,6 @@ class _SelectionHandle extends StatelessWidget {
                 border: Border.all(color: accent, width: 2.5),
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The bar at the bottom while selecting by touch: what can be done with
-/// the selection, and Done to go back to scrolling.
-class _TouchSelectionToolbar extends StatelessWidget {
-  const _TouchSelectionToolbar({required this.onCopy, required this.onCopyAddress, required this.onDone});
-
-  final VoidCallback onCopy;
-  final VoidCallback onCopyAddress;
-  final VoidCallback onDone;
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = DocumentViewerStrings.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surfaceContainerHigh,
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 56,
-          child: Row(
-            children: [
-              const SizedBox(width: 4),
-              TextButton.icon(onPressed: onCopy, icon: const Icon(Icons.copy_rounded), label: Text(strings.copy)),
-              // An icon, so the bar fits a 360 px phone.
-              IconButton(tooltip: strings.copyAddress, onPressed: onCopyAddress, icon: const Icon(Icons.tag_rounded)),
-              const Spacer(),
-              FilledButton(onPressed: onDone, child: Text(strings.done)),
-              const SizedBox(width: 12),
-            ],
           ),
         ),
       ),

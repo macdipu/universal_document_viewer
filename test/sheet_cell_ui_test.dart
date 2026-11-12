@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/spreadsheet.dart';
 import 'package:universal_document_viewer/testing.dart';
@@ -249,17 +250,105 @@ void main() {
     });
   });
 
-  group('touch range mode', () {
-    testWidgets('the status bar drops its buttons while the toolbar below has them', (tester) async {
+  group('touch selection', () {
+    testWidgets('a tap shows handles and the status bar keeps its buttons; a mouse click shows no handles', (
+      tester,
+    ) async {
       final controller = await load(tester);
       await pump(tester, controller);
       await tester.tap(find.text('Rent'));
       await tester.pump();
-      expect(find.byTooltip('Copy address'), findsOneWidget, reason: 'one status bar, with its buttons');
-      await tester.longPress(find.text('Food'));
+      expect(find.byKey(const ValueKey('selection-handle-end')), findsOneWidget);
+      expect(find.byTooltip('Copy address'), findsOneWidget);
+      expect(find.text('Done'), findsNothing);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: tester.getCenter(find.text('Food')));
+      await mouse.down(tester.getCenter(find.text('Food')));
+      await mouse.up();
       await tester.pump();
-      expect(find.byTooltip('Copy address'), findsOneWidget, reason: 'now only the toolbar has it');
-      expect(find.text('Done'), findsOneWidget);
+      expect(find.byKey(const ValueKey('selection-handle-end')), findsNothing, reason: 'handles are for fingers');
+    });
+  });
+
+  group('a touch device with a mouse and keyboard', () {
+    // The default test platform is Android: a phone or tablet.
+    Finder resizeHandle() =>
+        find.byWidgetPredicate((w) => w is MouseRegion && w.cursor == SystemMouseCursors.resizeColumn);
+
+    testWidgets('a mouse over the grid switches to the mouse layout; a finger switches back', (tester) async {
+      final controller = await load(tester);
+      await pump(tester, controller);
+      expect(defaultTargetPlatform, TargetPlatform.android);
+      expect(controller.density, SheetDensity.touch);
+      expect(resizeHandle(), findsNothing);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: const Offset(10, 10));
+      await mouse.moveTo(const Offset(300, 300));
+      await tester.pump();
+      expect(controller.density, SheetDensity.compact, reason: 'compact rows for the mouse');
+      expect(resizeHandle(), findsWidgets, reason: 'column resize handles');
+      final bars = tester.widgetList<Scrollbar>(find.byType(Scrollbar)).toList();
+      expect(bars.every((b) => b.thumbVisibility == true && b.interactive == true), isTrue, reason: 'draggable bars');
+
+      await tester.tapAt(const Offset(500, 500));
+      await tester.pump();
+      expect(controller.density, SheetDensity.touch, reason: 'a finger lifts: touch layout again');
+      expect(resizeHandle(), findsNothing);
+    });
+
+    testWidgets('mouse click and drag select without handles; keys then move it and show the focus ring', (
+      tester,
+    ) async {
+      final controller = await load(tester);
+      await pump(tester, controller);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: tester.getCenter(find.text('Rent')));
+      await mouse.moveTo(tester.getCenter(find.text('Rent')) + const Offset(1, 0));
+      await tester.pump();
+      await mouse.down(tester.getCenter(find.text('Rent')));
+      await mouse.moveTo(tester.getCenter(find.text('Cost')));
+      await mouse.up();
+      await tester.pump();
+      final s = controller.selection.value!;
+      expect((s.anchorRow, s.anchorColumn, s.activeRow, s.activeColumn), (1, 0, 0, 1), reason: 'dragged A2 to B1');
+      expect(find.byKey(const ValueKey('selection-handle-end')), findsNothing, reason: 'no finger handles');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(controller.selection.value!.activeRow, 1);
+      expect(find.byKey(const ValueKey('selection-handle-end')), findsNothing);
+    });
+
+    testWidgets('Ctrl/Cmd with + - 0 zooms from the keyboard', (tester) async {
+      final controller = await load(tester);
+      await pump(tester, controller);
+      await tester.tap(find.text('Rent'));
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+      expect(controller.zoom, greaterThan(1));
+      await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+      await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+      expect(controller.zoom, lessThan(1));
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+      expect(controller.zoom, 1);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    });
+
+    testWidgets('a finger after the mouse brings the handles back', (tester) async {
+      final controller = await load(tester);
+      await pump(tester, controller);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: tester.getCenter(find.text('Rent')));
+      await mouse.down(tester.getCenter(find.text('Rent')));
+      await mouse.up();
+      await tester.pump();
+      expect(find.byKey(const ValueKey('selection-handle-end')), findsNothing);
+      await tester.tap(find.text('Food'));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('selection-handle-end')), findsOneWidget);
     });
   });
 
