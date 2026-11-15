@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- **Markdown:** every fenced code block in the preview has a copy button (tooltip from `DocumentViewerStrings.copy`); it shows a check for two seconds after copying.
+
 ## 0.2.1
 
 - **Markdown:** `MarkdownController` and `MarkdownView` (in `markdown.dart`) show `.md` files as a rendered preview, highlighted source with line numbers, or both side by side. `MarkdownStats` counts words, headings, links, images and reading time. New dependency: `markdown`. `DocumentViewerStrings.markdownPreviewTruncated` is the one new string. `TextLinesController` (decoding, zoom, search over lines) is now the shared base of `PlainTextController` and `MarkdownController`; `PlainTextController`'s API is unchanged.

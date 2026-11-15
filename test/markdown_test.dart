@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/src/markdown/markdown_highlighter.dart';
 import 'package:universal_document_viewer/src/markdown/markdown_preview.dart';
@@ -244,6 +244,45 @@ void main() {
     scroll.jumpTo(1000);
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a code block has a copy button that puts its source on the clipboard', (tester) async {
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied.add((call.arguments as Map)['text'] as String);
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    const source = '''
+Intro
+
+```bash
+flutter pub get
+flutter test
+```
+
+```
+plain block
+```''';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MarkdownPreview(lines: source.split('\n'), baseDirectory: null, fontSize: 16, controller: controller),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byIcon(Icons.content_copy_rounded), findsNWidgets(2));
+
+    await tester.tap(find.byIcon(Icons.content_copy_rounded).first);
+    await tester.pump();
+    expect(copied, ['flutter pub get\nflutter test']);
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.byIcon(Icons.check_rounded), findsNothing);
   });
 
   testWidgets('MarkdownPreview renders rich content and survives malformed input', (tester) async {

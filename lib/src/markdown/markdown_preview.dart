@@ -1,11 +1,13 @@
 // Internal to MarkdownView: not exported, so its members need no public docs.
 // ignore_for_file: public_member_api_docs
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
@@ -148,6 +150,98 @@ class _BlockState extends State<_Block> {
       baseDirectory: widget.baseDirectory,
       recognizers: _recognizers,
     ).block(widget.node);
+  }
+}
+
+/// A fenced code block: highlighted, scrollable sideways, with a copy button.
+class _CodeBlock extends StatefulWidget {
+  const _CodeBlock({
+    required this.text,
+    required this.language,
+    required this.spans,
+    required this.mono,
+    required this.fontSize,
+    required this.scheme,
+  });
+
+  final String text;
+  final String? language;
+  final List<TextSpan> spans;
+  final TextStyle mono;
+  final double fontSize;
+  final ColorScheme scheme;
+
+  @override
+  State<_CodeBlock> createState() => _CodeBlockState();
+}
+
+class _CodeBlockState extends State<_CodeBlock> {
+  bool _copied = false;
+  Timer? _reset;
+
+  @override
+  void dispose() {
+    _reset?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copy() async {
+    try {
+      await Clipboard.setData(ClipboardData(text: widget.text));
+    } on Object {
+      // The clipboard is unavailable; leave the button as it was.
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _copied = true);
+    _reset?.cancel();
+    _reset = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = widget.scheme;
+    final language = widget.language;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 12, right: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    language ?? '',
+                    style: widget.mono.copyWith(fontSize: widget.fontSize * 0.75, color: scheme.onSurfaceVariant),
+                  ),
+                ),
+                IconButton(
+                  tooltip: DocumentViewerStrings.of(context).copy,
+                  visualDensity: VisualDensity.compact,
+                  iconSize: widget.fontSize * 1.15,
+                  color: scheme.onSurfaceVariant,
+                  icon: Icon(_copied ? Icons.check_rounded : Icons.content_copy_rounded),
+                  onPressed: _copy,
+                ),
+              ],
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Text.rich(TextSpan(children: widget.spans, style: widget.mono)),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -343,31 +437,13 @@ class _Ctx {
     if (text.endsWith('\n')) text = text.substring(0, text.length - 1);
     final cls = code?.attributes['class'] ?? '';
     final language = cls.startsWith('language-') ? cls.substring(9) : null;
-    final spans = CodeHighlighter.highlight(text, language, palette);
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (language != null && language.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: Text(
-                language,
-                style: mono.copyWith(fontSize: fontSize * 0.75, color: scheme.onSurfaceVariant),
-              ),
-            ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.all(12),
-            child: Text.rich(TextSpan(children: spans, style: mono)),
-          ),
-        ],
-      ),
+    return _CodeBlock(
+      text: text,
+      language: language,
+      spans: CodeHighlighter.highlight(text, language, palette),
+      mono: mono,
+      fontSize: fontSize,
+      scheme: scheme,
     );
   }
 
