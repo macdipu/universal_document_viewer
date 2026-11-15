@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 
 /// Colours for syntax highlighting, taken from the theme so light, dark and
-/// night mode all stay legible.
+/// an app's dark reading modes all stay legible.
 class SyntaxPalette {
   final Color keyword;
   final Color string;
@@ -88,7 +88,6 @@ class CodeHighlighter {
       '|(?<string>"(?:\\\\.|[^"\\\\\\n])*"?|\'(?:\\\\.|[^\'\\\\\\n])*\'?|`(?:\\\\.|[^`\\\\])*`?)'
       r'|(?<number>\b(?:0[xX][0-9a-fA-F_]+|\d[\d_]*\.?\d*(?:[eE][+-]?\d+)?)\b)'
       r'|(?<word>[A-Za-z_$][A-Za-z0-9_$]*)',
-      multiLine: true,
     );
   }
 
@@ -135,7 +134,7 @@ class CodeHighlighter {
 class MarkdownSourceHighlighter {
   final List<String> lines;
   late final List<String?> _fenceLanguage = _scanFences();
-  late final List<bool> _inFence = _scanInFence();
+  late final List<String?> _inFence = _scanInFence();
 
   MarkdownSourceHighlighter(this.lines);
 
@@ -164,52 +163,79 @@ class MarkdownSourceHighlighter {
     return out;
   }
 
-  List<bool> _scanInFence() {
-    final out = List<bool>.filled(lines.length, false);
-    var open = false;
+  // Per line inside a fence: the fence's language ('' when unlabeled); null
+  // outside fences. Computed once, so building a line is O(1).
+  List<String?> _scanInFence() {
+    final out = List<String?>.filled(lines.length, null);
+    String? language;
     for (var i = 0; i < lines.length; i++) {
       if (_fenceLanguage[i] != null) {
-        open = !open;
+        language = language == null ? _fenceLanguage[i] : null;
       } else {
-        out[i] = open;
+        out[i] = language;
       }
     }
     return out;
-  }
-
-  String? _languageAt(int line) {
-    for (var i = line - 1; i >= 0; i--) {
-      if (_fenceLanguage[i] != null) return _fenceLanguage[i];
-    }
-    return null;
   }
 
   List<TextSpan> spansFor(int index, SyntaxPalette p) {
     final line = lines[index];
     if (line.isEmpty) return const [];
     if (line.length > CodeHighlighter.maxHighlightedLine) return [TextSpan(text: line)];
-    if (_fenceLanguage[index] != null) return [TextSpan(text: line, style: TextStyle(color: p.muted))];
-    if (_inFence[index]) {
-      return CodeHighlighter.highlight(line, _languageAt(index), p, lineOnly: true);
+    if (_fenceLanguage[index] != null) {
+      return [
+        TextSpan(
+          text: line,
+          style: TextStyle(color: p.muted),
+        ),
+      ];
+    }
+    if (_inFence[index] case final language?) {
+      return CodeHighlighter.highlight(line, language, p, lineOnly: true);
     }
     final heading = _heading.firstMatch(line);
     if (heading != null) {
       return [
-        TextSpan(text: heading.group(1), style: TextStyle(color: p.accent, fontWeight: FontWeight.w700)),
-        TextSpan(text: heading.group(2), style: TextStyle(color: p.heading, fontWeight: FontWeight.w700)),
+        TextSpan(
+          text: heading.group(1),
+          style: TextStyle(color: p.accent, fontWeight: FontWeight.w700),
+        ),
+        TextSpan(
+          text: heading.group(2),
+          style: TextStyle(color: p.heading, fontWeight: FontWeight.w700),
+        ),
       ];
     }
-    if (_rule.hasMatch(line)) return [TextSpan(text: line, style: TextStyle(color: p.muted))];
+    if (_rule.hasMatch(line)) {
+      return [
+        TextSpan(
+          text: line,
+          style: TextStyle(color: p.muted),
+        ),
+      ];
+    }
     final quote = _quote.firstMatch(line);
     if (quote != null) {
       return [
-        TextSpan(text: quote.group(1), style: TextStyle(color: p.accent)),
-        TextSpan(text: quote.group(2), style: TextStyle(color: p.muted, fontStyle: FontStyle.italic)),
+        TextSpan(
+          text: quote.group(1),
+          style: TextStyle(color: p.accent),
+        ),
+        TextSpan(
+          text: quote.group(2),
+          style: TextStyle(color: p.muted, fontStyle: FontStyle.italic),
+        ),
       ];
     }
     final list = _list.firstMatch(line);
     if (list != null) {
-      return [TextSpan(text: list.group(1), style: TextStyle(color: p.accent)), ..._inlineSpans(list.group(2)!, p)];
+      return [
+        TextSpan(
+          text: list.group(1),
+          style: TextStyle(color: p.accent),
+        ),
+        ..._inlineSpans(list.group(2)!, p),
+      ];
     }
     return _inlineSpans(line, p);
   }

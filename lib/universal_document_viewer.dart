@@ -1,5 +1,5 @@
 /// Open and read PDF, Word (.docx), Excel (.xlsx), CSV, PowerPoint (.pptx)
-/// and plain text documents, with the package's own engines.
+/// Markdown and plain text documents, with the package's own engines.
 ///
 /// The quickest way to show any supported file is [DocumentViewer]:
 ///
@@ -11,11 +11,11 @@
 /// and view: [PdfController] and [PdfView], [WordController] and
 /// [WordView], [SpreadsheetController] and [SpreadsheetView],
 /// [SlidesController] and [SlidesView], [PlainTextController] and
-/// [PlainTextView]. [DocumentThumbnails] draws a preview of any of them.
+/// [PlainTextView], [MarkdownController] and [MarkdownView]. [DocumentThumbnails] draws a preview of any of them.
 ///
 /// This library exports everything. Each format also has a library of its
 /// own (`pdf.dart`, `word.dart`, `spreadsheet.dart`, `slides.dart`,
-/// `plain_text.dart`) for apps that use only one.
+/// `plain_text.dart`, `markdown.dart`) for apps that use only one.
 library;
 
 export 'pdf.dart';

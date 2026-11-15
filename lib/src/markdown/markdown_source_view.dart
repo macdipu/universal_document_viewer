@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 
 import '../common/document_viewer_theme.dart';
+import '../common/match_spans.dart';
 import '../common/text_lines_controller.dart';
 import 'markdown_highlighter.dart';
 
@@ -54,6 +55,11 @@ class _MarkdownSourceViewState extends State<MarkdownSourceView> {
   void initState() {
     super.initState();
     widget.search.addListener(_onSearch);
+    // Mounted by a search from Preview: the match was found before this view
+    // existed, so scroll to it once laid out.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _onSearch(force: true);
+    });
   }
 
   @override
@@ -78,13 +84,13 @@ class _MarkdownSourceViewState extends State<MarkdownSourceView> {
   double get _lineHeight => widget.fontSize * MarkdownSourceView.lineHeightFactor;
 
   /// Scrolls to the current match when it changes (a new query or next/previous).
-  void _onSearch() {
+  void _onSearch({bool force = false}) {
     final index = widget.search.currentMatch;
     final query = widget.search.searchQuery;
     final changed = index != _lastMatch || query != _lastQuery;
     _lastMatch = index;
     _lastQuery = query;
-    if (!changed || index < 0 || !widget.controller.hasClients) return;
+    if ((!changed && !force) || index < 0 || !widget.controller.hasClients) return;
     final line = widget.search.matches[index].line;
     final position = widget.controller.position;
     final top = line * _lineHeight;
@@ -142,7 +148,12 @@ class _MarkdownSourceViewState extends State<MarkdownSourceView> {
                         final line = widget.lines[i];
                         final List<InlineSpan> spans = query.isEmpty
                             ? _highlighter.spansFor(i, palette)
-                            : _withMatches(line, query, current?.line == i ? current!.start : null, highlights);
+                            : matchSpans(
+                                line,
+                                query,
+                                highlights,
+                                currentStart: current?.line == i ? current!.start : null,
+                              );
                         return Row(
                           children: [
                             SelectionContainer.disabled(
@@ -154,7 +165,9 @@ class _MarkdownSourceViewState extends State<MarkdownSourceView> {
                                 child: Text(
                                   '${i + 1}',
                                   style: mono.copyWith(
-                                      color: scheme.onSurfaceVariant.withValues(alpha: 0.7), fontSize: fontSize * 0.9),
+                                    color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                    fontSize: fontSize * 0.9,
+                                  ),
                                 ),
                               ),
                             ),
@@ -181,24 +194,5 @@ class _MarkdownSourceViewState extends State<MarkdownSourceView> {
         },
       ),
     );
-  }
-
-  List<InlineSpan> _withMatches(String text, String query, int? currentStart, DocumentViewerTheme highlights) {
-    final lower = text.toLowerCase();
-    final q = query.toLowerCase();
-    final spans = <InlineSpan>[];
-    var start = 0;
-    while (true) {
-      final index = lower.indexOf(q, start);
-      if (index == -1) {
-        spans.add(TextSpan(text: text.substring(start)));
-        break;
-      }
-      if (index > start) spans.add(TextSpan(text: text.substring(start, index)));
-      spans.add(TextSpan(
-          text: text.substring(index, index + q.length), style: highlights.matchStyle(current: index == currentStart)));
-      start = index + q.length;
-    }
-    return spans;
   }
 }

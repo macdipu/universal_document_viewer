@@ -111,7 +111,7 @@ class DocumentViewerStrings {
 
   /// Shown where MarkdownView stops rendering a very large file.
   String get markdownPreviewTruncated =>
-      'Preview stopped here because the file is very large. Switch to Code to see the rest.';
+      'The preview stops here because the file is very large. The source view shows the rest.';
 
   // ---- Slides
 

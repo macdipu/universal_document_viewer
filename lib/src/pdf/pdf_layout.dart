@@ -87,14 +87,6 @@ class PdfLayout {
     }
   }
 
-  /// The page at a content point, if any.
-  int? pageAt(Offset point) {
-    for (final index in pagesIn(Rect.fromCenter(center: point, width: 1, height: 1))) {
-      if (pages[index].contains(point)) return index;
-    }
-    return null;
-  }
-
   /// The page being read in [visible]: the one taking most of the view
   /// along the scroll axis. [previous] stays current while it still fills
   /// at least as much as any other, so the number doesn't flicker between

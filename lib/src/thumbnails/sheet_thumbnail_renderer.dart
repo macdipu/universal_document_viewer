@@ -10,6 +10,7 @@ import '../engines/spreadsheet/csv_reader.dart';
 import '../engines/spreadsheet/workbook.dart';
 import '../engines/spreadsheet/xlsx_reader.dart';
 import '../spreadsheet/cell_border.dart';
+import '../spreadsheet/grid_selection.dart' show columnLabel;
 import '../spreadsheet/spreadsheet_controller.dart';
 import 'offscreen_render.dart';
 import 'thumbnail_renderer.dart';
@@ -199,7 +200,7 @@ class _SheetCornerView extends StatelessWidget {
             children: [
               header('', SheetCorner.rowHeaderWidth, SheetCorner.headerHeight),
               for (var c = 0; c < corner.columns.length; c++)
-                header(_columnLabel(corner.columns[c]), corner.columnWidths[c], SheetCorner.headerHeight),
+                header(columnLabel(corner.columns[c]), corner.columnWidths[c], SheetCorner.headerHeight),
             ],
           ),
           for (var r = 0; r < corner.rows.length; r++)
@@ -223,16 +224,6 @@ class _SheetCornerView extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  static String _columnLabel(int index) {
-    var n = index;
-    var label = '';
-    do {
-      label = String.fromCharCode(65 + n % 26) + label;
-      n = n ~/ 26 - 1;
-    } while (n >= 0);
-    return label;
   }
 }
 

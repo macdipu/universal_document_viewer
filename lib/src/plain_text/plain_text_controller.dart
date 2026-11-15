@@ -5,6 +5,7 @@ import 'package:meta/meta.dart';
 
 import '../common/reader_contract.dart';
 import '../common/text_lines_controller.dart';
+import '../common/text_decoding.dart';
 
 /// Loads a plain-text document for [PlainTextView]: its lines, line wrap,
 /// zoom, search and the scroll position.
@@ -22,7 +23,7 @@ class PlainTextController extends TextLinesController {
 
   /// Whether [bytes] look like a binary file rather than text; see
   /// [looksLikeBinary], which this forwards to.
-  static bool looksBinary(Uint8List bytes) => TextLinesController.looksBinary(bytes);
+  static bool looksBinary(Uint8List bytes) => looksLikeBinary(bytes);
 
   /// Fallback line height for jumps before the view has measured real
   /// lines.
@@ -60,9 +61,9 @@ class PlainTextController extends TextLinesController {
   /// `line` is there once the view has measured its lines.
   @override
   ReadingPosition get position => {
-        PositionKeys.scrollOffset: _offset ?? initialScrollOffset,
-        if (_topLineKnown) PositionKeys.line: _topLine,
-      };
+    PositionKeys.scrollOffset: _offset ?? initialScrollOffset,
+    if (_topLineKnown) PositionKeys.line: _topLine,
+  };
 
   /// [PlainTextView] reports every scroll here.
   @internal

@@ -1,7 +1,7 @@
 name: universal_document_viewer
 description: >-
   Open and read PDF, Word (.docx), Excel (.xlsx), CSV, PowerPoint (.pptx)
-  and text documents in Flutter, with its own document engines.
+  Markdown and text documents in Flutter, with its own document engines.
 version: 0.2.1
 homepage: https://github.com/macdipu/universal_document_viewer
 repository: https://github.com/macdipu/universal_document_viewer

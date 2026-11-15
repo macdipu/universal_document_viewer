@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 
 import 'document_controller.dart';
@@ -34,10 +33,10 @@ class TextMatch {
 abstract class TextLinesController extends DocumentController {
   /// Reopens at the scroll offset saved in [initialPosition], if any.
   TextLinesController({ReadingPosition? initialPosition, super.onPositionChanged})
-      : initialScrollOffset = switch (initialPosition?[PositionKeys.scrollOffset]) {
-          final num offset when offset > 0 => offset.toDouble(),
-          _ => 0,
-        };
+    : initialScrollOffset = switch (initialPosition?[PositionKeys.scrollOffset]) {
+        final num offset when offset > 0 => offset.toDouble(),
+        _ => 0,
+      };
 
   /// Above this size a file is refused rather than read into memory in one
   /// pass.
@@ -65,15 +64,16 @@ abstract class TextLinesController extends DocumentController {
     } else if (looksLikeBinary(bytes)) {
       markFailed(DocumentLoadError.corrupted);
     } else {
-      _lines = decodeTextBytes(bytes).split('\n');
+      // CRLF files must not keep a trailing \r on every line: Markdown would
+      // not see blank lines, and search offsets would include it.
+      _lines = decodeTextBytes(bytes).split(_lineBreak);
+      _clearSearchState();
       updateLineLocation(0);
       markReady();
     }
   }
 
-  /// Whether [bytes] look like a binary file rather than text; see
-  /// [looksLikeBinary], which this forwards to.
-  static bool looksBinary(Uint8List bytes) => looksLikeBinary(bytes);
+  static final _lineBreak = RegExp(r'\r?\n');
 
   // ---- Where the reader is
 
@@ -174,6 +174,14 @@ abstract class TextLinesController extends DocumentController {
     _updateSearch();
     notifyListeners();
     revealLine(_matches[index].line);
+  }
+
+  /// A new document starts with no search: old matches index old lines.
+  void _clearSearchState() {
+    _query = '';
+    _matches = const [];
+    _currentMatch = -1;
+    _updateSearch();
   }
 
   void _updateSearch() =>

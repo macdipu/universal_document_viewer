@@ -19,7 +19,11 @@ class MarkdownController extends TextLinesController {
     super.onPositionChanged,
     this.baseDirectory,
     MarkdownViewMode mode = MarkdownViewMode.preview,
-  }) : viewMode = ValueNotifier(mode);
+  }) : viewMode = ValueNotifier(mode),
+       _baseFromApp = baseDirectory != null;
+
+  /// Whether the app passed [baseDirectory]; otherwise each [loadFile] sets it.
+  final bool _baseFromApp;
 
   /// Whether [extension] (with or without the dot) names a Markdown file.
   static bool isMarkdownExtension(String extension) =>
@@ -28,8 +32,8 @@ class MarkdownController extends TextLinesController {
   /// How the document is shown.
   final ValueNotifier<MarkdownViewMode> viewMode;
 
-  /// Where relative image paths resolve from. [loadFile] sets it to the
-  /// file's folder unless the app already did.
+  /// Where relative image paths resolve from. Each [loadFile] sets it to that
+  /// file's folder, unless one was passed to the constructor.
   String? baseDirectory;
 
   /// Source-equivalent offset per line in the saved position, so a saved
@@ -41,7 +45,7 @@ class MarkdownController extends TextLinesController {
 
   @override
   Future<void> loadFile(String path) {
-    baseDirectory ??= p.dirname(path);
+    if (!_baseFromApp) baseDirectory = p.dirname(path);
     return super.loadFile(path);
   }
 
@@ -64,6 +68,22 @@ class MarkdownController extends TextLinesController {
   void search(String query) {
     if (query.isNotEmpty && viewMode.value == MarkdownViewMode.preview) viewMode.value = MarkdownViewMode.code;
     super.search(query);
+  }
+
+  @override
+  void nextMatch() {
+    _showSourceForMatches();
+    super.nextMatch();
+  }
+
+  @override
+  void previousMatch() {
+    _showSourceForMatches();
+    super.previousMatch();
+  }
+
+  void _showSourceForMatches() {
+    if (matches.isNotEmpty && viewMode.value == MarkdownViewMode.preview) viewMode.value = MarkdownViewMode.code;
   }
 
   /// The source view scrolls to the current match itself, as it listens to
@@ -98,9 +118,9 @@ class MarkdownController extends TextLinesController {
 
   @override
   ReadingPosition get position => {
-        PositionKeys.scrollOffset: (_ratio < 0 ? initialRatio : _ratio) * lines.length * unitsPerLine,
-        if (_ratio >= 0) PositionKeys.line: topLine,
-      };
+    PositionKeys.scrollOffset: (_ratio < 0 ? initialRatio : _ratio) * lines.length * unitsPerLine,
+    if (_ratio >= 0) PositionKeys.line: topLine,
+  };
 
   /// Scrolls line [number] (from 1) to the top of the source, showing it first
   /// when only the preview is up.

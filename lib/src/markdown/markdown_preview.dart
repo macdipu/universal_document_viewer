@@ -43,7 +43,6 @@ class MarkdownPreview extends StatefulWidget {
 class _MarkdownPreviewState extends State<MarkdownPreview> {
   List<md.Node> _blocks = const [];
   bool _truncated = false;
-  final _recognizers = <TapGestureRecognizer>[];
 
   @override
   void initState() {
@@ -57,19 +56,6 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
     if (!identical(old.lines, widget.lines)) _parse();
   }
 
-  @override
-  void dispose() {
-    _disposeRecognizers();
-    super.dispose();
-  }
-
-  void _disposeRecognizers() {
-    for (final r in _recognizers) {
-      r.dispose();
-    }
-    _recognizers.clear();
-  }
-
   void _parse() {
     var budget = MarkdownPreview.maxPreviewChars;
     var count = 0;
@@ -80,27 +66,21 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
     }
     _truncated = count < widget.lines.length;
     try {
-      _blocks = md.Document(extensionSet: md.ExtensionSet.gitHubFlavored, encodeHtml: false)
-          .parseLines(widget.lines.sublist(0, count));
+      _blocks = md.Document(
+        extensionSet: md.ExtensionSet.gitHubFlavored,
+        encodeHtml: false,
+      ).parseLines(widget.lines.sublist(0, count));
     } catch (_) {
       // Malformed input must never break the reader: show it as plain text.
       _blocks = [
-        md.Element('p', [md.Text(widget.lines.sublist(0, count).join('\n'))])
+        md.Element('p', [md.Text(widget.lines.sublist(0, count).join('\n'))]),
       ];
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    _disposeRecognizers();
     final theme = Theme.of(context);
-    final ctx = _Ctx(
-      theme: theme,
-      palette: SyntaxPalette.of(context),
-      fontSize: widget.fontSize,
-      baseDirectory: widget.baseDirectory,
-      recognizers: _recognizers,
-    );
     return Container(
       color: theme.colorScheme.surface,
       child: SelectionArea(
@@ -118,11 +98,56 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
                 ),
               );
             }
-            return Padding(padding: const EdgeInsets.only(bottom: 12), child: ctx.block(_blocks[i]));
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _Block(node: _blocks[i], fontSize: widget.fontSize, baseDirectory: widget.baseDirectory),
+            );
           },
         ),
       ),
     );
+  }
+}
+
+/// One top-level block. It owns the tap recognizers of its links, so they
+/// are disposed when it scrolls away or rebuilds, not kept for the document.
+class _Block extends StatefulWidget {
+  const _Block({required this.node, required this.fontSize, required this.baseDirectory});
+
+  final md.Node node;
+  final double fontSize;
+  final String? baseDirectory;
+
+  @override
+  State<_Block> createState() => _BlockState();
+}
+
+class _BlockState extends State<_Block> {
+  final _recognizers = <TapGestureRecognizer>[];
+
+  void _disposeRecognizers() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  @override
+  void dispose() {
+    _disposeRecognizers();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _disposeRecognizers();
+    return _Ctx(
+      theme: Theme.of(context),
+      palette: SyntaxPalette.of(context),
+      fontSize: widget.fontSize,
+      baseDirectory: widget.baseDirectory,
+      recognizers: _recognizers,
+    ).block(widget.node);
   }
 }
 
@@ -144,16 +169,17 @@ class _Ctx {
   ColorScheme get scheme => theme.colorScheme;
 
   TextStyle get body => (theme.textTheme.bodyMedium ?? const TextStyle()).copyWith(
-        fontSize: fontSize,
-        height: 1.55,
-        color: scheme.onSurface,
-      );
+    fontSize: fontSize,
+    height: 1.55,
+    color: scheme.onSurface,
+  );
 
   TextStyle get mono => body.copyWith(
-      fontFamily: 'monospace',
-      fontFamilyFallback: const ['Consolas', 'Menlo', 'Courier'],
-      fontSize: fontSize * 0.88,
-      height: 1.45);
+    fontFamily: 'monospace',
+    fontFamilyFallback: const ['Consolas', 'Menlo', 'Courier'],
+    fontSize: fontSize * 0.88,
+    height: 1.45,
+  );
 
   static const _headingScale = {'h1': 1.9, 'h2': 1.55, 'h3': 1.3, 'h4': 1.15, 'h5': 1.05, 'h6': 0.95};
 
@@ -180,7 +206,11 @@ class _Ctx {
         if (e.tag == 'h1' || e.tag == 'h2') {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [heading, const SizedBox(height: 6), Divider(height: 1, color: scheme.outlineVariant)],
+            children: [
+              heading,
+              const SizedBox(height: 6),
+              Divider(height: 1, color: scheme.outlineVariant),
+            ],
           );
         }
         return heading;
@@ -189,7 +219,9 @@ class _Ctx {
       case 'blockquote':
         return Container(
           padding: const EdgeInsets.only(left: 14, top: 2, bottom: 2),
-          decoration: BoxDecoration(border: Border(left: BorderSide(color: scheme.outline, width: 3))),
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: scheme.outline, width: 3)),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -256,10 +288,12 @@ class _Ctx {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                  width: ordered ? 28 : 20,
-                  child: Align(
-                      alignment: Alignment.topRight,
-                      child: Padding(padding: const EdgeInsets.only(right: 6), child: marker))),
+                width: ordered ? 28 : 20,
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(padding: const EdgeInsets.only(right: 6), child: marker),
+                ),
+              ),
               Expanded(child: listItemBody(kids, base, depth, checkbox)),
             ],
           ),
@@ -286,8 +320,9 @@ class _Ctx {
         widgets.add(Padding(padding: const EdgeInsets.only(top: 4), child: list(k, base, depth + 1)));
       } else if (k is md.Element && k.tag == 'p') {
         flush();
-        final children =
-            (k.children ?? const <md.Node>[]).where((c) => !(c is md.Element && c.tag == 'input')).toList();
+        final children = (k.children ?? const <md.Node>[])
+            .where((c) => !(c is md.Element && c.tag == 'input'))
+            .toList();
         widgets.add(Text.rich(TextSpan(children: inline(children, base), style: base)));
       } else if (k is md.Element && !_inlineTags.contains(k.tag)) {
         flush();
@@ -321,7 +356,10 @@ class _Ctx {
           if (language != null && language.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: Text(language, style: mono.copyWith(fontSize: fontSize * 0.75, color: scheme.onSurfaceVariant)),
+              child: Text(
+                language,
+                style: mono.copyWith(fontSize: fontSize * 0.75, color: scheme.onSurfaceVariant),
+              ),
             ),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -350,15 +388,20 @@ class _Ctx {
           cells.add(
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: Text.rich(TextSpan(children: inline(cell.children, style), style: style), textAlign: textAlign),
+              child: Text.rich(
+                TextSpan(children: inline(cell.children, style), style: style),
+                textAlign: textAlign,
+              ),
             ),
           );
         }
         if (cells.length > columns) columns = cells.length;
-        rows.add(TableRow(
-          decoration: header ? BoxDecoration(color: scheme.surfaceContainerHighest.withValues(alpha: 0.6)) : null,
-          children: cells,
-        ));
+        rows.add(
+          TableRow(
+            decoration: header ? BoxDecoration(color: scheme.surfaceContainerHighest.withValues(alpha: 0.6)) : null,
+            children: cells,
+          ),
+        );
       }
     }
 
@@ -397,40 +440,69 @@ class _Ctx {
       final e = n as md.Element;
       switch (e.tag) {
         case 'em':
-          out.add(TextSpan(children: inline(e.children, style), style: const TextStyle(fontStyle: FontStyle.italic)));
+          out.add(
+            TextSpan(
+              children: inline(e.children, style),
+              style: const TextStyle(fontStyle: FontStyle.italic),
+            ),
+          );
         case 'strong':
-          out.add(TextSpan(children: inline(e.children, style), style: const TextStyle(fontWeight: FontWeight.w700)));
+          out.add(
+            TextSpan(
+              children: inline(e.children, style),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          );
         case 'del':
-          out.add(TextSpan(
-              children: inline(e.children, style), style: const TextStyle(decoration: TextDecoration.lineThrough)));
+          out.add(
+            TextSpan(
+              children: inline(e.children, style),
+              style: const TextStyle(decoration: TextDecoration.lineThrough),
+            ),
+          );
         case 'code':
-          out.add(TextSpan(
-            text: e.textContent,
-            style: mono.copyWith(
-                backgroundColor: scheme.surfaceContainerHighest.withValues(alpha: 0.7), color: palette.string),
-          ));
+          out.add(
+            TextSpan(
+              text: e.textContent,
+              style: mono.copyWith(
+                backgroundColor: scheme.surfaceContainerHighest.withValues(alpha: 0.7),
+                color: palette.string,
+              ),
+            ),
+          );
         case 'br':
           out.add(const TextSpan(text: '\n'));
         case 'a':
           final href = e.attributes['href'];
           final recognizer = TapGestureRecognizer()..onTap = () => _open(href);
           recognizers.add(recognizer);
-          out.add(TextSpan(
-            children: inline(e.children, style),
-            recognizer: recognizer,
-            style:
-                TextStyle(color: scheme.primary, decoration: TextDecoration.underline, decorationColor: scheme.primary),
-          ));
+          out.add(
+            TextSpan(
+              children: inline(e.children, style),
+              recognizer: recognizer,
+              style: TextStyle(
+                color: scheme.primary,
+                decoration: TextDecoration.underline,
+                decorationColor: scheme.primary,
+              ),
+            ),
+          );
         case 'img':
-          out.add(WidgetSpan(
-              alignment: PlaceholderAlignment.middle, child: image(e.attributes['src'], e.attributes['alt'])));
+          out.add(
+            WidgetSpan(alignment: PlaceholderAlignment.middle, child: image(e.attributes['src'], e.attributes['alt'])),
+          );
         case 'input':
           final checked = e.attributes.containsKey('checked');
-          out.add(WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: Icon(checked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                size: fontSize * 1.2, color: scheme.primary),
-          ));
+          out.add(
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Icon(
+                checked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                size: fontSize * 1.2,
+                color: scheme.primary,
+              ),
+            ),
+          );
         default:
           // Raw HTML such as <b> or <details>: keep the text.
           out.addAll(inline(e.children, style));
@@ -467,8 +539,8 @@ class _Ctx {
     final path = _scheme.hasMatch(decoded) && !p.isAbsolute(decoded)
         ? (decoded.startsWith('file:') ? Uri.tryParse(decoded)?.toFilePath() : null)
         : (p.isAbsolute(decoded)
-            ? decoded
-            : (baseDirectory == null ? null : p.normalize(p.join(baseDirectory!, decoded))));
+              ? decoded
+              : (baseDirectory == null ? null : p.normalize(p.join(baseDirectory!, decoded))));
     if (path == null) return fallback;
     final lower = path.toLowerCase();
     if (lower.endsWith('.svg')) return fallback;
@@ -505,8 +577,12 @@ class _ImageFallback extends StatelessWidget {
         Icon(Icons.image_not_supported_outlined, size: 16, color: color),
         const SizedBox(width: 4),
         Flexible(
-            child: Text(label,
-                style: TextStyle(color: color, fontStyle: FontStyle.italic), overflow: TextOverflow.ellipsis)),
+          child: Text(
+            label,
+            style: TextStyle(color: color, fontStyle: FontStyle.italic),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }

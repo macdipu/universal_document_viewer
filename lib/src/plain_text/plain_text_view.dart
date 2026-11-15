@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../common/document_viewer_theme.dart';
+import '../common/match_spans.dart';
 import 'plain_text_controller.dart';
 import 'text_line_metrics.dart';
 
@@ -180,28 +181,8 @@ class _TextLine extends StatelessWidget {
     return wrap ? content : SingleChildScrollView(scrollDirection: Axis.horizontal, child: content);
   }
 
-  TextSpan _highlighted(String text, String query, TextStyle style, BuildContext context) {
-    final highlights = DocumentViewerTheme.of(context);
-    final lower = text.toLowerCase();
-    final lowerQuery = query.toLowerCase();
-    final spans = <TextSpan>[];
-    var start = 0;
-    while (true) {
-      final index = lower.indexOf(lowerQuery, start);
-      if (index == -1) {
-        spans.add(TextSpan(text: text.substring(start)));
-        break;
-      }
-      if (index > start) spans.add(TextSpan(text: text.substring(start, index)));
-      final isCurrentMatch = index == currentMatchStart;
-      spans.add(
-        TextSpan(
-          text: text.substring(index, index + query.length),
-          style: highlights.matchStyle(current: isCurrentMatch),
-        ),
-      );
-      start = index + query.length;
-    }
-    return TextSpan(style: style, children: spans);
-  }
+  TextSpan _highlighted(String text, String query, TextStyle style, BuildContext context) => TextSpan(
+    style: style,
+    children: matchSpans(text, query, DocumentViewerTheme.of(context), currentStart: currentMatchStart),
+  );
 }

@@ -83,7 +83,9 @@ class _MarkdownViewState extends State<MarkdownView> {
     if (!mounted) return;
     _syncing = true;
     for (final s in [_preview, _source]) {
-      if (s.hasClients) s.jumpTo((_ratio * s.position.maxScrollExtent).clamp(0.0, s.position.maxScrollExtent));
+      // A view already scrolling (to a search match, say) keeps going.
+      if (!s.hasClients || s.position.isScrollingNotifier.value) continue;
+      s.jumpTo((_ratio * s.position.maxScrollExtent).clamp(0.0, s.position.maxScrollExtent));
     }
     _syncing = false;
   }
@@ -123,12 +125,8 @@ class _MarkdownViewState extends State<MarkdownView> {
       builder: (context, _) {
         final fontSize = widget.fontSize * c.zoom;
         final lines = c.lines;
-        Widget preview() => MarkdownPreview(
-              lines: lines,
-              baseDirectory: c.baseDirectory,
-              fontSize: fontSize,
-              controller: _preview,
-            );
+        Widget preview() =>
+            MarkdownPreview(lines: lines, baseDirectory: c.baseDirectory, fontSize: fontSize, controller: _preview);
         Widget source() => MarkdownSourceView(lines: lines, search: c, fontSize: fontSize, controller: _source);
         return switch (c.viewMode.value) {
           MarkdownViewMode.preview => preview(),
@@ -145,7 +143,9 @@ class _MarkdownViewState extends State<MarkdownView> {
         final horizontal = constraints.maxWidth >= 600;
         final total = horizontal ? constraints.maxWidth : constraints.maxHeight;
         const handle = 10.0;
-        final first = ((total - handle) * _splitFraction).clamp(80.0, total - handle - 80.0);
+        // Each pane keeps 80 px when there is room; a tiny area just splits evenly.
+        final room = total - handle;
+        final first = room < 160 ? room / 2 : (room * _splitFraction).clamp(80.0, room - 80.0);
         final line = Theme.of(context).colorScheme.outline;
         final divider = MouseRegion(
           cursor: horizontal ? SystemMouseCursors.resizeColumn : SystemMouseCursors.resizeRow,

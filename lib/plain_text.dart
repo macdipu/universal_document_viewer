@@ -1,9 +1,7 @@
-/// Plain text documents (.txt, logs and the like) and Markdown (.md).
+/// Plain text documents (.txt, logs and the like).
 ///
 /// [PlainTextView] shows the lines a [PlainTextController] has loaded, with
-/// search highlights, wrapped or not. [MarkdownView] shows a
-/// [MarkdownController]'s document as a rendered preview, highlighted source
-/// or both side by side.
+/// search highlights, wrapped or not. For Markdown, see `markdown.dart`.
 library;
 
 export 'src/common/document_controller.dart';

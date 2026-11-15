@@ -34,6 +34,7 @@ void main() {
       all.SpreadsheetController,
       all.SlidesController,
       all.PlainTextController,
+      all.MarkdownController,
     ], everyElement(isNotNull));
   });
 
