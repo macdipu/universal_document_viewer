@@ -172,6 +172,7 @@ Import `universal_document_viewer.dart` for everything, or one format's library 
 | `spreadsheet.dart` | `SpreadsheetController` | `SpreadsheetView` | sheets, go to a cell, freeze the header row |
 | `slides.dart` | `SlidesController` | `SlidesView` | previous / next slide, `SlideCard` for previews |
 | `plain_text.dart` | `PlainTextController` | `PlainTextView` | line wrap |
+| `markdown.dart` | `MarkdownController` | `MarkdownView` | preview, code or split mode |
 
 ### PDF
 
@@ -241,7 +242,7 @@ UTF-8, or UTF-16 with a byte order mark, falling back to Latin-1. Binary files a
 ### Markdown
 
 ```dart
-final md = MarkdownController()..loadFile(path); // a PlainTextController too
+final md = MarkdownController()..loadFile(path); // decoded and searched like plain text
 
 MarkdownView(controller: md, fontSize: 16)
 

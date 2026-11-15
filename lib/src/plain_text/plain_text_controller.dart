@@ -3,29 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 
-import '../common/document_controller.dart';
 import '../common/reader_contract.dart';
-import '../common/text_decoding.dart';
-
-/// One occurrence of a search in a plain-text document: on line [line]
-/// (from 0), starting at character [start].
-@immutable
-class TextMatch {
-  /// An occurrence on [line] at [start].
-  const TextMatch(this.line, this.start);
-
-  /// The line, from 0.
-  final int line;
-
-  /// Where the match starts in the line.
-  final int start;
-
-  @override
-  bool operator ==(Object other) => other is TextMatch && other.line == line && other.start == start;
-
-  @override
-  int get hashCode => Object.hash(line, start);
-}
+import '../common/text_lines_controller.dart';
 
 /// Loads a plain-text document for [PlainTextView]: its lines, line wrap,
 /// zoom, search and the scroll position.
@@ -33,30 +12,21 @@ class TextMatch {
 /// Text is decoded as UTF-8, or after a UTF-16 byte order mark, falling
 /// back to Latin-1. The [position] is `{scroll_offset, line}` (`line`, the
 /// top visible line, once the view has measured its lines).
-class PlainTextController extends DocumentController {
+class PlainTextController extends TextLinesController {
   /// Reopens at the scroll offset saved in [initialPosition], if any.
-  PlainTextController({ReadingPosition? initialPosition, super.onPositionChanged, bool wrap = true})
-    : _wrap = wrap,
-      initialScrollOffset = switch (initialPosition?[PositionKeys.scrollOffset]) {
-        final num offset when offset > 0 => offset.toDouble(),
-        _ => 0,
-      };
+  PlainTextController({super.initialPosition, super.onPositionChanged, bool wrap = true}) : _wrap = wrap;
 
   /// Above this size a file is refused rather than read into memory in one
   /// pass.
-  static const int maxBytes = 20 * 1024 * 1024;
+  static const int maxBytes = TextLinesController.maxBytes;
 
-  @override
-  int get maxFileBytes => maxBytes;
+  /// Whether [bytes] look like a binary file rather than text; see
+  /// [looksLikeBinary], which this forwards to.
+  static bool looksBinary(Uint8List bytes) => TextLinesController.looksBinary(bytes);
 
   /// Fallback line height for jumps before the view has measured real
   /// lines.
   static const double _approxLineHeight = 20;
-
-  /// Where the view scrolls to once laid out (from the saved position).
-  /// Settable until then, for an app that reads the saved position after
-  /// creating the controller.
-  double initialScrollOffset;
 
   /// The view's vertical scrolling.
   @internal
@@ -72,47 +42,27 @@ class PlainTextController extends DocumentController {
   @internal
   int Function(double offset)? lineAtOffsetResolver;
 
-  List<String> _lines = const [];
-
-  /// The document's lines.
-  List<String> get lines => _lines;
-
-  /// Checks [bytes] look like text, then decodes them into lines.
-  @override
-  Future<void> loadBytes(Uint8List bytes) async {
-    markLoading();
-    if (bytes.length > maxBytes) {
-      markFailed(DocumentLoadError.tooLarge);
-    } else if (looksLikeBinary(bytes)) {
-      markFailed(DocumentLoadError.corrupted);
-    } else {
-      _lines = decodeTextBytes(bytes).split('\n');
-      _updateLocation(0);
-      markReady();
-    }
-  }
-
-  /// Whether [bytes] look like a binary file rather than text; see
-  /// [looksLikeBinary], which this forwards to.
-  static bool looksBinary(Uint8List bytes) => looksLikeBinary(bytes);
-
   // ---- Where the reader is
 
   int _topLine = 0;
   bool _topLineKnown = false;
   double? _offset;
 
-  void _updateLocation(int topLine) {
+  @override
+  int get topLine => _topLine;
+
+  @override
+  void updateLineLocation(int topLine) {
     _topLine = topLine;
-    updateLocation(DocumentLocation(current: topLine + 1, count: _lines.length, unit: DocumentUnit.line));
+    super.updateLineLocation(topLine);
   }
 
   /// `line` is there once the view has measured its lines.
   @override
   ReadingPosition get position => {
-    PositionKeys.scrollOffset: _offset ?? initialScrollOffset,
-    if (_topLineKnown) PositionKeys.line: _topLine,
-  };
+        PositionKeys.scrollOffset: _offset ?? initialScrollOffset,
+        if (_topLineKnown) PositionKeys.line: _topLine,
+      };
 
   /// [PlainTextView] reports every scroll here.
   @internal
@@ -120,7 +70,7 @@ class PlainTextController extends DocumentController {
     _offset = offset;
     if (lineAtOffsetResolver?.call(offset) case final line?) {
       _topLineKnown = true;
-      _updateLocation(line);
+      updateLineLocation(line);
     }
     reportPosition();
   }
@@ -128,9 +78,12 @@ class PlainTextController extends DocumentController {
   /// Scrolls line [number] (from 1) to the top.
   @override
   void goTo(int number) {
-    if (_lines.isEmpty || !scrollController.hasClients) return deferGoTo(number);
-    _jumpToLine(number.clamp(1, _lines.length) - 1, animate: false);
+    if (lines.isEmpty || !scrollController.hasClients) return deferGoTo(number);
+    _jumpToLine(number.clamp(1, lines.length) - 1, animate: false);
   }
+
+  @override
+  void revealLine(int lineIndex) => _jumpToLine(lineIndex);
 
   void _jumpToLine(int lineIndex, {bool animate = true}) {
     if (!scrollController.hasClients) return;
@@ -155,95 +108,6 @@ class PlainTextController extends DocumentController {
     _wrap = value;
     notifyListeners();
   }
-
-  // ---- Zoom
-
-  double _zoom = 1;
-
-  /// Scales [PlainTextView.fontSize]: the text reflows at the new size.
-  @override
-  double get zoom => _zoom;
-
-  @override
-  double get minZoom => 0.625;
-
-  @override
-  double get maxZoom => 2;
-
-  @override
-  double get zoomStep => 0.125;
-
-  @override
-  void setZoom(double zoom) {
-    zoom = zoom.clamp(minZoom, maxZoom);
-    if (zoom == _zoom) return;
-    _zoom = zoom;
-    notifyListeners();
-  }
-
-  // ---- Search
-
-  String _query = '';
-
-  /// The text being searched for; empty when there's no search.
-  String get searchQuery => _query;
-
-  List<TextMatch> _matches = const [];
-
-  /// Every occurrence of [searchQuery], in order.
-  List<TextMatch> get matches => _matches;
-
-  int _currentMatch = -1;
-
-  /// Which of [matches] is current, or -1 when there are none.
-  int get currentMatch => _currentMatch;
-
-  /// The current match, if any.
-  TextMatch? get currentTextMatch => _currentMatch < 0 ? null : _matches[_currentMatch];
-
-  /// Finds every occurrence of [query] (ignoring case) and shows the first
-  /// one at or below the top of the view.
-  @override
-  void search(String query) {
-    _query = query;
-    final needle = query.toLowerCase();
-    _matches = needle.isEmpty ? const [] : [for (var i = 0; i < _lines.length; i++) ..._occurrences(i, needle)];
-    if (_matches.isEmpty) {
-      _currentMatch = -1;
-      _updateSearch();
-      notifyListeners();
-      return;
-    }
-    final ahead = _matches.indexWhere((m) => m.line >= _topLine);
-    _goToMatch(ahead == -1 ? 0 : ahead);
-  }
-
-  Iterable<TextMatch> _occurrences(int line, String needle) sync* {
-    final text = _lines[line].toLowerCase();
-    for (var start = text.indexOf(needle); start != -1; start = text.indexOf(needle, start + needle.length)) {
-      yield TextMatch(line, start);
-    }
-  }
-
-  @override
-  void nextMatch() {
-    if (_matches.isNotEmpty) _goToMatch((_currentMatch + 1) % _matches.length);
-  }
-
-  @override
-  void previousMatch() {
-    if (_matches.isNotEmpty) _goToMatch((_currentMatch - 1 + _matches.length) % _matches.length);
-  }
-
-  void _goToMatch(int index) {
-    _currentMatch = index;
-    _updateSearch();
-    notifyListeners();
-    _jumpToLine(_matches[index].line);
-  }
-
-  void _updateSearch() =>
-      updateSearch(DocumentSearchState(query: _query, matchCount: _matches.length, currentMatch: _currentMatch));
 
   @override
   void dispose() {

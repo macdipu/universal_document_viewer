@@ -3,8 +3,8 @@
 
 import 'package:flutter/material.dart';
 
-import '../../common/document_viewer_theme.dart';
-import '../plain_text_controller.dart';
+import '../common/document_viewer_theme.dart';
+import '../common/text_lines_controller.dart';
 import 'markdown_highlighter.dart';
 
 /// Code mode: raw Markdown with syntax colouring, a line-number gutter, text
@@ -16,7 +16,7 @@ import 'markdown_highlighter.dart';
 /// large files.
 class MarkdownSourceView extends StatefulWidget {
   final List<String> lines;
-  final PlainTextController search;
+  final TextLinesController search;
   final double fontSize;
   final ScrollController controller;
 

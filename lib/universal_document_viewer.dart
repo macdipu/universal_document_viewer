@@ -19,6 +19,7 @@
 library;
 
 export 'pdf.dart';
+export 'markdown.dart';
 export 'plain_text.dart';
 export 'slides.dart';
 export 'spreadsheet.dart';

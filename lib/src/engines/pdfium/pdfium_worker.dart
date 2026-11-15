@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ffi';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -286,6 +287,29 @@ class _Worker {
     };
   }
 
+  static final _encryptKey = Uint8List.fromList('/Encrypt'.codeUnits);
+
+  /// Whether the PDF at a path (String) or in memory (Uint8List) names an
+  /// `/Encrypt` dictionary. Only read after a failed open.
+  static bool _declaresEncryption(Object? source) {
+    try {
+      final bytes = source is String ? File(source).readAsBytesSync() : source! as Uint8List;
+      for (var i = 0; i + _encryptKey.length <= bytes.length; i++) {
+        var match = true;
+        for (var j = 0; j < _encryptKey.length; j++) {
+          if (bytes[i + j] != _encryptKey[j]) {
+            match = false;
+            break;
+          }
+        }
+        if (match) return true;
+      }
+    } catch (_) {
+      // Unreadable: leave the error as PDFium reported it.
+    }
+    return false;
+  }
+
   /// Opens a document from a path (String) or bytes (TransferableTypedData).
   /// The last-error code is read here, in the same call as the load:
   /// PDFium keeps it per thread.
@@ -294,17 +318,26 @@ class _Worker {
       final passwordPtr = password == null ? nullptr : password.toNativeUtf8(allocator: arena).cast<Char>();
       Pointer<fpdf_document_t__> handle;
       Pointer<Uint8>? buffer;
+      Uint8List? memory;
       if (source is String) {
         handle = FPDF_LoadDocument(source.toNativeUtf8(allocator: arena).cast(), passwordPtr);
       } else {
-        final bytes = (source! as TransferableTypedData).materialize().asUint8List();
+        final bytes = memory = (source! as TransferableTypedData).materialize().asUint8List();
         // PDFium reads from this buffer for the document's whole life.
         buffer = malloc<Uint8>(bytes.length);
         buffer.asTypedList(bytes.length).setAll(0, bytes);
         handle = FPDF_LoadMemDocument64(buffer.cast(), bytes.length, passwordPtr);
       }
       if (handle == nullptr) {
-        final error = FPDF_GetLastError();
+        var error = FPDF_GetLastError();
+        // On Windows PDFium keeps the error in the thread's Win32 last-error
+        // slot, which the Dart runtime can reset before it is read here: a
+        // password failure then comes back as 0 (success) or unknown. A file
+        // that declares an /Encrypt dictionary and won't open is asking for a
+        // (different) password.
+        if ((error == FPDF_ERR_SUCCESS || error == FPDF_ERR_UNKNOWN) && _declaresEncryption(memory ?? source)) {
+          error = FPDF_ERR_PASSWORD;
+        }
         if (buffer != null) malloc.free(buffer);
         throw _WorkerError('open', '$error');
       }

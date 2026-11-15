@@ -3,9 +3,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:universal_document_viewer/src/plain_text/markdown/markdown_highlighter.dart';
-import 'package:universal_document_viewer/src/plain_text/markdown/markdown_preview.dart';
-import 'package:universal_document_viewer/src/plain_text/markdown/markdown_source_view.dart';
+import 'package:universal_document_viewer/src/markdown/markdown_highlighter.dart';
+import 'package:universal_document_viewer/src/markdown/markdown_preview.dart';
+import 'package:universal_document_viewer/src/markdown/markdown_source_view.dart';
 import 'package:universal_document_viewer/universal_document_viewer.dart';
 
 void main() {

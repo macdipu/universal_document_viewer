@@ -10,7 +10,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../common/document_viewer_strings.dart';
+import '../common/document_viewer_strings.dart';
 import 'markdown_highlighter.dart';
 
 /// Renders Markdown source with native widgets: headings, lists, tables,

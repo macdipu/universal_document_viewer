@@ -17,7 +17,17 @@ void main() {
   late Directory dir;
 
   setUp(() async => dir = await Directory.systemTemp.createTemp('kit-viewer-'));
-  tearDown(() async => dir.delete(recursive: true));
+  tearDown(() async {
+    // Windows refuses to delete a file a dropped load is still reading; retry.
+    for (var i = 0; i < 20; i++) {
+      try {
+        await dir.delete(recursive: true);
+        return;
+      } on FileSystemException {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+    }
+  });
 
   Future<void> pumpViewer(WidgetTester tester, String name, List<int> bytes) async {
     final path = '${dir.path}/$name';

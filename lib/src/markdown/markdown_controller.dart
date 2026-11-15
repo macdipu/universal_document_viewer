@@ -1,27 +1,25 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-import '../../common/document_controller.dart';
-import '../../common/reader_contract.dart';
-import '../plain_text_controller.dart';
+import '../common/reader_contract.dart';
+import '../common/text_lines_controller.dart';
 import 'markdown_stats.dart';
 
-/// A Markdown document for [MarkdownView]: a [PlainTextController] (so it
-/// loads, decodes and searches the source the same way) plus how it is shown.
+/// A Markdown document for [MarkdownView]: it loads, decodes and searches the
+/// source like plain text ([TextLinesController]) and adds how it is shown.
 ///
 /// [viewMode] picks Preview, Code or Split. Searching from Preview switches to
 /// Code, because matches are highlighted in the source. The reading position
 /// is one 0..1 ratio shared by every mode, so switching modes, split scrolling
 /// and a saved position all agree.
-class MarkdownController extends PlainTextController {
+class MarkdownController extends TextLinesController {
   /// Opens a document in [mode] (Preview unless told otherwise).
-  MarkdownController(
-      {super.initialPosition,
-      super.onPositionChanged,
-      this.baseDirectory,
-      MarkdownViewMode mode = MarkdownViewMode.preview})
-      : viewMode = ValueNotifier(mode);
+  MarkdownController({
+    super.initialPosition,
+    super.onPositionChanged,
+    this.baseDirectory,
+    MarkdownViewMode mode = MarkdownViewMode.preview,
+  }) : viewMode = ValueNotifier(mode);
 
   /// Whether [extension] (with or without the dot) names a Markdown file.
   static bool isMarkdownExtension(String extension) =>
@@ -68,6 +66,11 @@ class MarkdownController extends PlainTextController {
     super.search(query);
   }
 
+  /// The source view scrolls to the current match itself, as it listens to
+  /// this controller.
+  @override
+  void revealLine(int lineIndex) {}
+
   // ---- Where the reader is
 
   double _ratio = -1;
@@ -86,16 +89,17 @@ class MarkdownController extends PlainTextController {
   @internal
   void onMarkdownScrolled(double ratio) {
     _ratio = ratio.clamp(0.0, 1.0);
-    updateLocation(DocumentLocation(current: _topLine + 1, count: lines.length, unit: DocumentUnit.line));
+    updateLineLocation(topLine);
     reportPosition();
   }
 
-  int get _topLine => lines.isEmpty ? 0 : (_ratio.clamp(0.0, 1.0) * (lines.length - 1)).floor();
+  @override
+  int get topLine => lines.isEmpty || _ratio < 0 ? 0 : (_ratio * (lines.length - 1)).floor();
 
   @override
   ReadingPosition get position => {
         PositionKeys.scrollOffset: (_ratio < 0 ? initialRatio : _ratio) * lines.length * unitsPerLine,
-        if (_ratio >= 0) PositionKeys.line: _topLine,
+        if (_ratio >= 0) PositionKeys.line: topLine,
       };
 
   /// Scrolls line [number] (from 1) to the top of the source, showing it first

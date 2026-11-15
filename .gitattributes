@@ -1,0 +1,9 @@
+# Fixtures and images are byte-exact: never convert line endings (autocrlf corrupts PDFs).
+*.pdf binary
+*.png binary
+*.jpg binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.ttf binary
+*.otf binary

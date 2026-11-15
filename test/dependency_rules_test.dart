@@ -32,7 +32,7 @@ String _module(String path) {
   return parts.first == 'engines' ? '${parts[0]}/${parts[1]}' : parts.first;
 }
 
-const _formats = {'pdf', 'word', 'spreadsheet', 'slides', 'plain_text'};
+const _formats = {'pdf', 'word', 'spreadsheet', 'slides', 'plain_text', 'markdown'};
 
 void main() {
   final imports = _imports();

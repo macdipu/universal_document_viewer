@@ -3,6 +3,7 @@
 // export fails here, not in someone's app.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_document_viewer/pdf.dart' as pdf;
+import 'package:universal_document_viewer/markdown.dart' as md;
 import 'package:universal_document_viewer/plain_text.dart' as text;
 import 'package:universal_document_viewer/slides.dart' as slides;
 import 'package:universal_document_viewer/spreadsheet.dart' as sheet;
@@ -70,10 +71,11 @@ void main() {
       text.PlainTextController,
       text.PlainTextView,
       text.TextMatch,
-      text.MarkdownController,
-      text.MarkdownView,
-      text.MarkdownViewMode.code,
-      text.MarkdownStats,
+      md.MarkdownController,
+      md.MarkdownView,
+      md.MarkdownViewMode.code,
+      md.MarkdownStats,
+      md.TextMatch,
       text.DocumentViewerStrings,
     ], everyElement(isNotNull));
   });
