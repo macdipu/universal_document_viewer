@@ -354,7 +354,7 @@ class _SpreadsheetViewState extends State<SpreadsheetView> {
     });
   }
 
-  /// Saved offsets are at 1x zoom (see the readers' `_savePosition`).
+  /// Saved offsets are at 1x zoom (see the controller's `_positionAt`).
   void _restoreInitialOffsets() {
     final controller = widget.controller;
     final zoom = controller.zoom;
