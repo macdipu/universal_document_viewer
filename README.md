@@ -238,6 +238,19 @@ text.wrap = false; // long lines scroll sideways
 
 UTF-8, or UTF-16 with a byte order mark, falling back to Latin-1. Binary files are refused. Zoom scales `fontSize`.
 
+### Markdown
+
+```dart
+final md = MarkdownController()..loadFile(path); // a PlainTextController too
+
+MarkdownView(controller: md, fontSize: 16)
+
+md.setViewMode(MarkdownViewMode.split); // preview (default), code or split
+final facts = md.stats; // words, characters, lines, headings, links, images, reading time
+```
+
+Preview draws headings, lists, task lists, tables, quotes, links, images (relative paths resolve against `md.baseDirectory`, the file's folder) and highlighted code blocks. Code shows the source with line numbers and colouring; Split shows both and scrolls them together. Searching from Preview switches to Code. The saved position is the same `scrollOffset` and `line` as plain text, and works across modes. `MarkdownController.isMarkdownExtension(ext)` says whether a file should use it.
+
 ## Saving the reading position
 
 A controller's `position` is a `ReadingPosition`: a plain `Map<String, Object?>` of JSON-safe values. Save it as-is (for example with `jsonEncode`) whenever `onPositionChanged` fires (debouncing is up to you), and pass it back as `initialPosition` to reopen at the same place. The keys are in `PositionKeys`:
@@ -328,7 +341,7 @@ The engines work on their own, with plain Dart models:
 | **Word** | Reflowed or print layout with measured pages, headers, footers and page numbers; paragraph and character styles, lists, tables with merged cells, images, links and bookmarks, footnotes and endnotes |
 | **Excel, CSV** | Several sheets (hidden ones stay hidden), column widths, row heights, frozen panes, merged cells, fonts, fills, borders, number formats, conditional formatting (colours and data bars), notes, links |
 | **PowerPoint** | Titles, paragraphs with indent levels, tables and pictures, per slide |
-| **Plain text** | `.txt`, Markdown and other text, shown as plain text |
+| **Plain text, Markdown** | `.txt` and other text as plain text; `.md` as a rendered preview, highlighted source or both side by side |
 
 Legacy binary `.doc`, `.xls` and `.ppt` files aren't supported yet. They're next: `.xls` first, then `.doc` and `.ppt`, each read by the package's own engines like the other formats.
 

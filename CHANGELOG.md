@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- **Markdown:** `MarkdownController` and `MarkdownView` (in `plain_text.dart`) show `.md` files as a rendered preview, highlighted source with line numbers, or both side by side. `MarkdownStats` counts words, headings, links, images and reading time. New dependency: `markdown`. `DocumentViewerStrings.markdownPreviewTruncated` is the one new string.
+
 ## 0.2.0
 
 0.2.0 gives every format the same API and makes the package cleaner to use and to contribute to. It breaks 0.1 code; the tables below say what to change.

@@ -107,6 +107,12 @@ class DocumentViewerStrings {
   /// Screen-reader label for a note mark.
   String noteMark(String label) => 'Note $label';
 
+  // ---- Markdown
+
+  /// Shown where MarkdownView stops rendering a very large file.
+  String get markdownPreviewTruncated =>
+      'Preview stopped here because the file is very large. Switch to Code to see the rest.';
+
   // ---- Slides
 
   /// Shown on a slide with nothing to show.

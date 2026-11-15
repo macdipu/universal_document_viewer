@@ -70,6 +70,10 @@ void main() {
       text.PlainTextController,
       text.PlainTextView,
       text.TextMatch,
+      text.MarkdownController,
+      text.MarkdownView,
+      text.MarkdownViewMode.code,
+      text.MarkdownStats,
       text.DocumentViewerStrings,
     ], everyElement(isNotNull));
   });

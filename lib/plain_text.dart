@@ -1,7 +1,9 @@
-/// Plain text documents (.txt, .md, logs and the like).
+/// Plain text documents (.txt, logs and the like) and Markdown (.md).
 ///
 /// [PlainTextView] shows the lines a [PlainTextController] has loaded, with
-/// search highlights, wrapped or not.
+/// search highlights, wrapped or not. [MarkdownView] shows a
+/// [MarkdownController]'s document as a rendered preview, highlighted source
+/// or both side by side.
 library;
 
 export 'src/common/document_controller.dart';
@@ -10,3 +12,6 @@ export 'src/common/document_viewer_theme.dart';
 export 'src/common/reader_contract.dart';
 export 'src/plain_text/plain_text_controller.dart';
 export 'src/plain_text/plain_text_view.dart';
+export 'src/plain_text/markdown/markdown_controller.dart';
+export 'src/plain_text/markdown/markdown_stats.dart';
+export 'src/plain_text/markdown/markdown_view.dart';
