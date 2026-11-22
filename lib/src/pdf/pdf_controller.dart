@@ -9,6 +9,7 @@ import '../common/reader_contract.dart';
 import '../engines/pdfium/pdf_engine.dart';
 import '../engines/pdfium/pdf_types.dart';
 import 'pdf_layout.dart';
+import 'pdf_selection.dart';
 
 export 'pdf_layout.dart' show PdfViewMode;
 
@@ -100,6 +101,7 @@ class PdfController extends DocumentController {
   PdfController({ReadingPosition? initialPosition, super.onPositionChanged, this.passwordProvider}) {
     if (initialPosition != null) restore(initialPosition);
     searchController.addListener(_onSearchChanged);
+    selection.addListener(_onSelectionChanged);
   }
 
   /// Asked for the password of an encrypted PDF, once per attempt, until
@@ -110,6 +112,31 @@ class PdfController extends DocumentController {
   /// The search, for the view to draw its matches.
   @internal
   final searchController = PdfSearchController();
+
+  /// What is selected, for the view to draw and drive.
+  @internal
+  late final selection = PdfSelectionController(document: () => _document, pageCount: () => _pageCount);
+
+  void _onSelectionChanged() => setHasSelection(selection.hasSelection);
+
+  @override
+  String? selectedText() => selection.currentText();
+
+  @override
+  void clearSelection() => selection.clear();
+
+  @override
+  void selectAll() => selection.selectAll();
+
+  @override
+  Future<bool> copySelection() async {
+    final text = await selection.resolveText();
+    if (text == null || text.isEmpty) return false;
+    return copyToClipboard(text);
+  }
+
+  @override
+  Future<String> allText() => selection.allText();
 
   PdfiumDocument? _document;
 
@@ -200,6 +227,7 @@ class PdfController extends DocumentController {
     _openFailure = null;
     _pageCount = 0;
     _hasTextLayer = null;
+    selection.reset();
     searchController._reset(null);
     searchController.notifyListeners();
   }
@@ -461,6 +489,8 @@ class PdfController extends DocumentController {
   void dispose() {
     searchController.removeListener(_onSearchChanged);
     searchController.dispose();
+    selection.removeListener(_onSelectionChanged);
+    selection.dispose();
     unawaited(_document?.close());
     super.dispose();
   }

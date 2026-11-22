@@ -304,7 +304,7 @@ class PdfiumDocument {
     return PdfPageText(text, [
       for (var i = 0; i + 3 < boxes.length; i += 4)
         ui.Rect.fromLTRB(boxes[i], boxes[i + 1], boxes[i + 2], boxes[i + 3]),
-    ]);
+    ], sideways: reply.length > 2 && reply[2] == true);
   }
 
   /// Matches of [query] on one page (case-insensitive; a phrase may wrap

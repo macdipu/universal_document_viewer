@@ -55,6 +55,9 @@ abstract class TextLinesController extends DocumentController {
   /// The document's lines.
   List<String> get lines => _lines;
 
+  @override
+  Future<String> allText() async => _lines.join('\n');
+
   /// Checks [bytes] look like text, then decodes them into lines.
   @override
   Future<void> loadBytes(Uint8List bytes) async {

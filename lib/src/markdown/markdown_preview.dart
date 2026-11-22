@@ -12,6 +12,8 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../common/document_controller.dart';
+import '../common/document_selection_area.dart';
 import '../common/document_viewer_strings.dart';
 import 'markdown_highlighter.dart';
 
@@ -26,6 +28,9 @@ class MarkdownPreview extends StatefulWidget {
   final double fontSize;
   final ScrollController controller;
 
+  /// Told what is selected; null for no reporting.
+  final DocumentController? selectionController;
+
   /// Past this many characters the preview stops and says so; Code mode still
   /// shows everything. Keeps parsing a huge file from freezing the UI.
   static const int maxPreviewChars = 1000000;
@@ -36,6 +41,7 @@ class MarkdownPreview extends StatefulWidget {
     required this.baseDirectory,
     required this.fontSize,
     required this.controller,
+    this.selectionController,
   });
 
   @override
@@ -85,7 +91,8 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
     final theme = Theme.of(context);
     return Container(
       color: theme.colorScheme.surface,
-      child: SelectionArea(
+      child: DocumentSelectionArea(
+        controller: widget.selectionController,
         child: ListView.builder(
           controller: widget.controller,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

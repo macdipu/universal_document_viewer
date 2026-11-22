@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../common/document_selection_area.dart';
 import '../common/document_viewer_theme.dart';
 import '../common/match_spans.dart';
 import 'plain_text_controller.dart';
@@ -116,17 +117,20 @@ class _PlainTextViewState extends State<PlainTextView> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               _attachMetrics(context, constraints.maxWidth, fontSize, wrap);
-              return ListView.builder(
-                controller: widget.controller.scrollController,
-                itemCount: lines.length,
-                itemBuilder: (context, index) => Padding(
-                  padding: _rowPadding,
-                  child: _TextLine(
-                    text: lines[index],
-                    fontSize: fontSize,
-                    wrap: wrap,
-                    highlightQuery: query,
-                    currentMatchStart: current?.line == index ? current!.start : null,
+              return DocumentSelectionArea(
+                controller: widget.controller,
+                child: ListView.builder(
+                  controller: widget.controller.scrollController,
+                  itemCount: lines.length,
+                  itemBuilder: (context, index) => Padding(
+                    padding: _rowPadding,
+                    child: _TextLine(
+                      text: lines[index],
+                      fontSize: fontSize,
+                      wrap: wrap,
+                      highlightQuery: query,
+                      currentMatchStart: current?.line == index ? current!.start : null,
+                    ),
                   ),
                 ),
               );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../common/document_selection_area.dart';
 import '../common/document_viewer_strings.dart';
 import '../engines/word/word_model.dart';
 import 'word_controller.dart';
@@ -361,7 +362,10 @@ class _WordViewState extends State<WordView> {
       onLink: _onLink,
       onNote: _onNote,
       anchors: _anchors,
-      child: _mode == WordViewMode.paged ? _buildPages(layout) : _buildContinuous(layout),
+      child: DocumentSelectionArea(
+        controller: controller,
+        child: _mode == WordViewMode.paged ? _buildPages(layout) : _buildContinuous(layout),
+      ),
     );
   }
 

@@ -125,8 +125,13 @@ class _MarkdownViewState extends State<MarkdownView> {
       builder: (context, _) {
         final fontSize = widget.fontSize * c.zoom;
         final lines = c.lines;
-        Widget preview() =>
-            MarkdownPreview(lines: lines, baseDirectory: c.baseDirectory, fontSize: fontSize, controller: _preview);
+        Widget preview() => MarkdownPreview(
+          lines: lines,
+          baseDirectory: c.baseDirectory,
+          fontSize: fontSize,
+          controller: _preview,
+          selectionController: c,
+        );
         Widget source() => MarkdownSourceView(lines: lines, search: c, fontSize: fontSize, controller: _source);
         return switch (c.viewMode.value) {
           MarkdownViewMode.preview => preview(),

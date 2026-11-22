@@ -198,6 +198,9 @@ class DocumentViewerStrings {
   /// Confirmation after copying [what] ("B2:D5", "Row 3", "Formula").
   String copied(String what) => '$what copied';
 
+  /// Confirmation after copying selected text.
+  String get copiedText => 'Text copied';
+
   /// Shown when the clipboard refused the copy.
   String get couldNotCopy => 'Could not copy: the clipboard is not available.';
 

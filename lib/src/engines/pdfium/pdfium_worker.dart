@@ -401,7 +401,7 @@ class _Worker {
   /// display coordinates).
   Object? _text(_Document document, int index) {
     final (text, boxes) = _readText(document, index);
-    return [text, boxes];
+    return [text, boxes, document.geometry(index).rotation.isOdd];
   }
 
   (String, Float32List) _readText(_Document document, int index) {

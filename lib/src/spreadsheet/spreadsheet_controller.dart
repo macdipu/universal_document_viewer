@@ -55,6 +55,7 @@ class SpreadsheetController extends DocumentController {
       initialHorizontalOffset = _lastHorizontalOffset = h.toDouble();
     }
     _freezeTopRow = position[PositionKeys.freezeTopRow] == true;
+    _selection.addListener(() => setHasSelection(_selection.value != null));
   }
 
   /// What [loadBytes] reads the bytes as; null to tell from the bytes.
@@ -304,6 +305,7 @@ class SpreadsheetController extends DocumentController {
   /// shape; a single cell is copied as it reads. A whole row, column or
   /// select-all drops trailing blank rows and columns. Null when nothing
   /// is selected or the selection is over [maxCopiedCells].
+  @override
   String? selectedText() {
     final selection = _selection.value;
     if (selection == null) return null;
@@ -333,9 +335,11 @@ class SpreadsheetController extends DocumentController {
   }
 
   /// Clears the selection.
+  @override
   void clearSelection() => _selection.value = null;
 
   /// Selects every cell of the sheet's used range.
+  @override
   void selectAll() => select(const GridSelection.all());
 
   /// Moves the active cell by [rows] and [columns] visible rows and columns

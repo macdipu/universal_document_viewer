@@ -66,6 +66,12 @@ class WordController extends DocumentController {
   /// The parsed document; null until loaded.
   WordDocument? get document => _layout?.document;
 
+  @override
+  Future<String> allText() async {
+    final layout = _layout;
+    return layout == null ? '' : [for (final p in layout.paragraphs) p.plainText].join('\n');
+  }
+
   /// Checks [bytes] with [ZipSafetyGuard], then parses them in a background
   /// isolate.
   @override

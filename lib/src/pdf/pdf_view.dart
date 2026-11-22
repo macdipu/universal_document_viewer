@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -10,11 +11,18 @@ import 'package:vector_math/vector_math_64.dart' show Quad;
 import '../common/document_viewer_theme.dart';
 import '../common/document_viewer_strings.dart';
 import '../common/reader_contract.dart';
-import '../engines/pdfium/pdf_engine.dart' show PdfRenderTask;
+import '../engines/pdfium/pdf_engine.dart' show PdfRenderTask, PdfiumDocument;
 import '../engines/pdfium/pdf_types.dart';
 import 'pdf_controller.dart';
 import 'pdf_image_cache.dart';
 import 'pdf_layout.dart';
+import 'pdf_selection.dart';
+import 'pdf_selection_gestures.dart';
+
+/// Extra items for the menu that opens over selected text, after Copy and
+/// Select all: highlight, bookmark, look up. [controller] has the selection
+/// ([PdfController.selectedText]).
+typedef PdfSelectionMenuItems = List<ContextMenuButtonItem> Function(BuildContext context, PdfController controller);
 
 /// Shows the PDF a [PdfController] has opened, in its layout.
 ///
@@ -23,6 +31,11 @@ import 'pdf_layout.dart';
 /// zoom. Search matches are highlighted, the current one apart from the
 /// rest. Links to pages jump; web links open outside the app (`http`,
 /// `https` and `mailto` only).
+///
+/// Text can be selected where the page has any: drag with the mouse (double
+/// click for a word, triple for a line; Ctrl or Cmd+C copies, +A selects
+/// all, right click opens a menu). The selection is the controller's
+/// ([PdfController.selectedText], [PdfController.copySelection]).
 class PdfView extends StatefulWidget {
   /// Shows [controller]'s document.
   const PdfView({
@@ -32,6 +45,7 @@ class PdfView extends StatefulWidget {
     this.onTap,
     this.errorBuilder,
     this.showScrollbar = false,
+    this.selectionMenuItems,
   });
 
   /// The document to show; load it with [PdfController.loadFile] or
@@ -53,6 +67,9 @@ class PdfView extends StatefulWidget {
   /// the norm. Only applies to the vertical (continuous) layout.
   final bool showScrollbar;
 
+  /// More items for the selection menu, after Copy and Select all.
+  final PdfSelectionMenuItems? selectionMenuItems;
+
   @override
   State<PdfView> createState() => _PdfViewState();
 }
@@ -73,6 +90,29 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
   final _links = <int, List<PdfLink>>{};
 
   Offset? _doubleTapAt;
+
+  final _focus = FocusNode(debugLabel: 'PdfView');
+  final _viewKey = GlobalKey();
+  late PdfSelectionGestures _gestures = _makeGestures();
+
+  PdfSelectionGestures _makeGestures() => PdfSelectionGestures(
+    selection: controller.selection,
+    layout: () => _layout,
+    pageSize: (page) => controller.document!.pageSizes[page],
+    contentAt: (point) => _visibleRect().topLeft + point / _scale,
+    scrollBy: (delta) {
+      _snap.stop();
+      _setTransform(_scale, _visibleRect().topLeft + delta / _scale);
+    },
+    viewportSize: () => _layout?.viewport ?? Size.zero,
+  );
+
+  /// Where the selection menu is open, in this view's coordinates; null
+  /// when it is closed.
+  TextSelectionToolbarAnchors? _menu;
+
+  /// Whether the selection was made by touch, so it shows drag handles.
+  bool _touchSelecting = false;
 
   /// Settles a horizontal swipe on a whole page.
   late final _snap = AnimationController(vsync: this, duration: const Duration(milliseconds: 220))
@@ -113,6 +153,9 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
         jumpToPage: _jumpToPage,
         showMatch: _showMatch,
       );
+      _gestures.dispose();
+      _gestures = _makeGestures();
+      _menu = null;
       // The old controller's images and links don't belong to this one.
       _onControllerChanged();
     }
@@ -126,6 +169,8 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
     _snap.dispose();
     _transform.dispose();
     _cache?.dispose();
+    _gestures.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -427,6 +472,223 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
     });
   }
 
+  // --- Selection -----------------------------------------------------------
+
+  Color _selectionColor(BuildContext context) =>
+      DefaultSelectionStyle.of(context).selectionColor ?? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3);
+
+  Offset _viewLocal(Offset global) => (_viewKey.currentContext!.findRenderObject()! as RenderBox).globalToLocal(global);
+
+  void _onPrimaryDown(int page, Offset local) {
+    _focus.requestFocus();
+    _touchSelecting = false;
+    _hideMenu();
+    unawaited(_gestures.pointerDown(page, local));
+  }
+
+  void _onDragStart(Offset global) => _gestures.dragStart(_viewLocal(global));
+
+  void _onDragUpdate(Offset global) => _gestures.dragUpdate(_viewLocal(global));
+
+  Future<void> _onLongPress(int page, Offset local) async {
+    _focus.requestFocus();
+    _hideMenu();
+    final layer = await _gestures.selectWordAt(page, local);
+    if (layer == null || !mounted) return;
+    unawaited(HapticFeedback.selectionClick());
+    // Holding on and dragging goes on to extend the word.
+    _gestures.beginDragFrom(controller.selection.anchor!);
+    setState(() => _touchSelecting = true);
+  }
+
+  void _onLongPressMove(Offset global) => _gestures.dragUpdate(_viewLocal(global));
+
+  void _onLongPressEnd() {
+    _gestures.dragEnd();
+    _showTouchMenu();
+  }
+
+  /// The ends of the selection as rectangles in this view's coordinates;
+  /// null when it isn't on screen or its text isn't read yet.
+  (Rect, Rect)? _edgeRects() {
+    final selection = controller.selection;
+    final from = selection.start;
+    final to = selection.endCaret;
+    final layout = _layout;
+    final document = controller.document;
+    if (from == null || to == null || layout == null || document == null) return null;
+    final visible = _visibleRect();
+    Rect? rectOf(int pageIndex, bool first) {
+      final layer = selection.layerOf(pageIndex);
+      final range = selection.rangeOn(pageIndex);
+      if (layer == null || range == null || pageIndex >= layout.pages.length) return null;
+      final rects = first ? layer.rects(range.$1, range.$1 + 1) : layer.rects(range.$2 - 1, range.$2);
+      if (rects.isEmpty) return null;
+      final page = layout.pages[pageIndex];
+      final factor = document.pageSizes[pageIndex].width / page.width;
+      final r = first ? rects.first : rects.last;
+      final content = Rect.fromLTRB(
+        page.left + r.left / factor,
+        page.top + r.top / factor,
+        page.left + r.right / factor,
+        page.top + r.bottom / factor,
+      );
+      return Rect.fromPoints(
+        (content.topLeft - visible.topLeft) * _scale,
+        (content.bottomRight - visible.topLeft) * _scale,
+      );
+    }
+
+    final start = rectOf(from.page, true);
+    final end = rectOf(to.page, false);
+    return start == null || end == null ? null : (start, end);
+  }
+
+  void _showTouchMenu() {
+    final edges = _edgeRects();
+    if (edges == null || !mounted || !controller.selection.hasSelection) return;
+    final (start, end) = edges;
+    final size = _layout?.viewport ?? Size.zero;
+    final x = ((start.left + end.right) / 2).clamp(0.0, size.width);
+    setState(() {
+      _menu = TextSelectionToolbarAnchors(
+        primaryAnchor: Offset(x, start.top - 8),
+        secondaryAnchor: Offset(x, end.bottom + 8),
+      );
+    });
+  }
+
+  /// The two draggable handles at the ends of a touch selection.
+  Widget _handles(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([controller.selection, _transform]),
+      builder: (context, _) {
+        final edges = _touchSelecting && controller.selection.hasSelection ? _edgeRects() : null;
+        if (edges == null) return const SizedBox.shrink();
+        final strings = DocumentViewerStrings.of(context);
+        final size = _layout?.viewport ?? Size.zero;
+        final color = Theme.of(context).colorScheme.primary;
+        Widget handle(Offset tip, {required bool isStart}) {
+          if (tip.dx < -24 || tip.dy < -24 || tip.dx > size.width + 24 || tip.dy > size.height + 24) {
+            return const SizedBox.shrink();
+          }
+          return Positioned(
+            left: tip.dx - 24,
+            top: tip.dy - 4,
+            width: 48,
+            height: 48,
+            child: Semantics(
+              label: isStart ? strings.selectionStartHandle : strings.selectionEndHandle,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onPanStart: (details) => _onHandleStart(isStart, details.globalPosition),
+                onPanUpdate: (details) => _gestures.dragUpdate(_viewLocal(details.globalPosition) - _handleGrab),
+                onPanEnd: (_) => _onHandleEnd(),
+                onPanCancel: _onHandleEnd,
+                child: CustomPaint(painter: _HandlePainter(color)),
+              ),
+            ),
+          );
+        }
+
+        return Stack(
+          children: [handle(edges.$1.bottomLeft, isStart: true), handle(edges.$2.bottomRight, isStart: false)],
+        );
+      },
+    );
+  }
+
+  /// A finger on a handle sits below the line it moves; aim above it.
+  static const _handleGrab = Offset(0, 28);
+
+  void _onHandleStart(bool isStart, Offset global) {
+    final selection = controller.selection;
+    final fixed = isStart ? selection.endCaret : selection.start;
+    if (fixed == null) return;
+    _hideMenu();
+    _gestures.beginDragFrom(fixed);
+    _gestures.dragStart(_viewLocal(global) - _handleGrab);
+  }
+
+  void _onHandleEnd() {
+    _gestures.dragEnd();
+    _showTouchMenu();
+  }
+
+  Future<void> _onSecondaryTap(int page, Offset local, Offset global) async {
+    _focus.requestFocus();
+    final selection = controller.selection;
+    // A right click on unselected text selects the word under it first, as
+    // browsers do.
+    final range = selection.rangeOn(page);
+    final layer = selection.layerOf(page);
+    final factor = controller.document!.pageSizes[page].width / _layout!.pages[page].width;
+    final inside = range != null && layer != null && _rangeContains(layer.charAt(local * factor), range);
+    if (!inside) await _gestures.selectWordAt(page, local);
+    if (!mounted) return;
+    setState(() => _menu = TextSelectionToolbarAnchors(primaryAnchor: _viewLocal(global)));
+  }
+
+  static bool _rangeContains(int? index, (int, int) range) => index != null && index >= range.$1 && index < range.$2;
+
+  void _hideMenu() {
+    if (_menu != null) setState(() => _menu = null);
+  }
+
+  Future<void> _copy() async {
+    final strings = DocumentViewerStrings.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final ok = await controller.copySelection();
+    if (!ok && !controller.hasSelection.value) return;
+    messenger
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(ok ? strings.copiedText : strings.couldNotCopy)));
+  }
+
+  /// The menu over the selection: Copy, Select all, then the app's items.
+  Widget _selectionMenu(BuildContext context) {
+    final strings = DocumentViewerStrings.of(context);
+    final items = <ContextMenuButtonItem>[
+      if (controller.hasSelection.value)
+        ContextMenuButtonItem(
+          type: ContextMenuButtonType.copy,
+          label: strings.copy,
+          onPressed: () {
+            _hideMenu();
+            unawaited(_copy());
+          },
+        ),
+      ContextMenuButtonItem(
+        type: ContextMenuButtonType.selectAll,
+        label: strings.selectAll,
+        onPressed: () {
+          _hideMenu();
+          controller.selectAll();
+        },
+      ),
+      ...?widget.selectionMenuItems?.call(context, controller),
+    ];
+    return TapRegion(
+      onTapOutside: (_) => _hideMenu(),
+      child: AdaptiveTextSelectionToolbar.buttonItems(
+        anchors: _menu!,
+        buttonItems: [
+          for (final item in items)
+            ContextMenuButtonItem(
+              type: item.type,
+              label: item.label,
+              onPressed: item.onPressed == null
+                  ? null
+                  : () {
+                      _hideMenu();
+                      item.onPressed!();
+                    },
+            ),
+        ],
+      ),
+    );
+  }
+
   // --- Build ---------------------------------------------------------------
 
   @override
@@ -451,114 +713,171 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
     final gutter = widget.showScrollbar;
     return ColoredBox(
       color: background,
-      child: Row(
-        children: [
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final viewport = constraints.biggest;
-                final key = (viewport, controller.viewMode, document);
-                if (key != _layoutKey) {
-                  final previous = _layoutKey as (Size, PdfViewMode, Object)?;
-                  final restoring = previous == null || previous.$2 != controller.viewMode || previous.$3 != document;
-                  final reading = restoring ? controller.initialPageNumber - 1 : controller.currentPage - 1;
-                  // Only the viewport changed (the keyboard or search bar opened,
-                  // the window was resized): in continuous mode the reader stays
-                  // where they were, at the same zoom, rather than being sent back
-                  // to the top of the page at zoom 1. Pages only change width, so
-                  // a spot on a page maps across by proportion.
-                  final oldLayout = _layout;
-                  final anchor = !restoring && _positioned && oldLayout != null && !oldLayout.isHorizontal
-                      ? _anchorIn(oldLayout)
-                      : null;
-                  final scale = _scale;
-                  final fresh = _layout = PdfLayout(
-                    pageSizes: document.pageSizes,
-                    viewport: viewport,
-                    mode: controller.viewMode,
-                  );
-                  _layoutKey = key;
-                  _positioned = false;
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    // Only the latest layout's positioning applies.
-                    if (!mounted || _positioned || !identical(_layout, fresh)) return;
-                    _positioned = true;
-                    if (anchor != null && anchor.$1 < fresh.pages.length) {
-                      final (index, spot) = anchor;
-                      final page = fresh.pages[index];
-                      _setTransform(scale, Offset(page.left + spot.dx * page.width, page.top + spot.dy * page.height));
-                    } else {
-                      _transform.value = Matrix4.identity();
-                      _jumpToPage(reading);
-                    }
-                    _scheduleUpdate();
-                    // A go-to or zoom asked for before the pages were placed.
-                    controller.applyPending();
-                  });
-                }
-                final layout = _layout!;
-                // A precision touchpad reports a two-finger scroll as a pan-zoom gesture with a
-                // little scale noise; InteractiveViewer reads any scale != 1 as a pinch, so a plain
-                // scroll also zoomed. On mouse-and-touchpad platforms the scale is switched off
-                // there and deliberate pinches are handled in _onTrackpadUpdate instead.
-                return Listener(
-                  onPointerPanZoomStart: _onTrackpadStart,
-                  onPointerPanZoomUpdate: _onTrackpadUpdate,
-                  child: GestureDetector(
-                    onDoubleTapDown: (details) => _doubleTapAt = details.localPosition,
-                    onDoubleTap: () {
-                      final visible = _visibleRect();
-                      final focus = visible.topLeft + (_doubleTapAt ?? viewport.center(Offset.zero)) / _scale;
-                      _setZoom(_scale > 1.1 ? 1 : 2.5, focus: focus);
-                    },
-                    child: InteractiveViewer.builder(
-                      transformationController: _transform,
-                      minScale: 1,
-                      maxScale: _maxZoom,
-                      scaleEnabled: !_mouseDriven(context),
-                      boundaryMargin: EdgeInsets.zero,
-                      // Horizontal pages snap instead of gliding on.
-                      interactionEndFrictionCoefficient: layout.isHorizontal ? 1 : 0.0000135,
-                      onInteractionStart: (_) => _snap.stop(),
-                      onInteractionEnd: _onInteractionEnd,
-                      builder: (context, quad) {
-                        final bounds = _quadBounds(
-                          quad,
-                        ).inflate(layout.isHorizontal ? viewport.width : viewport.height);
-                        return Listener(
-                          onPointerSignal: _onWheel,
-                          child: SizedBox.fromSize(
-                            size: layout.size,
-                            child: Stack(
-                              children: [
-                                for (final page in layout.pagesIn(bounds))
-                                  Positioned.fromRect(
-                                    rect: layout.pages[page],
-                                    child: _PdfPage(
-                                      key: ValueKey(page),
-                                      page: page,
-                                      cache: cache,
-                                      search: controller.searchController,
-                                      pageSize: document.pageSizes[page],
-                                      tiles: _tilesByPage[page] ?? const [],
-                                      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-                                      onTap: (local) => _onPageTap(page, local),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              },
-            ),
+      child: Actions(
+        actions: {
+          CopySelectionTextIntent: CallbackAction<CopySelectionTextIntent>(
+            onInvoke: (_) {
+              unawaited(_copy());
+              return null;
+            },
           ),
-          if (gutter) _scrollbarGutter(),
-        ],
+          SelectAllTextIntent: CallbackAction<SelectAllTextIntent>(
+            onInvoke: (_) {
+              controller.selectAll();
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          focusNode: _focus,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                event.logicalKey == LogicalKeyboardKey.escape &&
+                controller.selection.hasSelection) {
+              controller.clearSelection();
+              _hideMenu();
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Stack(
+            children: [
+              Positioned.fill(child: _pages(context, document, cache, gutter)),
+              Positioned.fill(child: _handles(context)),
+              if (_menu != null) Positioned.fill(child: _selectionMenu(context)),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _pages(BuildContext context, PdfiumDocument document, PdfImageCache cache, bool gutter) {
+    return Row(
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            key: _viewKey,
+            builder: (context, constraints) {
+              final viewport = constraints.biggest;
+              final key = (viewport, controller.viewMode, document);
+              if (key != _layoutKey) {
+                final previous = _layoutKey as (Size, PdfViewMode, Object)?;
+                final restoring = previous == null || previous.$2 != controller.viewMode || previous.$3 != document;
+                final reading = restoring ? controller.initialPageNumber - 1 : controller.currentPage - 1;
+                // Only the viewport changed (the keyboard or search bar opened,
+                // the window was resized): in continuous mode the reader stays
+                // where they were, at the same zoom, rather than being sent back
+                // to the top of the page at zoom 1. Pages only change width, so
+                // a spot on a page maps across by proportion.
+                final oldLayout = _layout;
+                final anchor = !restoring && _positioned && oldLayout != null && !oldLayout.isHorizontal
+                    ? _anchorIn(oldLayout)
+                    : null;
+                final scale = _scale;
+                final fresh = _layout = PdfLayout(
+                  pageSizes: document.pageSizes,
+                  viewport: viewport,
+                  mode: controller.viewMode,
+                );
+                _layoutKey = key;
+                _positioned = false;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  // Only the latest layout's positioning applies.
+                  if (!mounted || _positioned || !identical(_layout, fresh)) return;
+                  _positioned = true;
+                  if (anchor != null && anchor.$1 < fresh.pages.length) {
+                    final (index, spot) = anchor;
+                    final page = fresh.pages[index];
+                    _setTransform(scale, Offset(page.left + spot.dx * page.width, page.top + spot.dy * page.height));
+                  } else {
+                    _transform.value = Matrix4.identity();
+                    _jumpToPage(reading);
+                  }
+                  _scheduleUpdate();
+                  // A go-to or zoom asked for before the pages were placed.
+                  controller.applyPending();
+                });
+              }
+              final layout = _layout!;
+              // A precision touchpad reports a two-finger scroll as a pan-zoom gesture with a
+              // little scale noise; InteractiveViewer reads any scale != 1 as a pinch, so a plain
+              // scroll also zoomed. On mouse-and-touchpad platforms the scale is switched off
+              // there and deliberate pinches are handled in _onTrackpadUpdate instead.
+              return Listener(
+                onPointerPanZoomStart: _onTrackpadStart,
+                onPointerPanZoomUpdate: _onTrackpadUpdate,
+                child: GestureDetector(
+                  onDoubleTapDown: (details) => _doubleTapAt = details.localPosition,
+                  onDoubleTap: () {
+                    // A double click that selected a word is not a zoom.
+                    if (_gestures.suppressZoom) {
+                      _gestures.suppressZoom = false;
+                      return;
+                    }
+                    final visible = _visibleRect();
+                    final focus = visible.topLeft + (_doubleTapAt ?? viewport.center(Offset.zero)) / _scale;
+                    _setZoom(_scale > 1.1 ? 1 : 2.5, focus: focus);
+                  },
+                  child: InteractiveViewer.builder(
+                    transformationController: _transform,
+                    minScale: 1,
+                    maxScale: _maxZoom,
+                    scaleEnabled: !_mouseDriven(context),
+                    boundaryMargin: EdgeInsets.zero,
+                    // Horizontal pages snap instead of gliding on.
+                    interactionEndFrictionCoefficient: layout.isHorizontal ? 1 : 0.0000135,
+                    onInteractionStart: (_) {
+                      _snap.stop();
+                      _hideMenu();
+                    },
+                    onInteractionEnd: _onInteractionEnd,
+                    builder: (context, quad) {
+                      final bounds = _quadBounds(quad).inflate(layout.isHorizontal ? viewport.width : viewport.height);
+                      return Listener(
+                        onPointerSignal: _onWheel,
+                        child: SizedBox.fromSize(
+                          size: layout.size,
+                          child: Stack(
+                            children: [
+                              for (final page in layout.pagesIn(bounds))
+                                Positioned.fromRect(
+                                  rect: layout.pages[page],
+                                  child: _PdfPage(
+                                    key: ValueKey(page),
+                                    page: page,
+                                    cache: cache,
+                                    search: controller.searchController,
+                                    pageSize: document.pageSizes[page],
+                                    tiles: _tilesByPage[page] ?? const [],
+                                    devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                                    onTap: (local) => _onPageTap(page, local),
+                                    selection: controller.selection,
+                                    selectionColor: _selectionColor(context),
+                                    gestures: _gestures,
+                                    onPrimaryDown: (local) => _onPrimaryDown(page, local),
+                                    onDragStart: _onDragStart,
+                                    onDragUpdate: _onDragUpdate,
+                                    onDragEnd: _gestures.dragEnd,
+                                    onLongPress: (local) => _onLongPress(page, local),
+                                    onLongPressMove: _onLongPressMove,
+                                    onLongPressEnd: _onLongPressEnd,
+                                    onSecondaryTap: (local, global) => _onSecondaryTap(page, local, global),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        if (gutter) _scrollbarGutter(),
+      ],
     );
   }
 
@@ -569,8 +888,8 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
   }
 }
 
-/// One page: white paper, its base image, any sharper tiles, and search
-/// highlights.
+/// One page: white paper, its base image, any sharper tiles, search
+/// highlights and the selection.
 class _PdfPage extends StatelessWidget {
   const _PdfPage({
     super.key,
@@ -581,6 +900,17 @@ class _PdfPage extends StatelessWidget {
     required this.tiles,
     required this.devicePixelRatio,
     required this.onTap,
+    required this.selection,
+    required this.selectionColor,
+    required this.gestures,
+    required this.onPrimaryDown,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.onSecondaryTap,
+    required this.onLongPress,
+    required this.onLongPressMove,
+    required this.onLongPressEnd,
   });
 
   final int page;
@@ -590,36 +920,128 @@ class _PdfPage extends StatelessWidget {
   final List<PdfTileKey> tiles;
   final double devicePixelRatio;
   final void Function(Offset local) onTap;
+  final PdfSelectionController selection;
+  final Color selectionColor;
+  final PdfSelectionGestures gestures;
+  final void Function(Offset local) onPrimaryDown;
+  final void Function(Offset global) onDragStart;
+  final void Function(Offset global) onDragUpdate;
+  final VoidCallback onDragEnd;
+  final void Function(Offset local, Offset global) onSecondaryTap;
+  final void Function(Offset local) onLongPress;
+  final void Function(Offset global) onLongPressMove;
+  final VoidCallback onLongPressEnd;
 
   @override
   Widget build(BuildContext context) {
     final highlights = DocumentViewerTheme.of(context);
-    return Semantics(
-      label: DocumentViewerStrings.of(context).page(page + 1),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapUp: (details) => onTap(details.localPosition),
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 3, offset: Offset(0, 1))],
-          ),
-          child: CustomPaint(
-            painter: _PagePainter(
-              page: page,
-              cache: cache,
-              search: search,
-              pageSize: pageSize,
-              tiles: tiles,
-              devicePixelRatio: devicePixelRatio,
-              match: highlights.matchBackground!.withValues(alpha: 0.45),
-              current: highlights.currentMatchBackground!.withValues(alpha: 0.75),
-            ),
-          ),
+    final paper = DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 3, offset: Offset(0, 1))],
+      ),
+      child: CustomPaint(
+        painter: _PagePainter(
+          page: page,
+          cache: cache,
+          search: search,
+          selection: selection,
+          pageSize: pageSize,
+          tiles: tiles,
+          devicePixelRatio: devicePixelRatio,
+          match: highlights.matchBackground!.withValues(alpha: 0.45),
+          current: highlights.currentMatchBackground!.withValues(alpha: 0.75),
+          selected: selectionColor,
         ),
       ),
     );
+    return Semantics(
+      label: DocumentViewerStrings.of(context).page(page + 1),
+      child: ValueListenableBuilder<bool>(
+        valueListenable: gestures.overText,
+        child: Listener(
+          onPointerDown: (event) {
+            if (event.kind == PointerDeviceKind.mouse && event.buttons == kPrimaryButton) {
+              onPrimaryDown(event.localPosition);
+            }
+          },
+          onPointerHover: (event) => gestures.hover(page, event.localPosition),
+          child: RawGestureDetector(
+            behavior: HitTestBehavior.opaque,
+            gestures: {
+              _TextDragRecognizer: GestureRecognizerFactoryWithHandlers<_TextDragRecognizer>(
+                () => _TextDragRecognizer(allowed: () => gestures.overText.value),
+                (recognizer) => recognizer
+                  ..onStart = ((details) => onDragStart(details.globalPosition))
+                  ..onUpdate = ((details) => onDragUpdate(details.globalPosition))
+                  ..onEnd = ((_) => onDragEnd())
+                  ..onCancel = onDragEnd,
+              ),
+              LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+                () => LongPressGestureRecognizer(
+                  supportedDevices: const {PointerDeviceKind.touch, PointerDeviceKind.stylus},
+                ),
+                (recognizer) => recognizer
+                  ..onLongPressStart = ((details) => onLongPress(details.localPosition))
+                  ..onLongPressMoveUpdate = ((details) => onLongPressMove(details.globalPosition))
+                  ..onLongPressEnd = ((_) => onLongPressEnd()),
+              ),
+            },
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapUp: (details) {
+                if (gestures.suppressClear) {
+                  gestures.suppressClear = false;
+                } else {
+                  selection.clear();
+                }
+                onTap(details.localPosition);
+              },
+              onSecondaryTapUp: (details) => onSecondaryTap(details.localPosition, details.globalPosition),
+              child: paper,
+            ),
+          ),
+        ),
+        builder: (context, overText, child) =>
+            MouseRegion(cursor: overText ? SystemMouseCursors.text : MouseCursor.defer, child: child),
+      ),
+    );
   }
+}
+
+/// A selection handle: a dot hanging below the end of the selected text.
+class _HandlePainter extends CustomPainter {
+  _HandlePainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, 14);
+    canvas.drawCircle(center, 9, Paint()..color = color);
+    canvas.drawCircle(
+      center,
+      9,
+      Paint()
+        ..color = const Color(0x66FFFFFF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_HandlePainter old) => old.color != color;
+}
+
+/// A mouse drag that starts over text, so selecting wins over panning; over
+/// blank paper the drag still pans.
+class _TextDragRecognizer extends PanGestureRecognizer {
+  _TextDragRecognizer({required this.allowed}) : super(supportedDevices: const {PointerDeviceKind.mouse});
+
+  final bool Function() allowed;
+
+  @override
+  bool isPointerAllowed(PointerEvent event) => allowed() && super.isPointerAllowed(event);
 }
 
 class _PagePainter extends CustomPainter {
@@ -627,12 +1049,14 @@ class _PagePainter extends CustomPainter {
     required this.page,
     required this.cache,
     required this.search,
+    required this.selection,
     required this.pageSize,
     required this.tiles,
     required this.devicePixelRatio,
     required this.match,
     required this.current,
-  }) : super(repaint: Listenable.merge([cache, search]));
+    required this.selected,
+  }) : super(repaint: Listenable.merge([cache, search, selection]));
 
   final int page;
   final PdfImageCache cache;
@@ -640,8 +1064,10 @@ class _PagePainter extends CustomPainter {
   final Size pageSize;
   final List<PdfTileKey> tiles;
   final double devicePixelRatio;
+  final PdfSelectionController selection;
   final Color match;
   final Color current;
+  final Color selected;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -667,9 +1093,8 @@ class _PagePainter extends CustomPainter {
       );
       canvas.drawImageRect(tile, Rect.fromLTWH(0, 0, tile.width.toDouble(), tile.height.toDouble()), dst, paint);
     }
-    final hits = search.matchesOn(page);
-    if (hits.isEmpty) return;
     final factor = size.width / pageSize.width;
+    final hits = search.matchesOn(page);
     for (final (hit, isCurrent) in hits) {
       final highlight = Paint()..color = isCurrent ? current : match;
       for (final rect in hit.rects) {
@@ -679,11 +1104,26 @@ class _PagePainter extends CustomPainter {
         );
       }
     }
+    final chosen = selection.rectsOn(page);
+    if (chosen.isNotEmpty) {
+      final fill = Paint()..color = selected;
+      for (final rect in chosen) {
+        canvas.drawRect(
+          Rect.fromLTRB(rect.left * factor, rect.top * factor, rect.right * factor, rect.bottom * factor),
+          fill,
+        );
+      }
+    }
   }
 
   @override
   bool shouldRepaint(_PagePainter old) =>
-      old.page != page || old.cache != cache || old.tiles != tiles || old.match != match || old.current != current;
+      old.page != page ||
+      old.cache != cache ||
+      old.tiles != tiles ||
+      old.match != match ||
+      old.current != current ||
+      old.selected != selected;
 }
 
 /// A whole page as a small image (e.g. a thumbnail strip), rendered at
