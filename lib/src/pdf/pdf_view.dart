@@ -36,6 +36,10 @@ typedef PdfSelectionMenuItems = List<ContextMenuButtonItem> Function(BuildContex
 /// click for a word, triple for a line; Ctrl or Cmd+C copies, +A selects
 /// all, right click opens a menu). The selection is the controller's
 /// ([PdfController.selectedText], [PdfController.copySelection]).
+/// What [PdfView.pageOverlayBuilder] is: builds the overlay for zero-based page [page], whose size in PDF
+/// points is [pageSize]; null for none.
+typedef PdfPageOverlayBuilder = Widget? Function(BuildContext context, int page, Size pageSize);
+
 class PdfView extends StatefulWidget {
   /// Shows [controller]'s document.
   const PdfView({
@@ -46,6 +50,7 @@ class PdfView extends StatefulWidget {
     this.errorBuilder,
     this.showScrollbar = false,
     this.selectionMenuItems,
+    this.pageOverlayBuilder,
   });
 
   /// The document to show; load it with [PdfController.loadFile] or
@@ -69,6 +74,13 @@ class PdfView extends StatefulWidget {
 
   /// More items for the selection menu, after Copy and Select all.
   final PdfSelectionMenuItems? selectionMenuItems;
+
+  /// Builds something to draw over a page, or null for nothing. The widget fills the page's own box, so it
+  /// stays on the page as the page scrolls and zooms; [pageSize] is the page's size in PDF points, for
+  /// placing things by their position on the page (a fraction of it is a fraction of the box). It is built
+  /// for each page that is on screen, never takes touches, and may listen to anything it needs to change
+  /// itself (a scan, a stamp, a highlight the app keeps).
+  final PdfPageOverlayBuilder? pageOverlayBuilder;
 
   @override
   State<PdfView> createState() => _PdfViewState();
@@ -863,6 +875,7 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
                                     onLongPressMove: _onLongPressMove,
                                     onLongPressEnd: _onLongPressEnd,
                                     onSecondaryTap: (local, global) => _onSecondaryTap(page, local, global),
+                                    overlay: widget.pageOverlayBuilder,
                                   ),
                                 ),
                             ],
@@ -911,8 +924,10 @@ class _PdfPage extends StatelessWidget {
     required this.onLongPress,
     required this.onLongPressMove,
     required this.onLongPressEnd,
+    this.overlay,
   });
 
+  final PdfPageOverlayBuilder? overlay;
   final int page;
   final PdfImageCache cache;
   final PdfSearchController search;
@@ -935,6 +950,7 @@ class _PdfPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final highlights = DocumentViewerTheme.of(context);
+    final over = overlay?.call(context, page, pageSize);
     final paper = DecoratedBox(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -953,6 +969,8 @@ class _PdfPage extends StatelessWidget {
           current: highlights.currentMatchBackground!.withValues(alpha: 0.75),
           selected: selectionColor,
         ),
+        // The app's overlay, inside the page's own box: it moves and zooms with the page and takes no touches.
+        child: over == null ? null : IgnorePointer(child: over),
       ),
     );
     return Semantics(
