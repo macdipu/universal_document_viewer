@@ -58,6 +58,9 @@ class SlidesController extends DocumentController {
   /// The presentation's slides; empty until loaded.
   List<PptxSlide> get slides => _slides;
 
+  @override
+  Future<String> allText() async => [for (final slide in _slides) slide.text].join('\n\n');
+
   int _current = 0;
 
   /// The slide on screen, from 0.

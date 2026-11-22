@@ -67,8 +67,9 @@ enum PdfPriority {
 
 /// A page's text as PDFium reads it, with each character's box.
 class PdfPageText {
-  /// A page's [text] and its per-character [boxes].
-  const PdfPageText(this.text, this.boxes);
+  /// A page's [text] and its per-character [boxes]; [sideways] when the
+  /// page is turned 90 or 270 degrees.
+  const PdfPageText(this.text, this.boxes, {this.sideways = false});
 
   /// One UTF-16 unit per character PDFium reports (it adds spaces and line
   /// breaks between words and lines).
@@ -77,6 +78,10 @@ class PdfPageText {
   /// One box per [text] unit, in page points from the top-left of the page
   /// as displayed (rotation applied). Empty boxes for generated characters.
   final List<Rect> boxes;
+
+  /// Whether the page is turned 90 or 270 degrees, so lines of text run up
+  /// or down the screen rather than across it.
+  final bool sideways;
 }
 
 /// A search hit on one page: the boxes it covers, one per line.

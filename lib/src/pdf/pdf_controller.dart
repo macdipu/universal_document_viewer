@@ -8,7 +8,10 @@ import '../common/document_controller.dart';
 import '../common/reader_contract.dart';
 import '../engines/pdfium/pdf_engine.dart';
 import '../engines/pdfium/pdf_types.dart';
+import '../ocr/text_recognizer.dart';
 import 'pdf_layout.dart';
+import 'pdf_ocr.dart';
+import 'pdf_selection.dart';
 
 export 'pdf_layout.dart' show PdfViewMode;
 
@@ -97,9 +100,15 @@ class PdfSearchController extends ChangeNotifier {
 class PdfController extends DocumentController {
   /// Reopens on the page and in the layout saved in [initialPosition], if
   /// any.
-  PdfController({ReadingPosition? initialPosition, super.onPositionChanged, this.passwordProvider}) {
+  PdfController({
+    ReadingPosition? initialPosition,
+    super.onPositionChanged,
+    this.passwordProvider,
+    this.textRecognizer,
+  }) {
     if (initialPosition != null) restore(initialPosition);
     searchController.addListener(_onSearchChanged);
+    selection.addListener(_onSelectionChanged);
   }
 
   /// Asked for the password of an encrypted PDF, once per attempt, until
@@ -107,9 +116,122 @@ class PdfController extends DocumentController {
   /// encrypted PDF fails with [DocumentLoadError.passwordRequired].
   final PdfPasswordProvider? passwordProvider;
 
+  /// Reads text from pictures: used for pages that have no text layer
+  /// (scans), when asked ([recognizePage]). Null: no OCR. The package has no
+  /// recognizer of its own; see [TextRecognizer].
+  final TextRecognizer? textRecognizer;
+
   /// The search, for the view to draw its matches.
   @internal
   final searchController = PdfSearchController();
+
+  /// What is selected, for the view to draw and drive.
+  @internal
+  late final selection = PdfSelectionController(document: () => _document, pageCount: () => _pageCount);
+
+  void _onSelectionChanged() => setHasSelection(selection.hasSelection);
+
+  @override
+  String? selectedText() => selection.currentText();
+
+  @override
+  void clearSelection() => selection.clear();
+
+  @override
+  void selectAll() => selection.selectAll();
+
+  @override
+  Future<bool> copySelection() async {
+    final text = await selection.resolveText();
+    if (text == null || text.isEmpty) return false;
+    return copyToClipboard(text);
+  }
+
+  @override
+  Future<String> allText() => selection.allText();
+
+  // ---- OCR
+
+  final _ocrStatus = <int, PdfOcrStatus>{};
+  final _ocrErrors = <int, Object>{};
+  final _ocrRuns = <int, Future<bool>>{};
+  final _ocrCancelled = <int>{};
+
+  /// Whether OCR can run: a [textRecognizer] was given and it is available
+  /// on this device.
+  bool get canRecognize => textRecognizer?.isAvailable ?? false;
+
+  /// Where OCR is for [page] (from 0).
+  PdfOcrStatus ocrStatusOf(int page) => _ocrStatus[page] ?? PdfOcrStatus.idle;
+
+  /// Why OCR failed on [page], when [ocrStatusOf] says [PdfOcrStatus.failed].
+  Object? ocrErrorOf(int page) => _ocrErrors[page];
+
+  /// Whether [page] (from 0) is worth offering OCR for: it has no text of
+  /// its own (a scan, or a picture), nothing was read from it yet, and a
+  /// recognizer is available.
+  Future<bool> pageNeedsOcr(int page) async {
+    if (!canRecognize || ocrStatusOf(page) == PdfOcrStatus.done) return false;
+    return !await selection.hasNativeText(page);
+  }
+
+  /// Reads the text on page [page] (from 0) with the [textRecognizer], so
+  /// that it can be selected and copied like any page's text. A page that
+  /// has text and pictures keeps its own text; only lines PDFium did not
+  /// read are added. Returns whether any text was found; false too when
+  /// there is no recognizer, the read failed ([ocrErrorOf] says why) or it
+  /// was cancelled. Asking again while it runs joins the run.
+  Future<bool> recognizePage(int page, {List<String> languageHints = const []}) {
+    final recognizer = textRecognizer;
+    final document = _document;
+    if (recognizer == null || !recognizer.isAvailable || document == null || page < 0 || page >= _pageCount) {
+      return Future.value(false);
+    }
+    return _ocrRuns[page] ??= _recognize(recognizer, document, page, languageHints).whenComplete(() {
+      _ocrRuns.remove(page);
+    });
+  }
+
+  Future<bool> _recognize(TextRecognizer recognizer, PdfiumDocument document, int page, List<String> hints) async {
+    _ocrCancelled.remove(page);
+    _ocrErrors.remove(page);
+    _ocrStatus[page] = PdfOcrStatus.running;
+    if (!isDisposed) notifyListeners();
+    try {
+      final (png, width, height) = await document.renderPagePng(page);
+      if (_ocrCancelled.remove(page) || isDisposed || !identical(_document, document)) {
+        _ocrStatus.remove(page);
+        return false;
+      }
+      final result = await recognizer.recognize(OcrInput(png: png, width: width, height: height, languageHints: hints));
+      if (_ocrCancelled.remove(page) || isDisposed || !identical(_document, document)) {
+        _ocrStatus.remove(page);
+        return false;
+      }
+      final lines = ocrLinesOnPage(
+        result,
+        imageSize: Size(width.toDouble(), height.toDouble()),
+        pageSize: document.pageSizes[page],
+      );
+      selection.setOcr(page, lines);
+      _ocrStatus[page] = PdfOcrStatus.done;
+      return lines.isNotEmpty;
+    } catch (error) {
+      if (identical(_document, document)) {
+        _ocrStatus[page] = PdfOcrStatus.failed;
+        _ocrErrors[page] = error;
+      }
+      return false;
+    } finally {
+      if (!isDisposed) notifyListeners();
+    }
+  }
+
+  /// Gives up on the OCR running for [page]: its result is discarded when it
+  /// arrives (a recognizer can't always be interrupted).
+  void cancelOcr(int page) {
+    if (_ocrStatus[page] == PdfOcrStatus.running) _ocrCancelled.add(page);
+  }
 
   PdfiumDocument? _document;
 
@@ -200,6 +322,10 @@ class PdfController extends DocumentController {
     _openFailure = null;
     _pageCount = 0;
     _hasTextLayer = null;
+    selection.reset();
+    _ocrStatus.clear();
+    _ocrErrors.clear();
+    _ocrCancelled.clear();
     searchController._reset(null);
     searchController.notifyListeners();
   }
@@ -461,9 +587,26 @@ class PdfController extends DocumentController {
   void dispose() {
     searchController.removeListener(_onSearchChanged);
     searchController.dispose();
+    selection.removeListener(_onSelectionChanged);
+    selection.dispose();
     unawaited(_document?.close());
     super.dispose();
   }
+}
+
+/// Where OCR is for a page.
+enum PdfOcrStatus {
+  /// Not asked for, or cancelled.
+  idle,
+
+  /// Reading the page now.
+  running,
+
+  /// Done: the page's text includes what was recognised.
+  done,
+
+  /// The recogniser failed; see [PdfController.ocrErrorOf].
+  failed,
 }
 
 /// What the controller needs from the view on screen.

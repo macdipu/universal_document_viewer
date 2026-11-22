@@ -188,6 +188,39 @@ PdfPageThumbnail(controller: pdf, pageNumber: 3);
 
 Pages are built only near the viewport, each as a low-resolution image sharpened with tiles when zoomed in. Pinch, double-tap and the mouse wheel zoom. Web links open outside the app (`http`, `https` and `mailto` only); links to pages jump.
 
+#### Selecting and copying text
+
+Every format selects text. Word, plain text, Markdown and slides use Flutter's `SelectionArea`; a PDF has its own text layer. With the mouse, drag over text (double click for a word, triple for a line), press Ctrl or Cmd+C to copy, +A to select all, Esc to clear, or right-click for a menu. On touch, long-press a word, drag the handles, and use the floating toolbar. The controller has what a toolbar needs:
+
+```dart
+pdf.hasSelection;       // ValueListenable<bool>
+pdf.selectedText();     // String? (cells as tab-separated rows in a spreadsheet)
+await pdf.copySelection();
+await pdf.copyAllText();    // the whole document, even pages not on screen
+PdfView(controller: pdf, selectionMenuItems: (context, c) => [
+  ContextMenuButtonItem(label: 'Highlight', onPressed: () => highlight(c.selectedText())),
+]);
+```
+
+#### Text in scanned pages (OCR)
+
+A scanned page has no text to select. The package has no recognizer of its own (so it adds no dependency); give it one by implementing `TextRecognizer` over your platform's text recognition:
+
+```dart
+class MyRecognizer extends TextRecognizer {
+  @override bool get isAvailable => true;
+  @override Future<OcrResult> recognize(OcrInput input) async {
+    final lines = await myOcr(input.png);       // PNG bytes of the page
+    return OcrResult(lines: [for (final l in lines) OcrLine(text: l.text, rect: l.box)]);
+  }
+}
+
+final pdf = PdfController(textRecognizer: MyRecognizer())..loadFile(path);
+if (await pdf.pageNeedsOcr(3)) await pdf.recognizePage(3);   // then it selects and copies like any text
+```
+
+`ocrStatusOf(page)` says whether a page is being read, done or failed, so you can show a button and progress. OCR text is not searchable.
+
 ### Word
 
 ```dart

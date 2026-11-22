@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../common/document_selection_area.dart';
 import '../common/document_viewer_strings.dart';
 import '../common/document_viewer_theme.dart';
 import '../engines/slides/pptx_parser.dart';
+import '../common/document_controller.dart';
 import 'slides_controller.dart';
 
 /// Shows a [SlidesController]'s presentation one slide at a time: swipe,
@@ -36,6 +38,7 @@ class SlidesView extends StatelessWidget {
             itemCount: controller.slides.length,
             onPageChanged: controller.onSlideChanged,
             itemBuilder: (context, index) => SlideCard(
+              selectionController: controller,
               slide: controller.slides[index],
               number: index + 1,
               highlight: controller.searchQuery,
@@ -52,7 +55,18 @@ class SlidesView extends StatelessWidget {
 /// and usable on its own, for example scaled down as a preview.
 class SlideCard extends StatelessWidget {
   /// Shows [slide], which is slide [number] (from 1).
-  const SlideCard({super.key, required this.slide, required this.number, this.highlight = '', this.currentOccurrence});
+  const SlideCard({
+    super.key,
+    required this.slide,
+    required this.number,
+    this.highlight = '',
+    this.currentOccurrence,
+    this.selectionController,
+  });
+
+  /// Told what is selected on this card, and asked to clear or select all.
+  /// [SlidesView] passes its controller; null for a card shown on its own.
+  final DocumentController? selectionController;
 
   /// The slide to show.
   final PptxSlide slide;
@@ -84,7 +98,8 @@ class SlideCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: colors.outlineVariant),
         ),
-        child: SelectionArea(
+        child: DocumentSelectionArea(
+          controller: selectionController,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'reader_contract.dart';
 import 'zip_safety_guard.dart';
@@ -304,6 +305,83 @@ abstract class DocumentController extends ChangeNotifier {
   /// Zooms out one step.
   void zoomOut() => setZoom(zoom - zoomStep);
 
+  // ---- Selection and copy
+
+  final _hasSelection = ValueNotifier(false);
+  String _selectedText = '';
+
+  /// Whether the reader has text selected, for enabling a Copy button
+  /// without rebuilding on every other change.
+  ValueListenable<bool> get hasSelection => _hasSelection;
+
+  /// For a format's view: the selected text is now [text] (null or empty
+  /// for none).
+  @internal
+  void updateTextSelection(String? text) {
+    _selectedText = text ?? '';
+    setHasSelection(_selectedText.isNotEmpty);
+  }
+
+  /// For a format that works out its selected text on demand ([selectedText]
+  /// being costly): there is, or isn't, a selection.
+  @protected
+  void setHasSelection(bool value) {
+    if (!_disposed) _hasSelection.value = value;
+  }
+
+  /// What the reader has selected, as the text to paste; null when nothing
+  /// is selected. PDF, Word, plain text, Markdown and slides give the
+  /// selected words; a spreadsheet gives its cells as tab-separated rows.
+  String? selectedText() => _selectedText.isEmpty ? null : _selectedText;
+
+  /// For a format's view: how [clearSelection] clears what the view shows.
+  @internal
+  VoidCallback? clearSelectionHandler;
+
+  /// For a format's view: how [selectAll] selects what the view shows.
+  @internal
+  VoidCallback? selectAllHandler;
+
+  /// Clears the selection. Does nothing until a view is showing the
+  /// document.
+  void clearSelection() => clearSelectionHandler?.call();
+
+  /// Selects everything the view has laid out: all of a spreadsheet's used
+  /// range, but only the pages or lines built so far in a long text
+  /// document; use [allText] to copy a whole document.
+  void selectAll() => selectAllHandler?.call();
+
+  /// Puts [selectedText] on the clipboard. Returns false when nothing is
+  /// selected or the clipboard refused it, so the app can say so.
+  Future<bool> copySelection() async {
+    final text = selectedText();
+    if (text == null || text.isEmpty) return false;
+    return copyToClipboard(text);
+  }
+
+  /// Puts [allText] on the clipboard; false when the document has no text
+  /// or the clipboard refused it.
+  Future<bool> copyAllText() async {
+    final text = await allText();
+    if (text.isEmpty) return false;
+    return copyToClipboard(text);
+  }
+
+  /// The document's whole text, for "copy all". Empty for a format with no
+  /// text to give (a scanned PDF, until it has been recognised).
+  Future<String> allText() async => '';
+
+  /// Writes [text] to the clipboard; false when it isn't available.
+  @protected
+  Future<bool> copyToClipboard(String text) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ---- Search
 
   final _searchState = ValueNotifier(DocumentSearchState.none);
@@ -336,6 +414,7 @@ abstract class DocumentController extends ChangeNotifier {
     _disposed = true;
     _location.dispose();
     _searchState.dispose();
+    _hasSelection.dispose();
     super.dispose();
   }
 }

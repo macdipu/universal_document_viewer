@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../common/document_selection_area.dart';
 import '../common/document_viewer_theme.dart';
 import '../common/match_spans.dart';
 import '../common/text_lines_controller.dart';
@@ -129,7 +130,8 @@ class _MarkdownSourceViewState extends State<MarkdownSourceView> {
         builder: (context, constraints) {
           final contentWidth = _longest * charWidth + 32;
           final width = (gutterWidth + contentWidth).clamp(constraints.maxWidth, double.infinity);
-          return SelectionArea(
+          return DocumentSelectionArea(
+            controller: widget.search,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SizedBox(

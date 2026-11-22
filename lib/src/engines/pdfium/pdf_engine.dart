@@ -295,6 +295,28 @@ class PdfiumDocument {
     return render(page, fullWidth: width, fullHeight: height, priority: priority);
   }
 
+  /// Page [page] rendered as a PNG [width] pixels wide (the height follows
+  /// the page's shape), for reading its text with OCR: 2000 pixels or more
+  /// across keeps small print legible. Returns the PNG with its size.
+  Future<(Uint8List png, int width, int height)> renderPagePng(int page, {int width = 2200}) async {
+    _checkOpen();
+    if (page < 0 || page >= pageCount) {
+      throw PdfEngineException('page: Page ${page + 1} is out of range (1-$pageCount)');
+    }
+    final size = pageSizes[page];
+    final w = width.clamp(64, 4096);
+    final h = (w * size.height / size.width).round().clamp(1, 8192);
+    final rendered = await render(page, fullWidth: w, fullHeight: h, priority: PdfPriority.prefetch).result;
+    final image = await rendered.toImage();
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) throw const PdfEngineException('page: Could not encode the page as PNG');
+      return (data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes), rendered.width, rendered.height);
+    } finally {
+      image.dispose();
+    }
+  }
+
   /// The page's text with each character's box.
   Future<PdfPageText> text(int page, {PdfPriority priority = PdfPriority.prefetch}) async {
     _checkOpen();
@@ -304,7 +326,7 @@ class PdfiumDocument {
     return PdfPageText(text, [
       for (var i = 0; i + 3 < boxes.length; i += 4)
         ui.Rect.fromLTRB(boxes[i], boxes[i + 1], boxes[i + 2], boxes[i + 3]),
-    ]);
+    ], sideways: reply.length > 2 && reply[2] == true);
   }
 
   /// Matches of [query] on one page (case-insensitive; a phrase may wrap
