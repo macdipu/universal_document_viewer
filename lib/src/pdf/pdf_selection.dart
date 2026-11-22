@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../engines/pdfium/pdf_engine.dart';
 import '../engines/pdfium/pdf_types.dart';
+import 'pdf_ocr.dart';
 import 'pdf_text_layer.dart';
 
 /// A place between two characters of a PDF: [offset] characters into page
@@ -54,6 +55,8 @@ class PdfSelectionController extends ChangeNotifier {
   static const maxCachedLayers = 24;
 
   final _layers = <int, PdfTextLayer>{};
+  final _ocr = <int, List<PdfOcrLine>>{};
+  final _hasNativeText = <int, bool>{};
   final _loading = <int, Future<PdfTextLayer?>>{};
   int _generation = 0;
 
@@ -92,8 +95,11 @@ class PdfSelectionController extends ChangeNotifier {
       try {
         final document = _document();
         if (document == null || page < 0 || page >= document.pageCount) return null;
-        final layer = PdfTextLayer(await document.text(page));
+        final native = await document.text(page);
         if (generation != _generation) return null;
+        _hasNativeText[page] = native.text.trim().isNotEmpty;
+        final recognised = _ocr[page];
+        final layer = PdfTextLayer(recognised == null ? native : mergeOcr(native, recognised));
         _layers[page] = layer;
         while (_layers.length > maxCachedLayers) {
           _layers.remove(_layers.keys.first);
@@ -106,6 +112,26 @@ class PdfSelectionController extends ChangeNotifier {
         if (generation == _generation) _loading.remove(page);
       }
     }();
+  }
+
+  /// Whether PDFium found text on [page] itself (reads the page if need
+  /// be); false for a scan, and for a page that is blank.
+  Future<bool> hasNativeText(int page) async {
+    final known = _hasNativeText[page];
+    if (known != null) return known;
+    await loadLayer(page);
+    return _hasNativeText[page] ?? false;
+  }
+
+  /// Whether [page] has recognised text.
+  bool hasOcr(int page) => _ocr.containsKey(page);
+
+  /// Records the lines read from [page] by OCR; the page's text then
+  /// includes them wherever PDFium had none.
+  void setOcr(int page, List<PdfOcrLine> lines) {
+    _ocr[page] = lines;
+    _layers.remove(page);
+    notifyListeners();
   }
 
   /// Selects from [anchor] to [focus].
@@ -143,6 +169,8 @@ class PdfSelectionController extends ChangeNotifier {
     _generation++;
     _layers.clear();
     _loading.clear();
+    _ocr.clear();
+    _hasNativeText.clear();
     clear();
   }
 
