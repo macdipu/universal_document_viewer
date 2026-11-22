@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0
+
+Additive: nothing from 0.2 changes or is removed. No new dependency.
+
+- **Select and copy text.**
+  - Word, plain text, Markdown and slides use Flutter's selection (`SelectionArea`), so the platform's own toolbar, right-click menu and keys apply.
+  - **PDF** gets a text layer: drag with the mouse (double click a word, triple click a line, Ctrl or Cmd+C / +A, Esc, right-click menu, drag past the edge to scroll), or long-press with drag handles and a floating toolbar on touch. Dragging over blank paper still pans. `PdfView.selectionMenuItems` adds your own items (highlight, bookmark) to the menu. The selection lives in the controller, so it spans pages and survives scrolling.
+- **`DocumentController` gains optional selection members**, inert unless a view supplies them, so existing subclasses still compile: `hasSelection`, `selectedText()`, `clearSelection()`, `selectAll()`, `copySelection()`, `allText()`, `copyAllText()`. `SpreadsheetController` keeps its own behaviour (`selectedText()` is now an override with the same result). `SlideCard` has an optional `selectionController`.
+- **OCR for pages with no text layer (scans).** The package has no recognizer and adds no dependency: implement `TextRecognizer` (`import 'package:universal_document_viewer/ocr.dart'`, also exported by `pdf.dart`) with your platform's text recognition and pass it as `PdfController(textRecognizer: ...)`. Then `canRecognize`, `pageNeedsOcr(page)`, `recognizePage(page)`, `cancelOcr(page)`, `ocrStatusOf(page)` and `ocrErrorOf(page)` drive it, and the recognised text becomes selectable and copyable like any page's text (a page that has text and pictures keeps its own text and gains only what was in the pictures). `PdfiumDocument.renderPagePng` renders a page for a recognizer. OCR text is not searchable.
+- `PdfPageText.sideways` says whether a page is turned 90 or 270 degrees.
+- One new string, `DocumentViewerStrings.copiedText`.
+
 ## 0.2.2
 
 - **Markdown:** every fenced code block in the preview has a copy button (tooltip from `DocumentViewerStrings.copy`); it shows a check for two seconds after copying.
