@@ -62,6 +62,73 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('fitWidth returns to page width after zooming in', (tester) async {
+    final controller = PdfController()..loadFile(_features);
+    await tester.pumpWidget(MaterialApp(home: PdfView(controller: controller)));
+    await _until(tester, () => controller.status == DocumentStatus.ready);
+    await tester.pump();
+    await tester.pump();
+    controller.zoomIn();
+    controller.zoomIn();
+    controller.zoomIn();
+    await tester.pump();
+    await tester.pump();
+    expect(_zoom(tester), closeTo(2.0, 0.001));
+    controller.fitWidth();
+    await tester.pump();
+    await tester.pump();
+    expect(_zoom(tester), closeTo(1.0, 0.001));
+    expect(controller.zoom, closeTo(1.0, 0.001));
+  });
+
+  testWidgets('toolbar actions: zoom steps and limits, page jump, view mode', (tester) async {
+    final controller = PdfController()..loadFile(_features);
+    await tester.pumpWidget(MaterialApp(home: PdfView(controller: controller)));
+    await _until(tester, () => controller.status == DocumentStatus.ready);
+    await tester.pump();
+    await tester.pump();
+
+    // Zoom out at page width goes no lower; zoom in steps up and stops at the top step.
+    controller.zoomOut();
+    await tester.pump();
+    expect(controller.zoom, 1.0);
+    for (final step in [1.25, 1.5, 2.0]) {
+      controller.zoomIn();
+      await tester.pump();
+      await tester.pump();
+      expect(_zoom(tester), closeTo(step, 0.001), reason: 'zoom in to $step');
+    }
+    controller.zoomOut();
+    await tester.pump();
+    await tester.pump();
+    expect(_zoom(tester), closeTo(1.5, 0.001), reason: 'zoom out one step');
+    for (var i = 0; i < 10; i++) {
+      controller.zoomIn();
+    }
+    await tester.pump();
+    await tester.pump();
+    expect(controller.zoom, PdfController.zoomSteps.last);
+
+    // Page jump (the "Page x of y" button) and the layout toggle both keep the page.
+    controller.fitWidth();
+    await tester.pump();
+    await tester.pump();
+    expect(controller.pageCount, greaterThan(2));
+    await controller.jumpToPage(3);
+    await tester.pump();
+    await tester.pump();
+    expect(controller.currentPage, 3);
+    final before = controller.viewMode;
+    controller.toggleViewMode();
+    await tester.pump();
+    await tester.pump();
+    expect(controller.viewMode, isNot(before));
+    expect(controller.currentPage, 3, reason: 'switching layout stays on the page');
+    controller.toggleViewMode();
+    await tester.pump();
+    expect(controller.viewMode, before);
+  });
+
   testWidgets('a resize keeps the zoom and the page being read', (tester) async {
     addTearDown(tester.view.reset);
     final controller = PdfController()..loadFile(_features);
