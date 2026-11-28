@@ -17,4 +17,5 @@ export 'src/engines/pdfium/pdf_types.dart';
 export 'src/ocr/text_recognizer.dart';
 export 'src/pdf/pdf_controller.dart' hide PdfControllerView, probePdfTextLayer;
 export 'src/pdf/pdf_layout.dart' show PdfViewMode;
+export 'src/pdf/pdf_selection.dart' show PdfHighlight, PdfTextRange;
 export 'src/pdf/pdf_view.dart';

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -36,6 +37,60 @@ class PdfCaret implements Comparable<PdfCaret> {
   String toString() => 'PdfCaret($page, ${offset == end ? 'end' : offset})';
 }
 
+/// A stretch of one PDF page's text: characters [start] to [end] (exclusive)
+/// of the page's text as PDFium reads it. [text] is what those characters
+/// said when the range was made, so an app that saved the range can tell
+/// whether it still fits the document.
+@immutable
+class PdfTextRange {
+  /// Characters [start] to [end] of page [page] (0-based), which read [text].
+  const PdfTextRange({required this.page, required this.start, required this.end, required this.text});
+
+  /// 0-based page index.
+  final int page;
+
+  /// Offset of the first character in the page's text.
+  final int start;
+
+  /// Offset just past the last character.
+  final int end;
+
+  /// The words in the range, line breaks as `\n`.
+  final String text;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PdfTextRange && other.page == page && other.start == start && other.end == end && other.text == text;
+
+  @override
+  int get hashCode => Object.hash(page, start, end, text);
+
+  @override
+  String toString() => 'PdfTextRange(page $page, $start-$end, "$text")';
+}
+
+/// A coloured mark over a [PdfTextRange], painted by [PdfView] under the
+/// selection. The package draws it; keeping highlights between sessions is
+/// the app's job (see [PdfController.selectedRanges] and
+/// [PdfController.setHighlights]).
+@immutable
+class PdfHighlight {
+  /// Marks [range] in [color].
+  const PdfHighlight({required this.range, required this.color});
+
+  /// What is marked.
+  final PdfTextRange range;
+
+  /// The mark's colour; it is drawn translucent over the text.
+  final Color color;
+
+  @override
+  bool operator ==(Object other) => other is PdfHighlight && other.range == range && other.color == color;
+
+  @override
+  int get hashCode => Object.hash(range, color);
+}
+
 /// What is selected in a PDF, and the text of the pages it needs.
 ///
 /// A selection runs from an [anchor] (where the drag began) to a [focus]
@@ -62,6 +117,7 @@ class PdfSelectionController extends ChangeNotifier {
 
   PdfCaret? _anchor;
   PdfCaret? _focus;
+  var _highlights = const <PdfHighlight>[];
 
   /// Where the selection began; null when nothing is selected.
   PdfCaret? get anchor => _anchor;
@@ -104,7 +160,7 @@ class PdfSelectionController extends ChangeNotifier {
         while (_layers.length > maxCachedLayers) {
           _layers.remove(_layers.keys.first);
         }
-        if (rangeOn(page) != null) notifyListeners();
+        if (rangeOn(page) != null || _highlights.any((h) => h.range.page == page)) notifyListeners();
         return layer;
       } catch (_) {
         return null;
@@ -132,6 +188,49 @@ class PdfSelectionController extends ChangeNotifier {
     _ocr[page] = lines;
     _layers.remove(page);
     notifyListeners();
+  }
+
+  /// The marks to paint, in the order given.
+  List<PdfHighlight> get highlights => _highlights;
+
+  /// Shows [highlights] (replacing any shown before) and reads the text of
+  /// their pages so they can be drawn.
+  void setHighlights(List<PdfHighlight> highlights) {
+    _highlights = List.unmodifiable(highlights);
+    for (final page in {for (final h in highlights) h.range.page}) {
+      unawaited(loadLayer(page));
+    }
+    notifyListeners();
+  }
+
+  /// The marks on [page], as rectangles in page points, each with its colour.
+  List<(Rect, Color)> highlightRectsOn(int page) {
+    final layer = _layers[page];
+    if (layer == null) return const [];
+    return [
+      for (final h in _highlights)
+        if (h.range.page == page)
+          for (final rect in layer.rects(h.range.start, h.range.end)) (rect, h.color),
+    ];
+  }
+
+  /// The selection as ranges, one per page it covers (empty when nothing is
+  /// selected), after reading the pages it needs. For making a highlight or
+  /// saving a place.
+  Future<List<PdfTextRange>> selectedRanges() async {
+    final from = start;
+    final to = endCaret;
+    if (from == null || to == null) return const [];
+    final ranges = <PdfTextRange>[];
+    for (var page = from.page; page <= to.page; page++) {
+      final layer = await loadLayer(page);
+      final range = rangeOn(page);
+      if (layer == null || range == null) continue;
+      final text = layer.textOf(range.$1, range.$2);
+      if (text.trim().isEmpty) continue;
+      ranges.add(PdfTextRange(page: page, start: range.$1, end: range.$2, text: text));
+    }
+    return ranges;
   }
 
   /// Selects from [anchor] to [focus].
@@ -171,6 +270,7 @@ class PdfSelectionController extends ChangeNotifier {
     _loading.clear();
     _ocr.clear();
     _hasNativeText.clear();
+    _highlights = const [];
     clear();
   }
 

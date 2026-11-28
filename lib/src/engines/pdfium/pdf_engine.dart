@@ -357,6 +357,25 @@ class PdfiumDocument {
     return (reply[0]! as bool, matches);
   }
 
+  /// The document's bookmarks (its table of contents), in reading order;
+  /// empty when it has none.
+  Future<List<PdfOutlineEntry>> outline({PdfPriority priority = PdfPriority.prefetch}) async {
+    _checkOpen();
+    final reply = await _Worker.instance.call(PdfiumOp.outline, [_id], priority: priority) as List<Object?>;
+    return [
+      for (final raw in reply)
+        () {
+          final entry = raw! as List<Object?>;
+          final page = entry[2]! as int;
+          return PdfOutlineEntry(
+            title: (entry[0]! as String).trim(),
+            level: entry[1]! as int,
+            page: page >= 0 && page < pageCount ? page : null,
+          );
+        }(),
+    ];
+  }
+
   /// Links on a page: annotations and web addresses written as text.
   Future<List<PdfLink>> links(int page, {PdfPriority priority = PdfPriority.prefetch}) async {
     _checkOpen();

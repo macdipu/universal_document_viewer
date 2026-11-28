@@ -111,6 +111,10 @@ class _WordViewState extends State<WordView> {
       _jumpToItem(page - 1);
       return;
     }
+    if (controller.takePendingParagraph() case final paragraph?) {
+      _jumpToParagraph(paragraph, align: 0);
+      return;
+    }
     if (controller.viewMode != _mode || controller.zoom != _zoom) {
       // Keep the paragraph being read in view across the switch.
       final reading = _topParagraph();

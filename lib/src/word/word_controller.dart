@@ -66,6 +66,43 @@ class WordController extends DocumentController {
   /// The parsed document; null until loaded.
   WordDocument? get document => _layout?.document;
 
+  /// The document's headings (paragraphs with an outline level), nested by
+  /// level; the target is the paragraph number.
+  @override
+  Future<List<OutlineEntry>> outline() async {
+    final layout = _layout;
+    if (layout == null) return const [];
+    return [
+      for (var i = 0; i < layout.paragraphs.length; i++)
+        if (layout.paragraphs[i].outlineLevel != null && layout.paragraphs[i].plainText.trim().isNotEmpty)
+          OutlineEntry(
+            title: layout.paragraphs[i].plainText.replaceAll(RegExp(r'\s+'), ' ').trim(),
+            level: layout.paragraphs[i].outlineLevel!.clamp(0, 8),
+            target: i,
+          ),
+    ];
+  }
+
+  int? _pendingParagraph;
+
+  /// Scrolls to the heading, whatever the layout (print layout shows the page
+  /// that paragraph is on).
+  @override
+  void goToOutlineEntry(OutlineEntry entry) {
+    final target = entry.target;
+    if (target == null) return;
+    _pendingParagraph = target;
+    notifyListeners();
+  }
+
+  /// [WordView] takes the paragraph [goToOutlineEntry] asked for, once.
+  @internal
+  int? takePendingParagraph() {
+    final paragraph = _pendingParagraph;
+    _pendingParagraph = null;
+    return paragraph;
+  }
+
   @override
   Future<String> allText() async {
     final layout = _layout;

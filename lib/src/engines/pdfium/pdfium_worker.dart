@@ -61,6 +61,9 @@ abstract final class PdfiumOp {
   /// Lists a page's links.
   static const links = 'links';
 
+  /// Reads the document's bookmarks (its table of contents).
+  static const outline = 'outline';
+
   /// Drops a queued request by id.
   static const cancel = 'cancel';
 }
@@ -283,6 +286,7 @@ class _Worker {
       PdfiumOp.text => _text(_document(args[0]), args[1]! as int),
       PdfiumOp.search => _search(_document(args[0]), args[1]! as int, args[2]! as String),
       PdfiumOp.links => _links(_document(args[0]), args[1]! as int),
+      PdfiumOp.outline => _outline(_document(args[0])),
       _ => throw _WorkerError('internal', 'Unknown operation ${task.op}'),
     };
   }
@@ -538,6 +542,52 @@ class _Worker {
       }
     });
     return links;
+  }
+
+  /// The most bookmarks read, and the deepest nesting followed: a hostile file
+  /// must not make an endless list or an endless recursion.
+  static const _maxOutlineEntries = 5000;
+  static const _maxOutlineDepth = 16;
+
+  /// The document's bookmarks, depth first: `[title, level, page or -1]` each.
+  Object? _outline(_Document document) {
+    final entries = <Object>[];
+    final seen = <int>{};
+    using((arena) {
+      String titleOf(Pointer<fpdf_bookmark_t__> bookmark) {
+        final length = FPDFBookmark_GetTitle(bookmark, nullptr, 0);
+        // Bytes of UTF-16 including the terminator.
+        if (length <= 2) return '';
+        final buffer = arena<Uint8>(length);
+        FPDFBookmark_GetTitle(bookmark, buffer.cast(), length);
+        return String.fromCharCodes(buffer.cast<Uint16>().asTypedList(length ~/ 2 - 1));
+      }
+
+      int pageOf(Pointer<fpdf_bookmark_t__> bookmark) {
+        var destination = FPDFBookmark_GetDest(document.handle, bookmark);
+        if (destination == nullptr) {
+          final action = FPDFBookmark_GetAction(bookmark);
+          if (action != nullptr && FPDFAction_GetType(action) == PDFACTION_GOTO) {
+            destination = FPDFAction_GetDest(document.handle, action);
+          }
+        }
+        return destination == nullptr ? -1 : FPDFDest_GetDestPageIndex(document.handle, destination);
+      }
+
+      void walk(Pointer<fpdf_bookmark_t__> first, int level) {
+        var bookmark = first;
+        while (bookmark != nullptr && entries.length < _maxOutlineEntries) {
+          // A bookmark seen twice means the tree loops.
+          if (!seen.add(bookmark.address)) return;
+          entries.add([titleOf(bookmark), level, pageOf(bookmark)]);
+          if (level < _maxOutlineDepth) walk(FPDFBookmark_GetFirstChild(document.handle, bookmark), level + 1);
+          bookmark = FPDFBookmark_GetNextSibling(document.handle, bookmark);
+        }
+      }
+
+      walk(FPDFBookmark_GetFirstChild(document.handle, nullptr), 0);
+    });
+    return entries;
   }
 
   /// Lower case one UTF-16 unit at a time, so offsets stay put.

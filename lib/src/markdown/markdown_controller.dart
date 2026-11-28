@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../common/document_controller.dart';
 import '../common/reader_contract.dart';
 import '../common/text_lines_controller.dart';
 import 'markdown_stats.dart';
@@ -21,6 +22,11 @@ class MarkdownController extends TextLinesController {
     MarkdownViewMode mode = MarkdownViewMode.preview,
   }) : viewMode = ValueNotifier(mode),
        _baseFromApp = baseDirectory != null;
+
+  /// The file's headings (`#` to `######`, outside fenced code blocks),
+  /// nested by level; the target is the line number (from 1).
+  @override
+  Future<List<OutlineEntry>> outline() async => markdownOutline(lines);
 
   /// Whether the app passed [baseDirectory]; otherwise each [loadFile] sets it.
   final bool _baseFromApp;
@@ -137,4 +143,31 @@ class MarkdownController extends TextLinesController {
     viewMode.dispose();
     super.dispose();
   }
+}
+
+/// The ATX headings of Markdown [lines] as outline entries (level 0 for
+/// `#`), skipping what is inside a fenced code block.
+List<OutlineEntry> markdownOutline(List<String> lines) {
+  final entries = <OutlineEntry>[];
+  String? fence;
+  final heading = RegExp(r'^ {0,3}(#{1,6})[ \t]+(.*?)[ \t]*#*[ \t]*$');
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    final marker = RegExp(r'^ {0,3}(`{3,}|~{3,})').firstMatch(line)?.group(1);
+    if (marker != null) {
+      if (fence == null) {
+        fence = marker;
+      } else if (marker[0] == fence[0] && marker.length >= fence.length) {
+        fence = null;
+      }
+      continue;
+    }
+    if (fence != null) continue;
+    final match = heading.firstMatch(line);
+    if (match == null) continue;
+    final title = match.group(2)!.trim();
+    if (title.isEmpty) continue;
+    entries.add(OutlineEntry(title: title, level: match.group(1)!.length - 1, target: i + 1));
+  }
+  return entries;
 }
