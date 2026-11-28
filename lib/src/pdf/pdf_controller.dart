@@ -347,6 +347,7 @@ class PdfController extends DocumentController {
   void _discardDocument() {
     unawaited(_document?.close());
     _document = null;
+    _rotation = 0;
     _openFailure = null;
     _pageCount = 0;
     _hasTextLayer = null;
@@ -475,6 +476,36 @@ class PdfController extends DocumentController {
     _initialPage = _currentPage;
     notifyListeners();
     if (_pageCount > 0) reportPosition();
+  }
+
+  // ---- Rotation
+
+  int _rotation = 0;
+
+  /// How far the pages have been turned since this document opened, in quarter turns clockwise (0-3).
+  /// Not saved, and the file is not changed.
+  int get rotation => _rotation;
+
+  /// Turns every page a quarter turn clockwise.
+  Future<void> rotateClockwise() => rotate(1);
+
+  /// Turns every page a quarter turn anticlockwise.
+  Future<void> rotateCounterclockwise() => rotate(-1);
+
+  /// Turns every page by [quarterTurns] quarter turns clockwise (negative: anticlockwise). Selection and
+  /// OCR results are dropped, as they no longer sit on the page; an active search is run again.
+  Future<void> rotate(int quarterTurns) async {
+    final document = _document;
+    if (document == null || _pageCount == 0 || (quarterTurns & 3) == 0) return;
+    final pattern = searchController.pattern;
+    await document.rotate(quarterTurns);
+    if (isDisposed || !identical(_document, document)) return;
+    _rotation = (_rotation + quarterTurns) & 3;
+    selection.invalidateGeometry();
+    _ocrStatus.clear();
+    _ocrErrors.clear();
+    notifyListeners();
+    if (pattern != null) search(pattern);
   }
 
   // ---- Zoom

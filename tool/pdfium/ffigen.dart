@@ -39,6 +39,7 @@ const _functions = {
   'FPDFLink_GetRect',
   'FPDFLink_CloseWebLinks',
   'FPDFPage_GetRotation',
+  'FPDFPage_SetRotation',
   'FPDFLink_Enumerate',
   'FPDFLink_GetAnnotRect',
   'FPDFLink_GetAction',

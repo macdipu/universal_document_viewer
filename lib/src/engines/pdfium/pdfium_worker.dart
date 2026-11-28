@@ -64,6 +64,9 @@ abstract final class PdfiumOp {
   /// Reads the document's bookmarks (its table of contents).
   static const outline = 'outline';
 
+  /// Turns every page by quarter turns clockwise; answers the new page sizes.
+  static const rotate = 'rotate';
+
   /// Drops a queued request by id.
   static const cancel = 'cancel';
 }
@@ -174,6 +177,26 @@ class _Document {
   void _closeText(int index) {
     final text = _textCache.remove(index);
     if (text != null) FPDFText_ClosePage(text);
+  }
+
+  /// Turns every page [quarterTurns] quarter turns clockwise, in memory only (the file is not touched).
+  /// Cached pages and geometry are dropped, as both depend on the rotation.
+  void rotate(int quarterTurns) {
+    for (final text in _textCache.values) {
+      FPDFText_ClosePage(text);
+    }
+    for (final page in _pageCache.values) {
+      FPDF_ClosePage(page);
+    }
+    _textCache.clear();
+    _pageCache.clear();
+    _geometry.clear();
+    for (var i = 0; i < pageCount; i++) {
+      final page = FPDF_LoadPage(handle, i);
+      if (page == nullptr) continue;
+      FPDFPage_SetRotation(page, (FPDFPage_GetRotation(page) + quarterTurns) & 3);
+      FPDF_ClosePage(page);
+    }
   }
 
   void close() {
@@ -287,6 +310,7 @@ class _Worker {
       PdfiumOp.search => _search(_document(args[0]), args[1]! as int, args[2]! as String),
       PdfiumOp.links => _links(_document(args[0]), args[1]! as int),
       PdfiumOp.outline => _outline(_document(args[0])),
+      PdfiumOp.rotate => _rotate(_document(args[0]), args[1]! as int),
       _ => throw _WorkerError('internal', 'Unknown operation ${task.op}'),
     };
   }
@@ -359,6 +383,20 @@ class _Worker {
       final id = _nextDocument++;
       _documents[id] = _Document(handle, count, buffer);
       return [id, sizes];
+    });
+  }
+
+  Object? _rotate(_Document document, int quarterTurns) {
+    document.rotate(quarterTurns);
+    return using((arena) {
+      final sizes = Float64List(document.pageCount * 2);
+      final size = arena<FS_SIZEF>();
+      for (var i = 0; i < document.pageCount; i++) {
+        final ok = FPDF_GetPageSizeByIndexF(document.handle, i, size) != 0;
+        sizes[i * 2] = ok ? size.ref.width : 612;
+        sizes[i * 2 + 1] = ok ? size.ref.height : 792;
+      }
+      return sizes;
     });
   }
 

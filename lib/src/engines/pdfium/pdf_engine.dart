@@ -357,6 +357,20 @@ class PdfiumDocument {
     return (reply[0]! as bool, matches);
   }
 
+  /// Turns every page by [quarterTurns] quarter turns clockwise (negative turns go anticlockwise),
+  /// on top of any rotation a page already has. In memory only: the file is not changed. [pageSizes]
+  /// is updated in place, so anything holding it sees the new shapes; images, text boxes and links
+  /// read before the turn no longer match and must be read again.
+  Future<void> rotate(int quarterTurns) async {
+    _checkOpen();
+    final turns = quarterTurns & 3;
+    if (turns == 0) return;
+    final sizes = await _Worker.instance.call(PdfiumOp.rotate, [_id, turns], priority: PdfPriority.visible) as Float64List;
+    for (var i = 0; i < pageSizes.length && i * 2 + 1 < sizes.length; i++) {
+      pageSizes[i] = ui.Size(sizes[i * 2], sizes[i * 2 + 1]);
+    }
+  }
+
   /// The document's bookmarks (its table of contents), in reading order;
   /// empty when it has none.
   Future<List<PdfOutlineEntry>> outline({PdfPriority priority = PdfPriority.prefetch}) async {

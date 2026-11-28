@@ -263,6 +263,18 @@ class PdfSelectionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Forgets the text and boxes read so far, which no longer match the pages (they were turned), but
+  /// keeps the highlights. The selection is cleared, as its boxes are gone.
+  void invalidateGeometry() {
+    _generation++;
+    _layers.clear();
+    _loading.clear();
+    _ocr.clear();
+    _hasNativeText.clear();
+    clear();
+    notifyListeners();
+  }
+
   /// Forgets everything, for another document.
   void reset() {
     _generation++;

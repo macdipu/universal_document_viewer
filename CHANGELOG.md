@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+Additive: nothing changes for existing code. No new dependency.
+
+- **Turn the pages of a PDF.** `PdfController.rotateClockwise()`, `rotateCounterclockwise()` and `rotate(quarterTurns)` turn every page by quarter turns on top of any rotation it already has, and `rotation` says how far (0-3 quarter turns clockwise). Text selection, search hits and links follow the turn, the page being read is kept, and selection and OCR results are dropped (they no longer sit on the page); an active search runs again. Not saved, and the file is not changed; a different file opens upright. `PdfiumDocument.rotate(quarterTurns)` does the same for a document held directly, updating `pageSizes` in place.
+
 ## 0.3.1
 
 Additive: nothing changes for existing code. No new dependency.

@@ -91,6 +91,7 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
   PdfImageCache? _cache;
   PdfLayout? _layout;
   Object? _layoutKey;
+  int _rotationSeen = 0;
   bool _positioned = false;
   bool _updateScheduled = false;
 
@@ -188,7 +189,9 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
 
   void _onControllerChanged() {
     final document = controller.document;
-    if (_cache?.document != document) {
+    // Pages turned: every image and link box read so far is for the old orientation.
+    if (_cache?.document != document || _rotationSeen != controller.rotation) {
+      _rotationSeen = controller.rotation;
       _cache?.dispose();
       _cache = document == null ? null : PdfImageCache(document);
       _links.clear();
@@ -772,9 +775,9 @@ class _PdfViewState extends State<PdfView> with SingleTickerProviderStateMixin {
             key: _viewKey,
             builder: (context, constraints) {
               final viewport = constraints.biggest;
-              final key = (viewport, controller.viewMode, document);
+              final key = (viewport, controller.viewMode, document, controller.rotation);
               if (key != _layoutKey) {
-                final previous = _layoutKey as (Size, PdfViewMode, Object)?;
+                final previous = _layoutKey as (Size, PdfViewMode, Object, int)?;
                 final restoring = previous == null || previous.$2 != controller.viewMode || previous.$3 != document;
                 final reading = restoring ? controller.initialPageNumber - 1 : controller.currentPage - 1;
                 // Only the viewport changed (the keyboard or search bar opened,

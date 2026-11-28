@@ -149,6 +149,9 @@ external ffi.Pointer<fpdf_pagelink_t__> FPDFLink_LoadWebLinks(ffi.Pointer<fpdf_t
 @ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_page_t__>)>()
 external int FPDFPage_GetRotation(ffi.Pointer<fpdf_page_t__> page);
 
+@ffi.Native<ffi.Void Function(ffi.Pointer<fpdf_page_t__>, ffi.Int)>()
+external void FPDFPage_SetRotation(ffi.Pointer<fpdf_page_t__> page, int rotate);
+
 @ffi.Native<ffi.Void Function(ffi.Pointer<fpdf_textpage_t__>)>()
 external void FPDFText_ClosePage(ffi.Pointer<fpdf_textpage_t__> text_page);
 
