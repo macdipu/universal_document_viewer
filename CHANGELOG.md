@@ -1,9 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
-Additive: nothing changes for existing code. No new dependency.
+Additive: nothing from 0.3 changes or is removed. No new dependency.
 
+- **Table of contents for every format.** `DocumentController.outline()` returns the document's outline as `OutlineEntry`s (`title`, nesting `level`, and a `target` in the format's own terms), and `goToOutlineEntry(entry)` moves there. A PDF gives its bookmarks (read by PDFium; `PdfiumDocument.outline()` gives the raw `PdfOutlineEntry`s), a Word document its headings, a deck its slide titles and a Markdown file its headings; a spreadsheet and plain text give none (an empty list), so existing subclasses still compile.
+- **PDF text ranges and highlights.** `PdfController.selectedRanges()` returns the selection as `PdfTextRange`s (a range per page it covers), and `setHighlights([PdfHighlight(range:, color:)])` draws coloured marks under the selection. The package keeps nothing: an app saves the ranges and passes them back when the document opens again.
 - **Turn the pages of a PDF.** `PdfController.rotateClockwise()`, `rotateCounterclockwise()` and `rotate(quarterTurns)` turn every page by quarter turns on top of any rotation it already has, and `rotation` says how far (0-3 quarter turns clockwise). Text selection, search hits and links follow the turn, the page being read is kept, and selection and OCR results are dropped (they no longer sit on the page); an active search runs again. Not saved, and the file is not changed; a different file opens upright. `PdfiumDocument.rotate(quarterTurns)` does the same for a document held directly, updating `pageSizes` in place.
 
 ## 0.3.1
