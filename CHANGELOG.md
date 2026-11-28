@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+Additive: nothing changes for existing code. No new dependency.
+
+- **`PdfView.pageOverlayBuilder`** draws something over each page: the builder gets the page index and the page's size in PDF points and returns a widget that fills the page's own box, so it stays on the page as the page scrolls and zooms, and it takes no touches. For an app's own marks on a page (a scan effect, stamps, highlights it keeps); the page's text, search hits and selection are unchanged. `PdfPageOverlayBuilder` is its type.
+
 ## 0.3.0
 
 Additive: nothing from 0.2 changes or is removed. No new dependency.
