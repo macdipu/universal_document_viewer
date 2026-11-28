@@ -57,6 +57,30 @@ external int FPDFBitmap_FillRect(
   int color,
 );
 
+@ffi.Native<ffi.Pointer<fpdf_action_t__> Function(ffi.Pointer<fpdf_bookmark_t__>)>()
+external ffi.Pointer<fpdf_action_t__> FPDFBookmark_GetAction(ffi.Pointer<fpdf_bookmark_t__> bookmark);
+
+@ffi.Native<ffi.Pointer<fpdf_dest_t__> Function(ffi.Pointer<fpdf_document_t__>, ffi.Pointer<fpdf_bookmark_t__>)>()
+external ffi.Pointer<fpdf_dest_t__> FPDFBookmark_GetDest(
+  ffi.Pointer<fpdf_document_t__> document,
+  ffi.Pointer<fpdf_bookmark_t__> bookmark,
+);
+
+@ffi.Native<ffi.Pointer<fpdf_bookmark_t__> Function(ffi.Pointer<fpdf_document_t__>, ffi.Pointer<fpdf_bookmark_t__>)>()
+external ffi.Pointer<fpdf_bookmark_t__> FPDFBookmark_GetFirstChild(
+  ffi.Pointer<fpdf_document_t__> document,
+  ffi.Pointer<fpdf_bookmark_t__> bookmark,
+);
+
+@ffi.Native<ffi.Pointer<fpdf_bookmark_t__> Function(ffi.Pointer<fpdf_document_t__>, ffi.Pointer<fpdf_bookmark_t__>)>()
+external ffi.Pointer<fpdf_bookmark_t__> FPDFBookmark_GetNextSibling(
+  ffi.Pointer<fpdf_document_t__> document,
+  ffi.Pointer<fpdf_bookmark_t__> bookmark,
+);
+
+@ffi.Native<ffi.UnsignedLong Function(ffi.Pointer<fpdf_bookmark_t__>, ffi.Pointer<ffi.Void>, ffi.UnsignedLong)>()
+external int FPDFBookmark_GetTitle(ffi.Pointer<fpdf_bookmark_t__> bookmark, ffi.Pointer<ffi.Void> buffer, int buflen);
+
 @ffi.Native<ffi.Int Function(ffi.Pointer<fpdf_document_t__>, ffi.Pointer<fpdf_dest_t__>)>()
 external int FPDFDest_GetDestPageIndex(ffi.Pointer<fpdf_document_t__> document, ffi.Pointer<fpdf_dest_t__> dest);
 
@@ -305,6 +329,8 @@ const int PDFACTION_URI = 3;
 final class fpdf_action_t__ extends ffi.Opaque {}
 
 final class fpdf_bitmap_t__ extends ffi.Opaque {}
+
+final class fpdf_bookmark_t__ extends ffi.Opaque {}
 
 final class fpdf_dest_t__ extends ffi.Opaque {}
 

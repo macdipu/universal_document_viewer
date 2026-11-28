@@ -1122,6 +1122,12 @@ class _PagePainter extends CustomPainter {
         );
       }
     }
+    for (final (rect, color) in selection.highlightRectsOn(page)) {
+      canvas.drawRect(
+        Rect.fromLTRB(rect.left * factor, rect.top * factor, rect.right * factor, rect.bottom * factor),
+        Paint()..color = color.withValues(alpha: 0.35),
+      );
+    }
     final chosen = selection.rectsOn(page);
     if (chosen.isNotEmpty) {
       final fill = Paint()..color = selected;

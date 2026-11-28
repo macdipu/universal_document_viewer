@@ -47,6 +47,11 @@ const _functions = {
   'FPDFAction_GetDest',
   'FPDFAction_GetURIPath',
   'FPDFDest_GetDestPageIndex',
+  'FPDFBookmark_GetFirstChild',
+  'FPDFBookmark_GetNextSibling',
+  'FPDFBookmark_GetTitle',
+  'FPDFBookmark_GetDest',
+  'FPDFBookmark_GetAction',
 };
 
 /// Structs the engine reads; other handle types stay opaque.

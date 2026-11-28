@@ -124,6 +124,39 @@ class DocumentSearchState {
   String toString() => 'DocumentSearchState("$query", ${currentMatch + 1} of $matchCount)';
 }
 
+/// One line of a document's outline (its table of contents): a PDF's
+/// bookmarks, a Word document's headings, a deck's slide titles, a Markdown
+/// file's headings.
+@immutable
+class OutlineEntry {
+  /// An entry called [title] at nesting [level]; [target] is what
+  /// [DocumentController.goToOutlineEntry] moves to, null for a heading
+  /// that only groups others.
+  const OutlineEntry({required this.title, required this.level, this.target});
+
+  /// What the entry says.
+  final String title;
+
+  /// 0 for a top-level entry, 1 for the next, and so on.
+  final int level;
+
+  /// Where it leads, in the format's own terms: a PDF page or slide number
+  /// (from 1, as [DocumentController.goTo] takes), a Markdown line number, a
+  /// Word paragraph number. Null when it leads nowhere. Only pass it to
+  /// [DocumentController.goToOutlineEntry] of the controller that gave it.
+  final int? target;
+
+  @override
+  bool operator ==(Object other) =>
+      other is OutlineEntry && other.title == title && other.level == level && other.target == target;
+
+  @override
+  int get hashCode => Object.hash(title, level, target);
+
+  @override
+  String toString() => 'OutlineEntry(${'  ' * level}$title -> $target)';
+}
+
 /// What every format's controller does, so an app can build one toolbar,
 /// search bar and position display for all of them.
 ///
@@ -304,6 +337,21 @@ abstract class DocumentController extends ChangeNotifier {
 
   /// Zooms out one step.
   void zoomOut() => setZoom(zoom - zoomStep);
+
+  // ---- Outline
+
+  /// The document's outline: a PDF's bookmarks, a Word document's headings,
+  /// a deck's slide titles, a Markdown file's headings. Empty when there is
+  /// none, or for a format with no such thing (a spreadsheet, plain text).
+  /// Show it as a table of contents and call [goToOutlineEntry] when one is
+  /// chosen.
+  Future<List<OutlineEntry>> outline() async => const [];
+
+  /// Moves to [entry], which this controller gave from [outline].
+  void goToOutlineEntry(OutlineEntry entry) {
+    final target = entry.target;
+    if (target != null) goTo(target);
+  }
 
   // ---- Selection and copy
 

@@ -150,6 +150,34 @@ class PdfController extends DocumentController {
   @override
   Future<String> allText() => selection.allText();
 
+  /// The selection as ranges, a range per page it covers; empty when nothing
+  /// is selected. An app turns these into highlights it keeps.
+  Future<List<PdfTextRange>> selectedRanges() => selection.selectedRanges();
+
+  /// Draws [highlights] over the text (replacing any shown before). The
+  /// package keeps nothing: save the [PdfTextRange]s from [selectedRanges]
+  /// yourself and pass them back when the document is opened again.
+  void setHighlights(List<PdfHighlight> highlights) => selection.setHighlights(highlights);
+
+  /// The highlights being shown.
+  List<PdfHighlight> get highlights => selection.highlights;
+
+  /// The PDF's bookmarks; each entry's target is a page number (from 1).
+  @override
+  Future<List<OutlineEntry>> outline() async {
+    final document = _document;
+    if (document == null) return const [];
+    try {
+      return [
+        for (final entry in await document.outline())
+          if (entry.title.isNotEmpty)
+            OutlineEntry(title: entry.title, level: entry.level, target: entry.page == null ? null : entry.page! + 1),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
   // ---- OCR
 
   final _ocrStatus = <int, PdfOcrStatus>{};

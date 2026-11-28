@@ -61,6 +61,15 @@ class SlidesController extends DocumentController {
   @override
   Future<String> allText() async => [for (final slide in _slides) slide.text].join('\n\n');
 
+  /// The slides that have a title, one entry each; the target is the slide
+  /// number (from 1).
+  @override
+  Future<List<OutlineEntry>> outline() async => [
+    for (var i = 0; i < _slides.length; i++)
+      if (_slides[i].title?.trim().isNotEmpty ?? false)
+        OutlineEntry(title: _slides[i].title!.trim(), level: 0, target: i + 1),
+  ];
+
   int _current = 0;
 
   /// The slide on screen, from 0.

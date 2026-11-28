@@ -103,6 +103,23 @@ class PdfTextMatch {
   final List<Rect> rects;
 }
 
+/// A bookmark: one line of the PDF's table of contents.
+class PdfOutlineEntry {
+  /// A bookmark [title] at nesting [level] (0 for top level), pointing at
+  /// [page] (0-based), or at none when it only groups others.
+  const PdfOutlineEntry({required this.title, required this.level, this.page});
+
+  /// What the bookmark says.
+  final String title;
+
+  /// 0 for a top-level bookmark, 1 for its children, and so on.
+  final int level;
+
+  /// 0-based page it leads to; null when it leads nowhere (a heading that
+  /// only holds others).
+  final int? page;
+}
+
 /// A link on a page: a web address, or a page in this document.
 class PdfLink {
   /// A link covering [rects], to [url] and/or [page].
